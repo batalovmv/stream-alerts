@@ -1,0 +1,18 @@
+{
+  "name": "memelab-notify",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Automatic stream announcements for Telegram and MAX",
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:backend\" \"pnpm dev:frontend\"",
+    "dev:backend": "pnpm --filter @memelab-notify/backend dev",
+    "dev:frontend": "pnpm --filter @memelab-notify/frontend dev",
+    "build": "pnpm --filter @memelab-notify/backend build && pnpm --filter @memelab-notify/frontend build",
+    "build:backend": "pnpm --filter @memelab-notify/backend build",
+    "build:frontend": "pnpm --filter @memelab-notify/frontend build",
+    "test": "pnpm --filter @memelab-notify/backend test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

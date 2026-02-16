@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Streamer account (linked to MemeLab)
+model Streamer {
+  id               String   @id @default(uuid())
+  memelabUserId    String   @unique
+  memelabChannelId String   @unique
+  twitchLogin      String?
+  displayName      String
+  avatarUrl        String?
+
+  // Default announcement settings
+  defaultTemplate  String?  @db.Text
+  previewMode      String   @default("twitch") // twitch | custom | none
+
+  // Telegram bot linking (for bot commands)
+  telegramUserId   String?  @unique
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  chats            ConnectedChat[]
+
+  @@index([twitchLogin])
+}
+
+enum MessengerProvider {
+  telegram
+  max
+}
+
+// A connected Telegram channel / MAX group
+model ConnectedChat {
+  id             String            @id @default(uuid())
+  streamerId     String
+  provider       MessengerProvider
+  chatId         String            // Provider-specific chat identifier
+  chatTitle      String?
+  chatType       String?           // channel | group | supergroup
+
+  // Settings
+  enabled        Boolean  @default(true)
+  deleteAfterEnd Boolean  @default(false)
+  customTemplate String?  @db.Text
+
+  // Tracking
+  lastMessageId  String?           // Last sent announcement message ID (for deletion)
+  lastAnnouncedAt DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  streamer       Streamer          @relation(fields: [streamerId], references: [id], onDelete: Cascade)
+  announcements  AnnouncementLog[]
+
+  @@unique([streamerId, provider, chatId])
+  @@index([streamerId])
+  @@index([provider, chatId])
+  @@index([enabled])
+}
+
+enum AnnouncementStatus {
+  queued
+  sent
+  deleted
+  failed
+}
+
+// Log of sent announcements (for tracking and deletion)
+model AnnouncementLog {
+  id              String             @id @default(uuid())
+  chatId          String
+  streamSessionId String?            // From MemeLab webhook
+  provider        MessengerProvider
+  providerMsgId   String?            // Message ID from messenger API (for deletion)
+
+  status          AnnouncementStatus @default(queued)
+  error           String?            @db.Text
+  attempts        Int                @default(0)
+
+  queuedAt        DateTime           @default(now())
+  sentAt          DateTime?
+  deletedAt       DateTime?
+
+  chat            ConnectedChat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, status])
+  @@index([streamSessionId])
+  @@index([status, queuedAt])
+}
