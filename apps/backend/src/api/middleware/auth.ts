@@ -99,7 +99,7 @@ async function fetchMemelabProfile(token: string): Promise<MemelabUserProfile | 
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const res = await fetch(`${config.memelabApiUrl}/v1/viewer/me`, {
+    const res = await fetch(`${config.memelabApiUrl}/v1/me`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     });

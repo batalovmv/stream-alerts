@@ -1,6 +1,6 @@
 import type { Request } from 'express';
 
-/** Shape returned by MemeLab API GET /api/v1/viewer/me */
+/** Shape returned by MemeLab API GET /api/v1/me */
 export interface MemelabUserProfile {
   id: string;
   displayName: string;
