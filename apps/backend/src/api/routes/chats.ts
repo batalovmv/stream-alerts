@@ -1,10 +1,10 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { getProvider, hasProvider } from '../../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 import { logger } from '../../lib/logger.js';
 
-const router = Router();
+const router: RouterType = Router();
 
 // TODO: Add auth middleware — for now placeholder
 
@@ -96,7 +96,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 
   const chat = await prisma.connectedChat.findFirst({
-    where: { id: req.params.id, streamerId },
+    where: { id: String(req.params.id), streamerId },
   });
 
   if (!chat) {
@@ -129,7 +129,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 
   const chat = await prisma.connectedChat.findFirst({
-    where: { id: req.params.id, streamerId },
+    where: { id: String(req.params.id), streamerId },
   });
 
   if (!chat) {
@@ -155,8 +155,7 @@ router.post('/:id/test', async (req: Request, res: Response) => {
   }
 
   const chat = await prisma.connectedChat.findFirst({
-    where: { id: req.params.id, streamerId },
-    include: { streamer: true },
+    where: { id: String(req.params.id), streamerId },
   });
 
   if (!chat) {
@@ -164,15 +163,21 @@ router.post('/:id/test', async (req: Request, res: Response) => {
     return;
   }
 
+  const streamer = await prisma.streamer.findUnique({ where: { id: streamerId } });
+  if (!streamer) {
+    res.status(404).json({ error: 'Streamer not found' });
+    return;
+  }
+
   const vars = {
-    streamer_name: chat.streamer.displayName,
+    streamer_name: streamer.displayName,
     stream_title: 'Тестовый стрим',
     game_name: 'Just Chatting',
-    stream_url: chat.streamer.twitchLogin ? `https://twitch.tv/${chat.streamer.twitchLogin}` : undefined,
-    memelab_url: `https://memelab.ru/${chat.streamer.memelabChannelId}`,
+    stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
+    memelab_url: `https://memelab.ru/${streamer.memelabChannelId}`,
   };
 
-  const text = renderTemplate(chat.customTemplate || chat.streamer.defaultTemplate, vars);
+  const text = renderTemplate(chat.customTemplate || streamer.defaultTemplate, vars);
   const buttons = buildDefaultButtons(vars);
 
   try {

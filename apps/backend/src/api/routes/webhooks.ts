@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Router as RouterType } from 'express';
 import { webhookAuth } from '../middleware/webhookAuth.js';
 import { processStreamEvent, type StreamEventPayload } from '../../services/announcementService.js';
 import { logger } from '../../lib/logger.js';
 
-const router = Router();
+const router: RouterType = Router();
 
 /**
  * POST /api/webhooks/stream
