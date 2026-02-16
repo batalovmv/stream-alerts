@@ -1,81 +1,54 @@
-import { Router, type Router as RouterType } from 'express';
+import { Router, type Request, type Response, type Router as RouterType } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import type { AuthenticatedRequest } from '../middleware/types.js';
 import { config } from '../../lib/config.js';
-import { logger } from '../../lib/logger.js';
 
 const router: RouterType = Router();
 
-const FRONTEND_URL = config.isDev ? 'http://localhost:5173' : 'https://notify.memelab.ru';
+const MEMELAB_LOGIN_URL = config.isDev
+  ? 'http://localhost:3001/login'
+  : 'https://memelab.ru/login';
 
 /**
- * GET /api/auth/memelab — Redirect to MemeLab OAuth.
+ * GET /api/auth/me — Return current authenticated streamer.
  */
-router.get('/memelab', (_req, res) => {
-  const params = new URLSearchParams({
-    client_id: config.memelabClientId,
-    redirect_uri: `${FRONTEND_URL}/api/auth/memelab/callback`,
-    response_type: 'code',
-    scope: 'profile channels',
+router.get('/me', requireAuth, (req: Request, res: Response) => {
+  const { streamer } = req as AuthenticatedRequest;
+  res.json({
+    user: {
+      id: streamer.id,
+      memelabUserId: streamer.memelabUserId,
+      displayName: streamer.displayName,
+      avatarUrl: streamer.avatarUrl,
+      twitchLogin: streamer.twitchLogin,
+      channelId: streamer.memelabChannelId,
+    },
   });
-
-  const authUrl = `${config.memelabOAuthUrl}/authorize?${params}`;
-  logger.info({ authUrl }, 'auth.redirect');
-  res.redirect(authUrl);
 });
 
 /**
- * GET /api/auth/memelab/callback — OAuth callback.
- * TODO: Exchange code for token, create/update streamer, set session.
+ * GET /api/auth/login — Redirect to MemeLab login page.
+ * Since we use shared cookies on .memelab.ru, the user just logs in on memelab.ru.
  */
-router.get('/memelab/callback', async (req, res) => {
-  const { code } = req.query;
-
-  if (!code) {
-    res.redirect(`${FRONTEND_URL}/?error=no_code`);
-    return;
-  }
-
-  try {
-    // TODO: Exchange authorization code for access token
-    // const tokenResponse = await fetch(`${config.memelabOAuthUrl}/token`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     grant_type: 'authorization_code',
-    //     code,
-    //     client_id: config.memelabClientId,
-    //     client_secret: config.memelabClientSecret,
-    //     redirect_uri: `${FRONTEND_URL}/api/auth/memelab/callback`,
-    //   }),
-    // });
-
-    // TODO: Get user info from MemeLab API
-    // TODO: Create or update Streamer in database
-    // TODO: Set session cookie
-
-    logger.info({ code: String(code).slice(0, 8) + '...' }, 'auth.callback');
-
-    // For now, redirect to dashboard (will be implemented)
-    res.redirect(`${FRONTEND_URL}/dashboard`);
-  } catch (error) {
-    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'auth.callback_failed');
-    res.redirect(`${FRONTEND_URL}/?error=auth_failed`);
-  }
+router.get('/login', (_req: Request, res: Response) => {
+  const returnUrl = config.isDev
+    ? 'http://localhost:5173/dashboard'
+    : 'https://notify.memelab.ru/dashboard';
+  res.redirect(`${MEMELAB_LOGIN_URL}?returnUrl=${encodeURIComponent(returnUrl)}`);
 });
 
 /**
- * POST /api/auth/logout — Clear session.
+ * POST /api/auth/logout — Clear the token cookie on .memelab.ru domain.
  */
-router.post('/logout', (_req, res) => {
-  // TODO: Clear session
+router.post('/logout', (_req: Request, res: Response) => {
+  res.clearCookie(config.jwtCookieName, {
+    domain: config.isDev ? undefined : '.memelab.ru',
+    path: '/',
+    httpOnly: true,
+    secure: !config.isDev,
+    sameSite: 'lax',
+  });
   res.json({ ok: true });
-});
-
-/**
- * GET /api/auth/me — Get current user.
- */
-router.get('/me', (_req, res) => {
-  // TODO: Return current user from session
-  res.status(401).json({ error: 'Not authenticated' });
 });
 
 export { router as authRouter };

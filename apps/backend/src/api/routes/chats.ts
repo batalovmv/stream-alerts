@@ -3,23 +3,23 @@ import { prisma } from '../../lib/prisma.js';
 import { getProvider, hasProvider } from '../../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 import { logger } from '../../lib/logger.js';
+import { requireAuth } from '../middleware/auth.js';
+import { validate, addChatSchema, updateChatSchema } from '../middleware/validation.js';
+import type { AuthenticatedRequest } from '../middleware/types.js';
 
 const router: RouterType = Router();
 
-// TODO: Add auth middleware — for now placeholder
+// All chat routes require authentication
+router.use(requireAuth);
 
 /**
  * GET /api/chats — List connected chats for the current streamer.
  */
 router.get('/', async (req: Request, res: Response) => {
-  const streamerId = (req as any).streamerId as string | undefined;
-  if (!streamerId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+  const { streamer } = req as AuthenticatedRequest;
 
   const chats = await prisma.connectedChat.findMany({
-    where: { streamerId },
+    where: { streamerId: streamer.id },
     orderBy: { createdAt: 'asc' },
   });
 
@@ -29,40 +29,35 @@ router.get('/', async (req: Request, res: Response) => {
 /**
  * POST /api/chats — Connect a new chat.
  */
-router.post('/', async (req: Request, res: Response) => {
-  const streamerId = (req as any).streamerId as string | undefined;
-  if (!streamerId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
+router.post('/', validate(addChatSchema), async (req: Request, res: Response) => {
+  const { streamer } = req as AuthenticatedRequest;
   const { provider, chatId } = req.body;
-
-  if (!provider || !chatId) {
-    res.status(400).json({ error: 'Missing required fields: provider, chatId' });
-    return;
-  }
 
   if (!hasProvider(provider)) {
     res.status(400).json({ error: `Unsupported provider: ${provider}` });
     return;
   }
 
-  // Validate bot access
   const messengerProvider = getProvider(provider);
 
   const hasAccess = await messengerProvider.validateBotAccess(chatId);
   if (!hasAccess) {
-    res.status(400).json({ error: 'Bot does not have admin access to this chat. Please add the bot as an administrator first.' });
+    res.status(400).json({
+      error: 'Bot does not have admin access to this chat. Please add the bot as an administrator first.',
+    });
     return;
   }
 
-  // Get chat info
   const chatInfo = await messengerProvider.getChatInfo(chatId);
 
-  // Check for duplicate
   const existing = await prisma.connectedChat.findUnique({
-    where: { streamerId_provider_chatId: { streamerId, provider, chatId } },
+    where: {
+      streamerId_provider_chatId: {
+        streamerId: streamer.id,
+        provider,
+        chatId,
+      },
+    },
   });
 
   if (existing) {
@@ -72,7 +67,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   const chat = await prisma.connectedChat.create({
     data: {
-      streamerId,
+      streamerId: streamer.id,
       provider,
       chatId,
       chatTitle: chatInfo.title,
@@ -80,7 +75,10 @@ router.post('/', async (req: Request, res: Response) => {
     },
   });
 
-  logger.info({ streamerId, provider, chatId, chatTitle: chatInfo.title }, 'chat.connected');
+  logger.info(
+    { streamerId: streamer.id, provider, chatId, chatTitle: chatInfo.title },
+    'chat.connected',
+  );
 
   res.status(201).json({ chat });
 });
@@ -88,15 +86,11 @@ router.post('/', async (req: Request, res: Response) => {
 /**
  * PATCH /api/chats/:id — Update chat settings.
  */
-router.patch('/:id', async (req: Request, res: Response) => {
-  const streamerId = (req as any).streamerId as string | undefined;
-  if (!streamerId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+router.patch('/:id', validate(updateChatSchema), async (req: Request, res: Response) => {
+  const { streamer } = req as AuthenticatedRequest;
 
   const chat = await prisma.connectedChat.findFirst({
-    where: { id: String(req.params.id), streamerId },
+    where: { id: String(req.params.id), streamerId: streamer.id },
   });
 
   if (!chat) {
@@ -122,14 +116,10 @@ router.patch('/:id', async (req: Request, res: Response) => {
  * DELETE /api/chats/:id — Disconnect a chat.
  */
 router.delete('/:id', async (req: Request, res: Response) => {
-  const streamerId = (req as any).streamerId as string | undefined;
-  if (!streamerId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+  const { streamer } = req as AuthenticatedRequest;
 
   const chat = await prisma.connectedChat.findFirst({
-    where: { id: String(req.params.id), streamerId },
+    where: { id: String(req.params.id), streamerId: streamer.id },
   });
 
   if (!chat) {
@@ -148,14 +138,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
  * POST /api/chats/:id/test — Send a test announcement.
  */
 router.post('/:id/test', async (req: Request, res: Response) => {
-  const streamerId = (req as any).streamerId as string | undefined;
-  if (!streamerId) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+  const { streamer } = req as AuthenticatedRequest;
 
   const chat = await prisma.connectedChat.findFirst({
-    where: { id: String(req.params.id), streamerId },
+    where: { id: String(req.params.id), streamerId: streamer.id },
   });
 
   if (!chat) {
@@ -163,21 +149,23 @@ router.post('/:id/test', async (req: Request, res: Response) => {
     return;
   }
 
-  const streamer = await prisma.streamer.findUnique({ where: { id: streamerId } });
-  if (!streamer) {
+  const dbStreamer = await prisma.streamer.findUnique({ where: { id: streamer.id } });
+  if (!dbStreamer) {
     res.status(404).json({ error: 'Streamer not found' });
     return;
   }
 
   const vars = {
-    streamer_name: streamer.displayName,
+    streamer_name: dbStreamer.displayName,
     stream_title: 'Тестовый стрим',
     game_name: 'Just Chatting',
-    stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
-    memelab_url: `https://memelab.ru/${streamer.memelabChannelId}`,
+    stream_url: dbStreamer.twitchLogin
+      ? `https://twitch.tv/${dbStreamer.twitchLogin}`
+      : undefined,
+    memelab_url: `https://memelab.ru/${dbStreamer.memelabChannelId}`,
   };
 
-  const text = renderTemplate(chat.customTemplate || streamer.defaultTemplate, vars);
+  const text = renderTemplate(chat.customTemplate || dbStreamer.defaultTemplate, vars);
   const buttons = buildDefaultButtons(vars);
 
   try {

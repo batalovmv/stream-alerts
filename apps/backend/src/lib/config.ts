@@ -28,6 +28,9 @@ export const config = {
   // Session
   sessionSecret: env('SESSION_SECRET', 'dev-session-secret'),
 
+  // JWT Cookie
+  jwtCookieName: env('JWT_COOKIE_NAME', 'token'),
+
   // Telegram Bot
   telegramBotToken: env('TELEGRAM_BOT_TOKEN', ''),
 

@@ -1,10 +1,19 @@
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function handleLogin() {
-  window.location.href = `${API_BASE}/api/auth/memelab`;
+  window.location.href = `${API_BASE}/api/auth/login`;
 }
 
 export function Landing() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-surface relative overflow-hidden">
       {/* Background orbs */}
