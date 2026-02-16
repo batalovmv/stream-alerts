@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install
 
       - name: Generate Prisma Client
         run: pnpm --filter backend exec prisma generate
@@ -95,7 +95,7 @@ jobs:
           cd "$APP_DIR"
 
           # Install dependencies
-          pnpm install --frozen-lockfile
+          pnpm install
 
           # Generate Prisma client
           pnpm --filter backend exec prisma generate
@@ -139,7 +139,7 @@ jobs:
             if [ -n "$PREV_SHA" ]; then
               echo "Rolling back to $PREV_SHA ..."
               git -C "$APP_DIR" checkout "$PREV_SHA"
-              pnpm install --frozen-lockfile
+              pnpm install
               pnpm --filter backend exec prisma generate
               pnpm --filter backend build
               pm2 restart "$PM2_NAME" --update-env
