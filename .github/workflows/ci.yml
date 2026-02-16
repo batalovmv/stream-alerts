@@ -92,6 +92,9 @@ jobs:
             --exclude apps/backend/.env \
             ./ "$APP_DIR/"
 
+          # Fix ownership after sudo rsync (runner is deploy, not root)
+          sudo chown -R "$(whoami):$(whoami)" "$APP_DIR"
+
           cd "$APP_DIR"
 
           # Install dependencies
