@@ -1,14 +1,31 @@
+const { readFileSync } = require("fs");
+const { resolve } = require("path");
+
+/** Parse .env file into object (supports comments and empty lines) */
+function loadEnv(filePath) {
+  const env = {};
+  try {
+    const content = readFileSync(resolve(filePath), "utf-8");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const idx = trimmed.indexOf("=");
+      if (idx === -1) continue;
+      env[trimmed.slice(0, idx)] = trimmed.slice(idx + 1);
+    }
+  } catch {
+    // .env missing — rely on system env
+  }
+  return env;
+}
+
 module.exports = {
   apps: [
     {
       name: "memelab-notify",
       script: "./apps/backend/dist/index.js",
       cwd: "/opt/memelab-notify",
-      env: {
-        NODE_ENV: "production",
-      },
-      env_file: "/opt/memelab-notify/apps/backend/.env",
-      node_args: "--env-file=apps/backend/.env",
+      env: loadEnv("/opt/memelab-notify/apps/backend/.env"),
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
