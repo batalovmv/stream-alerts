@@ -28,11 +28,16 @@ export async function handleConnect(ctx: BotContext): Promise<void> {
     return;
   }
 
-  // Build the admin rights the bot needs
+  // Rights the bot needs in the selected chat
   const botAdminRights = {
     can_post_messages: true,
     can_edit_messages: true,
     can_delete_messages: true,
+  };
+
+  // User must be admin/owner to add the bot
+  const userAdminRights = {
+    can_invite_users: true,
   };
 
   // Send reply keyboard with chat picker buttons
@@ -47,7 +52,9 @@ export async function handleConnect(ctx: BotContext): Promise<void> {
             request_chat: {
               request_id: REQUEST_ID_GROUP,
               chat_is_channel: false,
+              user_administrator_rights: userAdminRights,
               bot_administrator_rights: botAdminRights,
+              bot_is_member: true,
               request_title: true,
               request_username: true,
             },
@@ -59,7 +66,9 @@ export async function handleConnect(ctx: BotContext): Promise<void> {
             request_chat: {
               request_id: REQUEST_ID_CHANNEL,
               chat_is_channel: true,
+              user_administrator_rights: userAdminRights,
               bot_administrator_rights: botAdminRights,
+              bot_is_member: true,
               request_title: true,
               request_username: true,
             },
