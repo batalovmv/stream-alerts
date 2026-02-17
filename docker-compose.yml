@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: memelab_notify
+      POSTGRES_USER: memelab
+      POSTGRES_PASSWORD: memelab
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    ports:
+      - '3000:3000'
+    env_file:
+      - apps/backend/.env
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  pgdata:

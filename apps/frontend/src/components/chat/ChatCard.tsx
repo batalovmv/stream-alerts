@@ -10,6 +10,8 @@ interface ChatCardProps {
 export function ChatCard({ chat }: ChatCardProps) {
   const { updateChat, deleteChat, testChat } = useChats();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [template, setTemplate] = useState(chat.customTemplate ?? '');
 
   const providerLabel = chat.provider === 'telegram' ? 'Telegram' : 'MAX';
   const providerEmoji = chat.provider === 'telegram' ? '\u2708\uFE0F' : '\uD83D\uDCAC';
@@ -104,6 +106,50 @@ export function ChatCard({ chat }: ChatCardProps) {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Custom template */}
+      <div className="mt-4 pt-4 border-t border-white/5">
+        <button
+          className="text-sm text-white/40 hover:text-white/60 transition-colors"
+          onClick={() => setShowTemplate(!showTemplate)}
+        >
+          {showTemplate ? 'Скрыть шаблон' : 'Свой шаблон'}
+        </button>
+        {showTemplate && (
+          <div className="mt-3 space-y-2">
+            <textarea
+              className="input w-full h-24 resize-none text-sm"
+              placeholder="Свой шаблон анонса. Переменные: {streamer_name}, {stream_title}, {game_name}"
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  updateChat.mutate({ id: chat.id, customTemplate: template || null });
+                }}
+                loading={updateChat.isPending}
+              >
+                Сохранить
+              </Button>
+              {template && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTemplate('');
+                    updateChat.mutate({ id: chat.id, customTemplate: null });
+                  }}
+                >
+                  Сбросить
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Last announced */}
