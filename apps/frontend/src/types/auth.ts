@@ -5,8 +5,16 @@ export interface User {
   avatarUrl: string | null;
   twitchLogin: string | null;
   channelId: string | null;
+  telegramLinked: boolean;
 }
 
 export interface AuthMeResponse {
   user: User;
+}
+
+export interface TelegramLinkResponse {
+  linked: boolean;
+  deepLink?: string;
+  expiresIn?: number;
+  message?: string;
 }
