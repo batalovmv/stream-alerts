@@ -35,8 +35,12 @@ export async function handleConnect(ctx: BotContext): Promise<void> {
     can_delete_messages: true,
   };
 
-  // User must be admin/owner to add the bot
+  // User must have at least the same rights as the bot + can_invite_users.
+  // Telegram API requires bot_administrator_rights to be a SUBSET of user_administrator_rights.
   const userAdminRights = {
+    can_post_messages: true,
+    can_edit_messages: true,
+    can_delete_messages: true,
     can_invite_users: true,
   };
 
