@@ -4,12 +4,11 @@ import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { registerProvider } from './providers/registry.js';
 import { TelegramProvider } from './providers/telegram/TelegramProvider.js';
-import { startAnnouncementWorker, stopAnnouncementWorker } from './workers/announcementWorker.js';
-import { announcementQueue } from './queues/announcementQueue.js';
-import { startTelegramBot, stopTelegramBot } from './bot/telegramBot.js';
 import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
+import { setupBot } from './bot/setup.js';
+import { startAnnouncementWorker } from './workers/announcementQueue.js';
 
 const app = express();
 
@@ -30,11 +29,6 @@ if (config.telegramBotToken) {
 
 // TODO: Register MAX provider when ready (Phase 3)
 
-// ─── Workers & Bot ───────────────────────────────────────
-
-startAnnouncementWorker();
-startTelegramBot();
-
 // ─── Routes ───────────────────────────────────────────────
 
 app.get('/api/health', (_req, res) => {
@@ -45,24 +39,16 @@ app.use('/api/auth', authRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/chats', chatsRouter);
 
-// TODO: /api/settings routes
-
 // ─── Start ────────────────────────────────────────────────
 
-const server = app.listen(config.port, () => {
+app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, 'MemeLab Notify started');
+
+  // Start BullMQ announcement worker
+  startAnnouncementWorker();
+
+  // Initialize Telegram bot (polling or webhook)
+  setupBot(app).catch((err) => {
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'bot.init_failed');
+  });
 });
-
-// ─── Graceful Shutdown ───────────────────────────────────
-
-async function shutdown(signal: string) {
-  logger.info({ signal }, 'Shutting down...');
-  server.close();
-  stopTelegramBot();
-  await stopAnnouncementWorker();
-  await announcementQueue.close();
-  process.exit(0);
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
