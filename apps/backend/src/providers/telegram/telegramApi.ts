@@ -9,6 +9,8 @@ import { logger } from '../../lib/logger.js';
 const TELEGRAM_API = 'https://api.telegram.org';
 const TIMEOUT_MS = 15_000;
 
+// ─── Types ───────────────────────────────────────────────
+
 interface TelegramResponse<T> {
   ok: boolean;
   result?: T;
@@ -16,22 +18,53 @@ interface TelegramResponse<T> {
   error_code?: number;
 }
 
-interface TelegramMessage {
+export interface TelegramMessage {
   message_id: number;
   chat: { id: number; type: string; title?: string };
+  from?: { id: number; is_bot: boolean; first_name: string; username?: string };
   date: number;
   text?: string;
   caption?: string;
+  chat_shared?: {
+    request_id: number;
+    chat_id: number;
+    title?: string;
+    username?: string;
+  };
 }
 
-interface TelegramChat {
+export interface TelegramUpdate {
+  update_id: number;
+  message?: TelegramMessage;
+  callback_query?: {
+    id: string;
+    from: { id: number; first_name: string; username?: string };
+    message?: TelegramMessage;
+    data?: string;
+  };
+  my_chat_member?: TelegramChatMemberUpdated;
+}
+
+export interface TelegramChatMemberUpdated {
+  chat: TelegramChat;
+  from: { id: number; first_name: string; username?: string };
+  date: number;
+  old_chat_member: { status: string; user: { id: number } };
+  new_chat_member: { status: string; user: { id: number } };
+}
+
+export interface TelegramChat {
   id: number;
   type: string;
   title?: string;
+  username?: string;
 }
 
-interface TelegramChatMemberCount {
-  // getChat returns full chat, getChatMemberCount returns a number
+export interface TelegramUser {
+  id: number;
+  is_bot: boolean;
+  first_name: string;
+  username?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -40,7 +73,7 @@ function botUrl(method: string): string {
   return `${TELEGRAM_API}/bot${config.telegramBotToken}/${method}`;
 }
 
-async function callApi<T>(method: string, body: Record<string, unknown>): Promise<T> {
+export async function callApi<T>(method: string, body: Record<string, unknown>): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -117,25 +150,48 @@ export async function sendPhoto(params: {
   });
 }
 
-/** Send text message with inline keyboard */
+/** Send text message with optional inline keyboard or reply keyboard */
 export async function sendMessage(params: {
   chatId: string;
   text: string;
   parseMode?: string;
   buttons?: Array<{ label: string; url: string }>;
+  replyMarkup?: Record<string, unknown>;
   silent?: boolean;
 }): Promise<TelegramMessage> {
-  const inlineKeyboard = params.buttons?.length
-    ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
-    : undefined;
+  let replyMarkup = params.replyMarkup;
+
+  if (!replyMarkup && params.buttons?.length) {
+    replyMarkup = {
+      inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))],
+    };
+  }
 
   return callApi<TelegramMessage>('sendMessage', {
     chat_id: params.chatId,
     text: params.text,
     parse_mode: params.parseMode ?? 'HTML',
     disable_web_page_preview: true,
-    reply_markup: inlineKeyboard,
+    reply_markup: replyMarkup,
     disable_notification: params.silent ?? false,
+  });
+}
+
+/** Edit text of an existing message with optional inline keyboard */
+export async function editMessageText(params: {
+  chatId: string;
+  messageId: number;
+  text: string;
+  parseMode?: string;
+  replyMarkup?: Record<string, unknown>;
+}): Promise<TelegramMessage | boolean> {
+  return callApi<TelegramMessage | boolean>('editMessageText', {
+    chat_id: params.chatId,
+    message_id: params.messageId,
+    text: params.text,
+    parse_mode: params.parseMode ?? 'HTML',
+    disable_web_page_preview: true,
+    reply_markup: params.replyMarkup,
   });
 }
 
@@ -156,21 +212,81 @@ export async function deleteMessageApi(chatId: string, messageId: number): Promi
   }
 }
 
+/** Answer a callback query (required to dismiss loading state) */
+export async function answerCallbackQuery(params: {
+  callbackQueryId: string;
+  text?: string;
+  showAlert?: boolean;
+}): Promise<boolean> {
+  return callApi<boolean>('answerCallbackQuery', {
+    callback_query_id: params.callbackQueryId,
+    text: params.text,
+    show_alert: params.showAlert ?? false,
+  });
+}
+
 /** Get chat info */
-export async function getChat(chatId: string): Promise<TelegramChat> {
+export async function getChat(chatId: string | number): Promise<TelegramChat> {
   return callApi<TelegramChat>('getChat', { chat_id: chatId });
 }
 
 /** Get chat member count */
-export async function getChatMemberCount(chatId: string): Promise<number> {
+export async function getChatMemberCount(chatId: string | number): Promise<number> {
   return callApi<number>('getChatMemberCount', { chat_id: chatId });
 }
 
 /** Check if bot is admin in the chat */
-export async function getBotChatMember(chatId: string): Promise<{ status: string }> {
-  const botInfo = await callApi<{ id: number }>('getMe', {});
+export async function getBotChatMember(chatId: string | number): Promise<{ status: string }> {
+  const botInfo = await getMe();
   return callApi<{ status: string }>('getChatMember', {
     chat_id: chatId,
     user_id: botInfo.id,
+  });
+}
+
+/** Get bot info (cached) */
+let cachedBotInfo: TelegramUser | null = null;
+export async function getMe(): Promise<TelegramUser> {
+  if (cachedBotInfo) return cachedBotInfo;
+  cachedBotInfo = await callApi<TelegramUser>('getMe', {});
+  return cachedBotInfo;
+}
+
+/** Set webhook URL */
+export async function setWebhook(url: string, secretToken: string): Promise<boolean> {
+  return callApi<boolean>('setWebhook', {
+    url,
+    secret_token: secretToken,
+    allowed_updates: ['message', 'callback_query', 'my_chat_member'],
+    drop_pending_updates: false,
+  });
+}
+
+/** Delete webhook (for switching to polling) */
+export async function deleteWebhook(): Promise<boolean> {
+  return callApi<boolean>('deleteWebhook', { drop_pending_updates: false });
+}
+
+/** Long-poll for updates (dev mode) */
+export async function getUpdates(offset?: number): Promise<TelegramUpdate[]> {
+  return callApi<TelegramUpdate[]>('getUpdates', {
+    offset: offset ?? 0,
+    timeout: 30,
+    allowed_updates: ['message', 'callback_query', 'my_chat_member'],
+  });
+}
+
+/** Set bot commands menu */
+export async function setMyCommands(commands: Array<{ command: string; description: string }>): Promise<boolean> {
+  return callApi<boolean>('setMyCommands', { commands });
+}
+
+/** Remove reply keyboard */
+export async function removeReplyKeyboard(chatId: string | number, text: string): Promise<TelegramMessage> {
+  return callApi<TelegramMessage>('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    reply_markup: { remove_keyboard: true },
   });
 }

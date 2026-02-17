@@ -7,6 +7,8 @@ import { TelegramProvider } from './providers/telegram/TelegramProvider.js';
 import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
+import { setupBot } from './bot/setup.js';
+import { startAnnouncementWorker } from './workers/announcementQueue.js';
 
 const app = express();
 
@@ -37,10 +39,16 @@ app.use('/api/auth', authRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/chats', chatsRouter);
 
-// TODO: /api/settings routes
-
 // ─── Start ────────────────────────────────────────────────
 
 app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, 'MemeLab Notify started');
+
+  // Start BullMQ announcement worker
+  startAnnouncementWorker();
+
+  // Initialize Telegram bot (polling or webhook)
+  setupBot(app).catch((err) => {
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'bot.init_failed');
+  });
 });

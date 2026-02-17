@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Modal } from '../ui/Modal';
-import { Button, Input } from '../ui';
-import { useChats } from '../../hooks/useChats';
-import { ApiError } from '../../api/client';
+import { Button } from '../ui';
+import { useAuth } from '../../hooks/useAuth';
+import { useTelegramLink } from '../../hooks/useTelegramLink';
 
 interface AddChatModalProps {
   open: boolean;
@@ -10,109 +10,140 @@ interface AddChatModalProps {
 }
 
 export function AddChatModal({ open, onClose }: AddChatModalProps) {
-  const [provider] = useState<'telegram' | 'max'>('telegram');
-  const [chatId, setChatId] = useState('');
-  const [error, setError] = useState('');
-  const { addChat } = useChats();
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-
-    if (!chatId.trim()) {
-      setError('Введите ID канала или группы');
-      return;
-    }
-
-    addChat.mutate(
-      { provider, chatId: chatId.trim() },
-      {
-        onSuccess: () => {
-          setChatId('');
-          setError('');
-          onClose();
-        },
-        onError: (err) => {
-          if (err instanceof ApiError) {
-            const data = err.data as { error?: string } | undefined;
-            setError(data?.error || 'Не удалось подключить канал');
-          } else {
-            setError('Не удалось подключить канал');
-          }
-        },
-      },
-    );
-  }
+  const { user } = useAuth();
+  const telegramLinked = user?.telegramLinked ?? false;
 
   return (
     <Modal open={open} onClose={onClose} title="Подключить канал">
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-5">
         {/* Provider selection */}
         <div>
           <label className="block text-sm text-white/50 mb-2">Мессенджер</label>
           <div className="flex gap-3">
-            <button
-              type="button"
-              className="flex-1 glass-card p-4 text-center cursor-pointer transition-all !border-accent/50 shadow-glow"
-            >
+            <div className="flex-1 glass-card p-4 text-center !border-accent/50 shadow-glow">
               <div className="text-2xl mb-1">{'\u2708\uFE0F'}</div>
               <div className="text-sm font-medium">Telegram</div>
-            </button>
-            <button
-              type="button"
-              className="flex-1 glass-card p-4 text-center cursor-not-allowed transition-all opacity-50"
-              disabled
-            >
+            </div>
+            <div className="flex-1 glass-card p-4 text-center opacity-50">
               <div className="text-2xl mb-1">{'\uD83D\uDCAC'}</div>
               <div className="text-sm font-medium">MAX</div>
               <div className="text-xs text-white/30">Скоро</div>
-            </button>
+            </div>
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="glass-card p-4 text-sm text-white/50 space-y-2">
-          <p className="font-medium text-white/70">Инструкция:</p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>
-              Добавьте{' '}
-              <span className="text-accent-light">@MemelabNotifyBot</span> в
-              канал/группу
-            </li>
-            <li>Назначьте бота администратором</li>
-            <li>
-              Введите ID канала ниже (например:{' '}
-              <span className="text-white/70">@my_channel</span> или{' '}
-              <span className="text-white/70">-1001234567890</span>)
-            </li>
-          </ol>
-        </div>
-
-        {/* Chat ID input */}
-        <Input
-          label="ID канала или группы"
-          placeholder="@my_channel или -1001234567890"
-          value={chatId}
-          onChange={(e) => setChatId(e.target.value)}
-          error={error}
-        />
-
-        {/* Submit */}
-        <div className="flex gap-3 pt-2">
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            loading={addChat.isPending}
-            className="flex-1"
-          >
-            Подключить
-          </Button>
-          <Button type="button" variant="secondary" size="md" onClick={onClose}>
-            Отмена
-          </Button>
-        </div>
-      </form>
+        {telegramLinked ? (
+          <LinkedFlow onClose={onClose} />
+        ) : (
+          <LinkAccountFlow />
+        )}
+      </div>
     </Modal>
+  );
+}
+
+/** Flow when Telegram is NOT yet linked — show link button */
+function LinkAccountFlow() {
+  const { deepLink, isLoading, generate } = useTelegramLink();
+
+  return (
+    <>
+      <div className="glass-card p-4 text-sm text-white/50 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="step-number shrink-0">1</div>
+          <div>
+            <p className="font-medium text-white/70">Привяжите Telegram</p>
+            <p className="mt-1">
+              Нажмите кнопку ниже — откроется бот в Telegram. Это нужно сделать один раз.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3">
+          <div className="step-number shrink-0">2</div>
+          <div>
+            <p className="font-medium text-white/70">Добавьте канал через бота</p>
+            <p className="mt-1">
+              Напишите <span className="text-accent-light">/connect</span> боту — он покажет нативный список ваших каналов и групп. Выбирайте нужный — бот добавится автоматически.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {deepLink ? (
+        <a
+          href={deepLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-glow !px-5 !py-2.5 text-sm w-full text-center block"
+        >
+          Открыть @MemelabNotifyBot
+        </a>
+      ) : (
+        <Button
+          variant="primary"
+          size="md"
+          loading={isLoading}
+          onClick={generate}
+          className="w-full"
+        >
+          Привязать Telegram
+        </Button>
+      )}
+    </>
+  );
+}
+
+/** Flow when Telegram IS linked — direct them to the bot */
+function LinkedFlow({ onClose }: { onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText('/connect');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <>
+      <div className="glass-card p-4 text-sm text-white/50 space-y-3">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-2 h-2 rounded-full bg-green-400" />
+          <span className="text-green-400 font-medium text-xs">Telegram привязан</span>
+        </div>
+
+        <p>
+          Откройте <span className="text-accent-light">@MemelabNotifyBot</span> в Telegram и отправьте команду:
+        </p>
+
+        <button
+          onClick={handleCopy}
+          className="w-full glass-card p-3 text-left font-mono text-accent-light hover:bg-white/5 transition-all cursor-pointer group"
+        >
+          <span className="text-white/30 group-hover:text-white/50">/</span>connect
+          <span className="float-right text-xs text-white/30 group-hover:text-white/50">
+            {copied ? 'Скопировано!' : 'Копировать'}
+          </span>
+        </button>
+
+        <p>
+          Бот покажет нативный список ваших каналов и групп.
+          Выберите нужный — бот добавится туда автоматически с нужными правами.
+        </p>
+      </div>
+
+      <div className="flex gap-3">
+        <a
+          href="https://t.me/MemelabNotifyBot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-glow !px-5 !py-2.5 text-sm flex-1 text-center block"
+        >
+          Открыть бота
+        </a>
+        <Button variant="secondary" size="md" onClick={onClose}>
+          Закрыть
+        </Button>
+      </div>
+    </>
   );
 }
