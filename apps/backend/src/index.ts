@@ -4,6 +4,9 @@ import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { registerProvider } from './providers/registry.js';
 import { TelegramProvider } from './providers/telegram/TelegramProvider.js';
+import { startAnnouncementWorker, stopAnnouncementWorker } from './workers/announcementWorker.js';
+import { announcementQueue } from './queues/announcementQueue.js';
+import { startTelegramBot, stopTelegramBot } from './bot/telegramBot.js';
 import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
@@ -27,6 +30,11 @@ if (config.telegramBotToken) {
 
 // TODO: Register MAX provider when ready (Phase 3)
 
+// ─── Workers & Bot ───────────────────────────────────────
+
+startAnnouncementWorker();
+startTelegramBot();
+
 // ─── Routes ───────────────────────────────────────────────
 
 app.get('/api/health', (_req, res) => {
@@ -41,6 +49,20 @@ app.use('/api/chats', chatsRouter);
 
 // ─── Start ────────────────────────────────────────────────
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, 'MemeLab Notify started');
 });
+
+// ─── Graceful Shutdown ───────────────────────────────────
+
+async function shutdown(signal: string) {
+  logger.info({ signal }, 'Shutting down...');
+  server.close();
+  stopTelegramBot();
+  await stopAnnouncementWorker();
+  await announcementQueue.close();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
