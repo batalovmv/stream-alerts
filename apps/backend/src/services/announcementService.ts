@@ -176,6 +176,12 @@ async function handleStreamOnline(
     }
   }
 
+  // If ALL deliveries failed, throw so BullMQ retries the job
+  const failedCount = results.filter((r) => !r.ok).length;
+  if (failedCount > 0 && failedCount === results.length) {
+    throw new Error(`All ${failedCount} announcement deliveries failed`);
+  }
+
   // Notify streamer about delivery results via Telegram (if linked and provider available)
   if (streamer.telegramUserId && results.length > 0 && hasProvider('telegram')) {
     try {

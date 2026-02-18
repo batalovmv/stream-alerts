@@ -59,7 +59,7 @@ export async function handleTest(ctx: BotContext): Promise<void> {
     chatId: String(ctx.chatId),
     text: result.success
       ? `Тестовый анонс отправлен в <b>${escapeHtml(streamer.chats[0].chatTitle || streamer.chats[0].chatId)}</b>`
-      : `Ошибка: ${result.error}`,
+      : `Ошибка: ${escapeHtml(result.error ?? 'неизвестная ошибка')}`,
   });
 }
 

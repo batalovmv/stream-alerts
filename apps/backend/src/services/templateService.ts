@@ -21,13 +21,18 @@ export interface TemplateVariables {
   viewer_count?: string;
 }
 
-/** Render a template, replacing {var} placeholders with values. */
+/** Escape HTML special characters for Telegram HTML parse mode. */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Render a template, replacing {var} placeholders with HTML-escaped values. */
 export function renderTemplate(template: string | null | undefined, vars: TemplateVariables): string {
   const tpl = template?.trim() || DEFAULT_ONLINE_TEMPLATE;
 
   return tpl.replace(/\{(\w+)\}/g, (match, key: string) => {
     const value = vars[key as keyof TemplateVariables];
-    return value ?? '';
+    return value ? escapeHtml(value) : '';
   });
 }
 

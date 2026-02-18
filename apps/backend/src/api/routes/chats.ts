@@ -200,7 +200,7 @@ router.post('/:id/test', async (req: Request, res: Response) => {
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error({ chatId: req.params.id, error: errMsg }, 'chat.test_failed');
-    res.status(500).json({ error: 'Failed to send test announcement', details: errMsg });
+    res.status(500).json({ error: 'Failed to send test announcement' });
   }
 });
 

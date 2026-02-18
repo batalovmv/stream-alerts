@@ -14,6 +14,10 @@ import type { BotContext } from '../types.js';
 
 const LINK_TOKEN_PREFIX = 'link:token:';
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export async function handleStart(ctx: BotContext, args: string): Promise<void> {
   // ─── Account linking via deep link ───────────────────────
   if (args.startsWith('link_')) {
@@ -37,7 +41,7 @@ export async function handleStart(ctx: BotContext, args: string): Promise<void> 
 
   if (linked) {
     lines.push(
-      `Аккаунт привязан: <b>${streamer.displayName}</b>`,
+      `Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
       '',
       'Доступные команды:',
       '/connect — подключить канал/группу',
@@ -110,7 +114,7 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   await tg.sendMessage({
     chatId: String(ctx.chatId),
     text: [
-      `Аккаунт привязан: <b>${streamer.displayName}</b>`,
+      `Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
       '',
       'Теперь вы можете:',
       '/connect — подключить канал/группу',

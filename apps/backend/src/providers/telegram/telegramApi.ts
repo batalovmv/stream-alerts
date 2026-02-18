@@ -73,9 +73,9 @@ function botUrl(method: string): string {
   return `${TELEGRAM_API}/bot${config.telegramBotToken}/${method}`;
 }
 
-export async function callApi<T>(method: string, body: Record<string, unknown>): Promise<T> {
+export async function callApi<T>(method: string, body: Record<string, unknown>, timeoutMs = TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(botUrl(method), {
@@ -102,7 +102,7 @@ export async function callApi<T>(method: string, body: Record<string, unknown>):
     const isTimeout = error instanceof DOMException && error.name === 'AbortError';
     const code = isTimeout ? 408 : 0;
     const desc = isTimeout
-      ? `Request to ${method} timed out after ${TIMEOUT_MS}ms`
+      ? `Request to ${method} timed out after ${timeoutMs}ms`
       : `Network error calling ${method}: ${error instanceof Error ? error.message : String(error)}`;
     throw new TelegramApiError(code, desc);
   } finally {
@@ -303,11 +303,12 @@ export async function deleteWebhook(): Promise<boolean> {
 
 /** Long-poll for updates (dev mode) */
 export async function getUpdates(offset?: number): Promise<TelegramUpdate[]> {
+  // Telegram holds the connection for up to 30s; client timeout must be larger
   return callApi<TelegramUpdate[]>('getUpdates', {
     offset: offset ?? 0,
     timeout: 30,
     allowed_updates: ['message', 'callback_query', 'my_chat_member'],
-  });
+  }, 35_000);
 }
 
 /** Set bot commands menu */

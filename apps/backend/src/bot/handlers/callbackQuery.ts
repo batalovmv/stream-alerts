@@ -243,7 +243,7 @@ async function handleTestCallback(
   for (const chat of chatsToTest) {
     const result = await sendTestAnnouncement(streamer, chat);
     const title = escapeHtml(chat.chatTitle || chat.chatId);
-    results.push(result.success ? `\u2705 ${title}` : `\u274C ${title}: ${result.error}`);
+    results.push(result.success ? `\u2705 ${title}` : `\u274C ${title}: ${escapeHtml(result.error ?? '')}`);
   }
 
   await tg.editMessageText({

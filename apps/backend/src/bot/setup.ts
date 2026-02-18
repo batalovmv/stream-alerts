@@ -8,6 +8,7 @@
 import { timingSafeEqual, createHash } from 'node:crypto';
 import type { Express, Request, Response } from 'express';
 import * as tg from '../providers/telegram/telegramApi.js';
+import { TelegramApiError } from '../providers/telegram/telegramApi.js';
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
 import { routeUpdate } from './router.js';
@@ -56,9 +57,11 @@ async function startPolling(): Promise<void> {
         });
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        // Timeout is normal for long polling
-      } else {
+      // Long-poll timeout is normal — Telegram returns no updates within the hold period
+      const isTimeout =
+        (error instanceof Error && error.name === 'AbortError') ||
+        (error instanceof TelegramApiError && error.code === 408);
+      if (!isTimeout) {
         logger.error({ error: error instanceof Error ? error.message : String(error) }, 'bot.polling_error');
         await new Promise((r) => setTimeout(r, 3000));
       }
