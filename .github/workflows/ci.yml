@@ -11,7 +11,7 @@ env:
   NODE_VERSION: '20'
   APP_DIR: /opt/memelab-notify
   PM2_NAME: memelab-notify
-  HEALTH_PORT: 3000
+  HEALTH_PORT: 3003
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
