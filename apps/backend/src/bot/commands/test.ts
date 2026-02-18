@@ -12,6 +12,7 @@ import { renderTemplate, buildDefaultButtons } from '../../services/templateServ
 import { logger } from '../../lib/logger.js';
 import type { BotContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleTest(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
@@ -22,7 +23,8 @@ export async function handleTest(ctx: BotContext): Promise<void> {
   if (!streamer) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Сначала привяжите аккаунт.\n\nПерейдите на дашборд: https://notify.memelab.ru/dashboard',
+      text: 'Сначала привяжите аккаунт.',
+      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
     });
     return;
   }
@@ -30,25 +32,32 @@ export async function handleTest(ctx: BotContext): Promise<void> {
   if (streamer.chats.length === 0) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Нет подключённых каналов.\n\nИспользуйте /connect чтобы добавить канал или группу.',
+      text: '\u{1F4E3} <b>Тестовый анонс</b>\n\nНет включённых каналов.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4E1} Подключить канал', callback_data: 'menu:connect' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
     });
     return;
   }
 
   // If multiple chats, let the user choose
   if (streamer.chats.length > 1) {
-    const keyboard = streamer.chats.map((chat) => [
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat) => [
       {
         text: `${chat.chatTitle || chat.chatId}`,
         callback_data: `test:${chat.id}`,
       },
     ]);
 
-    keyboard.push([{ text: '\uD83D\uDCE3 Отправить во все', callback_data: 'test:all' }]);
+    keyboard.push([{ text: '\u{1F4E3} Отправить во все', callback_data: 'test:all' }]);
+    keyboard.push(BACK_TO_MENU_ROW);
 
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Куда отправить тестовый анонс?',
+      text: '\u{1F4E3} <b>Тестовый анонс</b>\n\nКуда отправить?',
       replyMarkup: { inline_keyboard: keyboard },
     });
     return;
@@ -58,12 +67,15 @@ export async function handleTest(ctx: BotContext): Promise<void> {
   const chatTitle = streamer.chats[0].chatTitle || streamer.chats[0].chatId;
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: `Отправить тестовый анонс в <b>${escapeHtml(chatTitle)}</b>?`,
+    text: `\u{1F4E3} Отправить тестовый анонс в <b>${escapeHtml(chatTitle)}</b>?`,
     replyMarkup: {
-      inline_keyboard: [[
-        { text: '✅ Отправить', callback_data: `test:${streamer.chats[0].id}` },
-        { text: '❌ Отмена', callback_data: 'test:cancel' },
-      ]],
+      inline_keyboard: [
+        [
+          { text: '\u2705 Отправить', callback_data: `test:${streamer.chats[0].id}` },
+          { text: '\u274C Отмена', callback_data: 'test:cancel' },
+        ],
+        BACK_TO_MENU_ROW,
+      ],
     },
   });
 }
@@ -93,4 +105,3 @@ export async function sendTestAnnouncement(
     return { success: false, error: errMsg };
   }
 }
-

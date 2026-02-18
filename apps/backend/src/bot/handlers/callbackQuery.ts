@@ -2,12 +2,13 @@
  * Callback query handler for inline keyboard interactions.
  *
  * Handles:
- * - menu:<command> — main menu button presses (calls command handlers)
+ * - menu:<command> — main menu button presses (edit-in-place or new message)
  * - toggle:<chatId> — enable/disable a connected chat
  * - remove:<chatId> — disconnect a chat (with confirmation)
  * - confirm_remove:<chatId> — confirmed removal
  * - test:<chatId> — send test announcement to specific chat
  * - test:all — send test to all enabled chats
+ * - settings:* / stg_* — settings sub-screens
  */
 
 import * as tg from '../../providers/telegram/telegramApi.js';
@@ -30,6 +31,7 @@ import {
 } from '../commands/settings.js';
 import type { BotContext, CallbackContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { editToMainMenu, BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
   const { data, userId, callbackQueryId, chatId, messageId } = ctx;
@@ -198,7 +200,13 @@ async function handleConfirmRemove(
     await tg.editMessageText({
       chatId: String(ctx.chatId),
       messageId: ctx.messageId,
-      text: 'Все каналы отключены.\n\nИспользуйте /connect чтобы добавить новый.',
+      text: '\u{1F4CB} <b>Мои каналы</b>\n\nВсе каналы отключены.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4E1} Подключить канал', callback_data: 'menu:connect' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
     });
   } else {
     const { text: listText, replyMarkup } = buildChannelsListContent(freshChats);
@@ -242,7 +250,8 @@ async function handleTestCallback(
     await tg.editMessageText({
       chatId: String(ctx.chatId),
       messageId: ctx.messageId,
-      text: 'Тестовая отправка отменена.',
+      text: '\u{1F4E3} Тестовая отправка отменена.',
+      replyMarkup: { inline_keyboard: [BACK_TO_MENU_ROW] },
     });
     return;
   }
@@ -261,6 +270,7 @@ async function handleTestCallback(
       chatId: String(ctx.chatId),
       messageId: ctx.messageId,
       text: msg,
+      replyMarkup: { inline_keyboard: [BACK_TO_MENU_ROW] },
     });
     return;
   }
@@ -276,7 +286,8 @@ async function handleTestCallback(
   await tg.editMessageText({
     chatId: String(ctx.chatId),
     messageId: ctx.messageId,
-    text: `<b>Результаты тестовой отправки:</b>\n\n${results.join('\n')}`,
+    text: `\u{1F4E3} <b>Результаты тестовой отправки:</b>\n\n${results.join('\n')}`,
+    replyMarkup: { inline_keyboard: [BACK_TO_MENU_ROW] },
   });
 }
 
@@ -284,23 +295,33 @@ async function handleTestCallback(
 async function handleMenuButton(ctx: CallbackContext, command: string): Promise<void> {
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
 
-  // Build a BotContext from the callback context to pass to command handlers
-  // The message/text fields are not used by command handlers (they use chatId/userId),
-  // but are required by the interface, so we provide safe defaults.
-  const botCtx: BotContext = {
-    update: ctx.update,
-    message: ctx.update.callback_query?.message ?? { message_id: ctx.messageId, chat: { id: ctx.chatId, type: 'private' }, date: Math.floor(Date.now() / 1000) },
-    chatId: ctx.chatId,
-    userId: ctx.userId,
-    text: `/${command}`,
-  };
+  // "Back to menu" — edit the current message in-place
+  if (command === 'main') {
+    await editToMainMenu(ctx.chatId, ctx.messageId, ctx.userId);
+    return;
+  }
 
+  // connect is special — it uses reply keyboard (native Telegram chat picker),
+  // so it must always send a new message
+  if (command === 'connect') {
+    const botCtx = buildBotContext(ctx);
+    await handleConnect(botCtx);
+    return;
+  }
+
+  // preview is special — it sends a photo as a new message
+  if (command === 'preview') {
+    const botCtx = buildBotContext(ctx);
+    await handlePreview(botCtx);
+    return;
+  }
+
+  // For other commands, send as new message (they include back-to-menu buttons)
+  const botCtx = buildBotContext(ctx);
   const handlers: Record<string, () => Promise<void>> = {
-    connect: () => handleConnect(botCtx),
     channels: () => handleChannels(botCtx),
     settings: () => handleSettings(botCtx),
     test: () => handleTest(botCtx),
-    preview: () => handlePreview(botCtx),
     stats: () => handleStats(botCtx),
   };
 
@@ -310,3 +331,13 @@ async function handleMenuButton(ctx: CallbackContext, command: string): Promise<
   }
 }
 
+/** Build a BotContext from CallbackContext for dispatching to command handlers */
+function buildBotContext(ctx: CallbackContext): BotContext {
+  return {
+    update: ctx.update,
+    message: ctx.update.callback_query?.message ?? { message_id: ctx.messageId, chat: { id: ctx.chatId, type: 'private' }, date: Math.floor(Date.now() / 1000) },
+    chatId: ctx.chatId,
+    userId: ctx.userId,
+    text: '',
+  };
+}

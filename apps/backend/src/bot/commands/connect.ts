@@ -23,7 +23,8 @@ export async function handleConnect(ctx: BotContext): Promise<void> {
   if (!streamer) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Сначала привяжите аккаунт.\n\nПерейдите на дашборд и нажмите «Привязать Telegram»:\nhttps://notify.memelab.ru/dashboard',
+      text: 'Сначала привяжите аккаунт.',
+      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
     });
     return;
   }

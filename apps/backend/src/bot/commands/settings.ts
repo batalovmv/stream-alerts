@@ -11,6 +11,7 @@ import { redis } from '../../lib/redis.js';
 import type { BotContext, CallbackContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
+import { BACK_TO_MENU_ROW } from '../ui.js';
 
 const PENDING_TEMPLATE_PREFIX = 'pending:template:';
 const PENDING_TEMPLATE_TTL = 300; // 5 minutes
@@ -24,7 +25,8 @@ export async function handleSettings(ctx: BotContext): Promise<void> {
   if (!streamer) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Сначала привяжите аккаунт.\n\nПерейдите на дашборд: https://notify.memelab.ru/dashboard',
+      text: 'Сначала привяжите аккаунт.',
+      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
     });
     return;
   }
@@ -32,7 +34,13 @@ export async function handleSettings(ctx: BotContext): Promise<void> {
   if (streamer.chats.length === 0) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'У вас нет подключённых каналов.\n\nИспользуйте /connect чтобы добавить канал или группу.',
+      text: '\u{2699}\u{FE0F} <b>Настройки</b>\n\nУ вас пока нет подключённых каналов.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4E1} Подключить канал', callback_data: 'menu:connect' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
     });
     return;
   }
@@ -45,13 +53,15 @@ export async function sendSettingsMenu(
   chats: Array<{ id: string; chatTitle: string | null; chatId: string; enabled: boolean; deleteAfterEnd: boolean; customTemplate: string | null }>,
 ): Promise<void> {
   const keyboard: Array<Array<{ text: string; callback_data: string }>> = chats.map((chat) => [{
-    text: `${chat.enabled ? '🟢' : '🔴'} ${chat.chatTitle || chat.chatId}`,
+    text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
     callback_data: `settings:${chat.id}`,
   }]);
 
+  keyboard.push(BACK_TO_MENU_ROW);
+
   await tg.sendMessage({
     chatId: String(chatId),
-    text: '⚙️ <b>Настройки каналов</b>\n\nВыберите канал для настройки:',
+    text: '\u{2699}\u{FE0F} <b>Настройки</b>\n\nВыберите канал:',
     replyMarkup: { inline_keyboard: keyboard },
   });
 }
@@ -65,20 +75,23 @@ export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: str
 
   const title = escapeHtml(chat.chatTitle || chat.chatId);
   const text = [
-    `⚙️ <b>${title}</b>`,
+    `\u{2699}\u{FE0F} <b>${title}</b>`,
     '',
-    `Статус: ${chat.enabled ? '🟢 Активен' : '🔴 Выключен'}`,
-    `Удалять после стрима: ${chat.deleteAfterEnd ? '✅ Да' : '❌ Нет'}`,
-    `Шаблон: ${chat.customTemplate ? '📝 Свой' : '📋 Стандартный'}`,
+    `\u{1F4A1} Статус: ${chat.enabled ? '\u{1F7E2} Активен' : '\u{1F534} Выключен'}`,
+    `\u{1F5D1} Удалять после стрима: ${chat.deleteAfterEnd ? '\u2705 Да' : '\u274C Нет'}`,
+    `\u{1F4DD} Шаблон: ${chat.customTemplate ? 'Свой' : 'Стандартный'}`,
   ].join('\n');
 
   const keyboard: Array<Array<{ text: string; callback_data: string }>> = [
     [
-      { text: chat.enabled ? '🔴 Выключить' : '🟢 Включить', callback_data: `stg_toggle:${chat.id}` },
-      { text: chat.deleteAfterEnd ? '❌ Не удалять' : '✅ Удалять после', callback_data: `stg_delete:${chat.id}` },
+      { text: chat.enabled ? '\u{1F534} Выключить' : '\u{1F7E2} Включить', callback_data: `stg_toggle:${chat.id}` },
+      { text: chat.deleteAfterEnd ? '\u{274C} Не удалять' : '\u{1F5D1} Удалять', callback_data: `stg_delete:${chat.id}` },
     ],
-    [{ text: '📝 Изменить шаблон', callback_data: `stg_template:${chat.id}` }],
-    [{ text: '◀️ Назад', callback_data: 'stg_back' }],
+    [{ text: '\u{1F4DD} Изменить шаблон', callback_data: `stg_template:${chat.id}` }],
+    [
+      { text: '\u{25C0}\u{FE0F} Настройки', callback_data: 'stg_back' },
+      { text: '\u{25C0}\u{FE0F} Меню', callback_data: 'menu:main' },
+    ],
   ];
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
@@ -107,7 +120,7 @@ export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: strin
     text: chat.enabled ? 'Канал выключен' : 'Канал включён',
   });
 
-  // Refresh settings view
+  // Refresh settings view in-place
   await handleSettingsCallback(ctx, chatDbId);
 }
 
@@ -125,7 +138,7 @@ export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: strin
 
   await tg.answerCallbackQuery({
     callbackQueryId: ctx.callbackQueryId,
-    text: chat.deleteAfterEnd ? 'Удаление после стрима выключено' : 'Удаление после стрима включено',
+    text: chat.deleteAfterEnd ? 'Удаление выключено' : 'Удаление включено',
   });
 
   await handleSettingsCallback(ctx, chatDbId);
@@ -153,14 +166,14 @@ export async function handleSettingsTemplate(ctx: CallbackContext, chatDbId: str
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: '📝 Отправьте новый шаблон анонса.\n\n'
-      + 'Доступные переменные:\n'
+    text: '\u{1F4DD} Отправьте новый шаблон анонса.\n\n'
+      + 'Переменные:\n'
       + '<code>{streamer_name}</code> — имя стримера\n'
       + '<code>{stream_title}</code> — название стрима\n'
       + '<code>{game_name}</code> — игра\n'
       + '<code>{stream_url}</code> — ссылка на стрим\n'
       + '<code>{memelab_url}</code> — ссылка на MemeLab\n\n'
-      + 'Отправьте <code>reset</code> чтобы сбросить на стандартный.\n'
+      + '<code>reset</code> — сбросить на стандартный\n'
       + '/cancel — отмена',
   });
 }
@@ -179,14 +192,16 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
 
   const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat) => [{
-    text: `${chat.enabled ? '🟢' : '🔴'} ${chat.chatTitle || chat.chatId}`,
+    text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
     callback_data: `settings:${chat.id}`,
   }]);
+
+  keyboard.push(BACK_TO_MENU_ROW);
 
   await tg.editMessageText({
     chatId: String(ctx.chatId),
     messageId: ctx.messageId,
-    text: '⚙️ <b>Настройки каналов</b>\n\nВыберите канал для настройки:',
+    text: '\u{2699}\u{FE0F} <b>Настройки</b>\n\nВыберите канал:',
     replyMarkup: { inline_keyboard: keyboard },
   });
 }
@@ -196,7 +211,7 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   if (!chatDbId) {
     await tg.sendMessage({
       chatId: String(chatId),
-      text: '⏰ Сессия редактирования шаблона истекла.\n\nОткройте /settings и нажмите «Изменить шаблон» снова.',
+      text: '\u{23F0} Сессия редактирования шаблона истекла.\n\nОткройте /settings и нажмите \u{00AB}Изменить шаблон\u{00BB} снова.',
     });
     return;
   }
@@ -208,7 +223,7 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     : null;
 
   if (!chat || !streamer) {
-    await tg.sendMessage({ chatId: String(chatId), text: '❌ Канал не найден или не принадлежит вашему аккаунту.' });
+    await tg.sendMessage({ chatId: String(chatId), text: '\u{274C} Канал не найден или не принадлежит вашему аккаунту.' });
     return;
   }
 
@@ -217,7 +232,7 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   if (text.length > MAX_TEMPLATE_LENGTH) {
     // Restore pending state so user can retry with shorter text
     await redis.setex(PENDING_TEMPLATE_PREFIX + userId, PENDING_TEMPLATE_TTL, chatDbId);
-    await tg.sendMessage({ chatId: String(chatId), text: `❌ Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH} символов). Сократите текст и отправьте снова.` });
+    await tg.sendMessage({ chatId: String(chatId), text: `\u{274C} Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH}). Сократите и отправьте снова.` });
     return;
   }
 
@@ -226,7 +241,11 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
       where: { id: chatDbId, streamerId: streamer.id },
       data: { customTemplate: null },
     });
-    await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон сброшен на стандартный.' });
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: '\u{2705} Шаблон сброшен на стандартный.',
+      replyMarkup: { inline_keyboard: [BACK_TO_MENU_ROW] },
+    });
     return;
   }
 
@@ -234,7 +253,6 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     where: { id: chatDbId, streamerId: streamer.id },
     data: { customTemplate: text },
   });
-  await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон обновлён! Вот как будет выглядеть анонс:' });
 
   // Auto-preview the saved template
   const previewVars = {
@@ -248,8 +266,7 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   const buttons = buildDefaultButtons(previewVars);
   await tg.sendMessage({
     chatId: String(chatId),
-    text: previewText,
+    text: `\u{2705} Шаблон обновлён!\n\n${previewText}`,
     buttons: buttons.map((b) => ({ label: b.label, url: b.url })),
   });
 }
-

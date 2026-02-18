@@ -9,6 +9,7 @@ import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 import type { BotContext } from '../types.js';
+import { BACK_TO_MENU_ROW } from '../ui.js';
 
 /** Static placeholder image for preview (Twitch live thumbnails only work during active streams) */
 const PREVIEW_PLACEHOLDER_URL = 'https://static-cdn.jtvnw.net/ttv-static/404_preview-640x360.jpg';
@@ -22,7 +23,8 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
   if (!streamer) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Сначала привяжите аккаунт.\n\nПерейдите на дашборд: https://notify.memelab.ru/dashboard',
+      text: 'Сначала привяжите аккаунт.',
+      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
     });
     return;
   }
@@ -60,8 +62,15 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
 
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: '👆 Так будет выглядеть анонс.\n\n'
+    text: '\u{1F441} <b>Предпросмотр</b>\n\n'
+      + '\u{1F446} Так будет выглядеть анонс.\n\n'
       + 'Переменные: <code>{streamer_name}</code>, <code>{stream_title}</code>, <code>{game_name}</code>, '
       + '<code>{stream_url}</code>, <code>{memelab_url}</code>',
+    replyMarkup: {
+      inline_keyboard: [
+        [{ text: '\u{1F4DD} Изменить шаблон', callback_data: 'menu:settings' }],
+        BACK_TO_MENU_ROW,
+      ],
+    },
   });
 }

@@ -9,6 +9,7 @@ import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import type { BotContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleStats(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
@@ -19,7 +20,8 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   if (!streamer) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Сначала привяжите аккаунт.\n\nПерейдите на дашборд: https://notify.memelab.ru/dashboard',
+      text: 'Сначала привяжите аккаунт.',
+      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
     });
     return;
   }
@@ -27,7 +29,16 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   const chatIds = streamer.chats.map((c) => c.id);
 
   if (chatIds.length === 0) {
-    await tg.sendMessage({ chatId: String(ctx.chatId), text: 'Нет подключённых каналов.' });
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text: '\u{1F4CA} <b>Статистика</b>\n\nНет подключённых каналов.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4E1} Подключить канал', callback_data: 'menu:connect' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
+    });
     return;
   }
 
@@ -44,19 +55,23 @@ export async function handleStats(ctx: BotContext): Promise<void> {
 
   const total = sentCount + failedCount + deletedCount;
 
-  let text = '📊 <b>Статистика анонсов</b>\n\n';
+  let text = '\u{1F4CA} <b>Статистика анонсов</b>\n\n';
   text += `Всего: ${total}\n`;
-  text += `✅ Отправлено: ${sentCount}\n`;
-  text += `🗑 Удалено: ${deletedCount}\n`;
-  text += `❌ Ошибок: ${failedCount}\n`;
+  text += `\u2705 Отправлено: ${sentCount}\n`;
+  text += `\u{1F5D1} Удалено: ${deletedCount}\n`;
+  text += `\u274C Ошибок: ${failedCount}\n`;
 
   if (lastAnnouncement?.sentAt) {
     const date = lastAnnouncement.sentAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
-    text += `\n🕐 Последний: ${date}`;
+    text += `\n\u{1F551} Последний: ${date}`;
     if (lastAnnouncement.chat?.chatTitle) {
-      text += ` → ${escapeHtml(lastAnnouncement.chat.chatTitle)}`;
+      text += ` \u2192 ${escapeHtml(lastAnnouncement.chat.chatTitle)}`;
     }
   }
 
-  await tg.sendMessage({ chatId: String(ctx.chatId), text });
+  await tg.sendMessage({
+    chatId: String(ctx.chatId),
+    text,
+    replyMarkup: { inline_keyboard: [BACK_TO_MENU_ROW] },
+  });
 }

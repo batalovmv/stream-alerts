@@ -12,6 +12,7 @@ import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 import { REQUEST_ID_GROUP, REQUEST_ID_CHANNEL } from '../commands/connect.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   const shared = msg.chat_shared;
@@ -30,8 +31,13 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   if (!streamer) {
     await tg.removeReplyKeyboard(
       chatId,
-      'Ваш аккаунт не привязан. Перейдите на дашборд: https://notify.memelab.ru/dashboard',
+      'Ваш аккаунт не привязан.',
     );
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: 'Привяжите аккаунт на дашборде:',
+      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+    });
     return;
   }
 
@@ -77,14 +83,21 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
     await tg.removeReplyKeyboard(
       chatId,
       [
-        '⚠️ Бот не смог получить права администратора в выбранном чате.',
+        '\u{26A0}\u{FE0F} Бот не смог получить права администратора.',
         '',
-        'Автоматическое добавление не сработало. Пожалуйста:',
-        '1. Откройте настройки чата',
-        '2. Добавьте @MemelabNotifyBot как администратора вручную',
-        '3. Попробуйте /connect снова',
+        'Добавьте @MemelabNotifyBot как администратора вручную, затем попробуйте снова.',
       ].join('\n'),
     );
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: 'Повторить подключение:',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4E1} Подключить заново', callback_data: 'menu:connect' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
+    });
     return;
   }
 
@@ -94,8 +107,18 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   if (chatCount >= MAX_CHATS_PER_STREAMER) {
     await tg.removeReplyKeyboard(
       chatId,
-      `Достигнут лимит подключённых каналов (${MAX_CHATS_PER_STREAMER}).\n\nУдалите ненужные через /channels, затем попробуйте снова.`,
+      `Достигнут лимит подключённых каналов (${MAX_CHATS_PER_STREAMER}).`,
     );
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: 'Удалите ненужные каналы и попробуйте снова:',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4CB} Каналы', callback_data: 'menu:channels' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
+    });
     return;
   }
 
@@ -113,8 +136,18 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   if (existing) {
     await tg.removeReplyKeyboard(
       chatId,
-      `<b>${escapeHtml(chatTitle || selectedChatId)}</b> уже подключён.\n\nИспользуйте /channels для управления.`,
+      `<b>${escapeHtml(chatTitle || selectedChatId)}</b> уже подключён.`,
     );
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: 'Управление каналами:',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4CB} Каналы', callback_data: 'menu:channels' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
+    });
     return;
   }
 
@@ -134,10 +167,17 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
       { streamerId: streamer.id, chatId: selectedChatId, error: error instanceof Error ? error.message : String(error) },
       'bot.chat_connect_failed',
     );
-    await tg.removeReplyKeyboard(
-      chatId,
-      'Не удалось сохранить подключение. Попробуйте /connect ещё раз.',
-    );
+    await tg.removeReplyKeyboard(chatId, 'Не удалось сохранить подключение.');
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: 'Попробуйте ещё раз:',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F4E1} Подключить заново', callback_data: 'menu:connect' }],
+          BACK_TO_MENU_ROW,
+        ],
+      },
+    });
     return;
   }
 
@@ -148,14 +188,20 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
 
   await tg.removeReplyKeyboard(
     chatId,
-    [
-      `<b>${escapeHtml(chatTitle || selectedChatId)}</b> подключён!`,
-      '',
-      'Теперь анонсы стримов будут автоматически отправляться в этот чат.',
-      '',
-      '/test — отправить тестовый анонс',
-      '/channels — управление каналами',
-    ].join('\n'),
+    `\u2705 <b>${escapeHtml(chatTitle || selectedChatId)}</b> подключён!\n\nАнонсы стримов будут автоматически отправляться в этот чат.`,
   );
+  await tg.sendMessage({
+    chatId: String(chatId),
+    text: '\u{1F447} Что дальше?',
+    replyMarkup: {
+      inline_keyboard: [
+        [
+          { text: '\u{1F4E3} Тест', callback_data: 'menu:test' },
+          { text: '\u{1F4CB} Каналы', callback_data: 'menu:channels' },
+        ],
+        BACK_TO_MENU_ROW,
+      ],
+    },
+  });
 }
 

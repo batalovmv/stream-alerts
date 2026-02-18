@@ -12,29 +12,9 @@ import { redis } from '../../lib/redis.js';
 import { logger } from '../../lib/logger.js';
 import type { BotContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { sendMainMenu, getMainMenuKeyboard, buildMainMenuText } from '../ui.js';
 
 const LINK_TOKEN_PREFIX = 'link:token:';
-
-/** Inline button menu for linked users */
-const MAIN_MENU_KEYBOARD = {
-  inline_keyboard: [
-    [
-      { text: '\u{1F4E1} Подключить канал', callback_data: 'menu:connect' },
-      { text: '\u{1F4CB} Мои каналы', callback_data: 'menu:channels' },
-    ],
-    [
-      { text: '\u{2699}\u{FE0F} Настройки', callback_data: 'menu:settings' },
-      { text: '\u{1F4E3} Тест анонса', callback_data: 'menu:test' },
-    ],
-    [
-      { text: '\u{1F441} Предпросмотр', callback_data: 'menu:preview' },
-      { text: '\u{1F4CA} Статистика', callback_data: 'menu:stats' },
-    ],
-    [
-      { text: '\u{1F310} Открыть дашборд', url: 'https://notify.memelab.ru/dashboard' },
-    ],
-  ],
-};
 
 export async function handleStart(ctx: BotContext, args: string): Promise<void> {
   // ─── Account linking via deep link ───────────────────────
@@ -49,17 +29,7 @@ export async function handleStart(ctx: BotContext, args: string): Promise<void> 
   });
 
   if (streamer) {
-    await tg.sendMessage({
-      chatId: String(ctx.chatId),
-      text: [
-        '\u{1F7E3} <b>MemeLab Notify</b>',
-        '',
-        `\u{1F464} <b>${escapeHtml(streamer.displayName)}</b>`,
-        '',
-        'Выберите действие:',
-      ].join('\n'),
-      replyMarkup: MAIN_MENU_KEYBOARD,
-    });
+    await sendMainMenu(ctx.chatId, streamer.displayName);
   } else {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
@@ -116,12 +86,12 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     return;
   }
 
-  // Already linked to the same streamer — no-op with friendly message
+  // Already linked to the same streamer — show main menu
   if (existingLink && existingLink.id === streamerId) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: `\u{2705} Аккаунт <b>${escapeHtml(existingLink.displayName)}</b> уже привязан.`,
-      replyMarkup: MAIN_MENU_KEYBOARD,
+      replyMarkup: getMainMenuKeyboard(),
     });
     return;
   }
@@ -157,8 +127,8 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     text: [
       `\u{2705} Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
       '',
-      'Выберите действие:',
+      '\u{1F447} Выберите действие:',
     ].join('\n'),
-    replyMarkup: MAIN_MENU_KEYBOARD,
+    replyMarkup: getMainMenuKeyboard(),
   });
 }
