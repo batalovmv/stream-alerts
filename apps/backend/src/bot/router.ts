@@ -14,6 +14,10 @@ import { handleStart } from './commands/start.js';
 import { handleConnect } from './commands/connect.js';
 import { handleChannels } from './commands/channels.js';
 import { handleTest } from './commands/test.js';
+import { handleSettings } from './commands/settings.js';
+import { handleStats } from './commands/stats.js';
+import { handlePreview } from './commands/preview.js';
+import { getPendingTemplateEdit, clearPendingTemplateEdit, handleTemplateTextInput } from './commands/settings.js';
 import { handleChatShared } from './handlers/chatShared.js';
 import { handleCallbackQuery } from './handlers/callbackQuery.js';
 import { handleMyChatMember } from './handlers/myChatMember.js';
@@ -66,6 +70,12 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
       return;
     }
 
+    // Check for pending template edit (text input for /settings)
+    if (!text.startsWith('/') && msg.from?.id && getPendingTemplateEdit(msg.from.id)) {
+      await handleTemplateTextInput(msg.chat.id, msg.from.id, text);
+      return;
+    }
+
     if (!text.startsWith('/')) return;
 
     const ctx: BotContext = {
@@ -97,6 +107,21 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
       case 'test':
         await handleTest(ctx);
         break;
+      case 'settings':
+        await handleSettings(ctx);
+        break;
+      case 'stats':
+        await handleStats(ctx);
+        break;
+      case 'preview':
+        await handlePreview(ctx);
+        break;
+      case 'cancel': {
+        if (msg.from?.id) clearPendingTemplateEdit(msg.from.id);
+        const { sendMessage } = await import('../providers/telegram/telegramApi.js');
+        await sendMessage({ chatId: String(ctx.chatId), text: 'Отменено.' });
+        break;
+      }
       default:
         // Unknown command — ignore silently
         break;

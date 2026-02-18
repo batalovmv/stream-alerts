@@ -9,6 +9,7 @@ import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { getProvider } from '../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from './templateService.js';
+import { TelegramApiError, sendMessage as tgSendMessage } from '../providers/telegram/telegramApi.js';
 
 export interface StreamEventPayload {
   event: 'stream.online' | 'stream.offline';
@@ -55,9 +56,12 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
 // ─── Stream Online ────────────────────────────────────────
 
 async function handleStreamOnline(
-  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; chats: Array<{ id: string; provider: string; chatId: string; customTemplate: string | null }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
 ): Promise<void> {
+  // Stable session ID: channelId + startedAt (required for dedup)
+  const streamSessionId = payload.channelId + ':' + (payload.startedAt ?? 'unknown');
+
   const templateVars = {
     streamer_name: streamer.displayName,
     stream_title: payload.streamTitle,
@@ -68,23 +72,51 @@ async function handleStreamOnline(
 
   const buttons = buildDefaultButtons(templateVars);
 
+  const results: Array<{ chatTitle: string; ok: boolean }> = [];
+
   for (const chat of streamer.chats) {
+    const title = chat.chatTitle ?? chat.chatId;
     try {
       const template = chat.customTemplate || streamer.defaultTemplate;
       const text = renderTemplate(template, templateVars);
-
       const provider = getProvider(chat.provider);
+
+      // Check if already sent for this stream session
+      const existing = await prisma.announcementLog.findFirst({
+        where: {
+          chatId: chat.id,
+          streamSessionId,
+          status: 'sent',
+        },
+      });
+
+      if (existing?.providerMsgId) {
+        // Update existing announcement (title/game changed)
+        await provider.editAnnouncement(chat.chatId, existing.providerMsgId, {
+          text,
+          photoUrl: payload.thumbnailUrl,
+          buttons,
+        });
+        logger.info({ chatId: chat.chatId, streamSessionId, messageId: existing.providerMsgId }, 'announce.updated');
+        results.push({ chatTitle: title, ok: true });
+        continue;
+      }
+
+      if (existing) {
+        logger.info({ chatId: chat.chatId, streamSessionId }, 'announce.dedup_skipped');
+        continue;
+      }
+
       const result = await provider.sendAnnouncement(chat.chatId, {
         text,
         photoUrl: payload.thumbnailUrl,
         buttons,
       });
 
-      // Save announcement log
       await prisma.announcementLog.create({
         data: {
           chatId: chat.id,
-          streamSessionId: payload.channelId + ':' + (payload.startedAt ?? Date.now()),
+          streamSessionId,
           provider: chat.provider as 'telegram' | 'max',
           providerMsgId: result.messageId,
           status: 'sent',
@@ -92,7 +124,6 @@ async function handleStreamOnline(
         },
       });
 
-      // Update last message ID for deletion
       await prisma.connectedChat.update({
         where: { id: chat.id },
         data: {
@@ -102,18 +133,43 @@ async function handleStreamOnline(
       });
 
       logger.info({ chatId: chat.chatId, provider: chat.provider, messageId: result.messageId }, 'announce.sent');
+      results.push({ chatTitle: title, ok: true });
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       logger.error({ chatId: chat.chatId, provider: chat.provider, error: errMsg }, 'announce.send_failed');
 
+      if (error instanceof TelegramApiError && error.permanent) {
+        await prisma.connectedChat.update({
+          where: { id: chat.id },
+          data: { enabled: false },
+        });
+        logger.warn({ chatId: chat.chatId, provider: chat.provider }, 'announce.chat_disabled_permanent_error');
+      }
+
       await prisma.announcementLog.create({
         data: {
           chatId: chat.id,
+          streamSessionId,
           provider: chat.provider as 'telegram' | 'max',
           status: 'failed',
           error: errMsg,
         },
       });
+
+      results.push({ chatTitle: title, ok: false });
+    }
+  }
+
+  // Notify streamer about delivery results
+  if (streamer.telegramUserId && results.length > 0) {
+    try {
+      const lines = results.map((r) => `${r.ok ? '✅' : '❌'} ${r.chatTitle}`);
+      await tgSendMessage({
+        chatId: streamer.telegramUserId,
+        text: `📢 Анонс стрима:\n\n${lines.join('\n')}`,
+      });
+    } catch {
+      // Don't fail the whole flow if notification to streamer fails
     }
   }
 }

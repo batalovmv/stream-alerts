@@ -14,6 +14,13 @@ import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 import { sendChannelsList } from '../commands/channels.js';
 import { sendTestAnnouncement } from '../commands/test.js';
+import {
+  handleSettingsCallback,
+  handleSettingsToggle,
+  handleSettingsDelete,
+  handleSettingsTemplate,
+  handleSettingsBack,
+} from '../commands/settings.js';
 import type { CallbackContext } from '../types.js';
 
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
@@ -51,6 +58,26 @@ export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
 
     case 'test':
       await handleTestCallback(ctx, streamer, targetId);
+      break;
+
+    case 'settings':
+      await handleSettingsCallback(ctx, targetId);
+      break;
+
+    case 'stg_toggle':
+      await handleSettingsToggle(ctx, targetId);
+      break;
+
+    case 'stg_delete':
+      await handleSettingsDelete(ctx, targetId);
+      break;
+
+    case 'stg_template':
+      await handleSettingsTemplate(ctx, targetId);
+      break;
+
+    case 'stg_back':
+      await handleSettingsBack(ctx);
       break;
 
     default:
