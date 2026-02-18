@@ -50,7 +50,8 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
     }
     await handleStreamOnline(streamer, payload);
   } else {
-    await handleStreamOffline(streamer.id);
+    // Pass startedAt so offline handler can find the matching session's announcements
+    await handleStreamOffline(streamer.id, payload.startedAt ? payload.channelId + ':' + payload.startedAt : undefined);
   }
 }
 
@@ -61,7 +62,8 @@ async function handleStreamOnline(
   payload: StreamEventPayload,
 ): Promise<void> {
   // Stable session ID: channelId + startedAt (required for dedup)
-  const streamSessionId = payload.channelId + ':' + (payload.startedAt ?? 'unknown');
+  // Use ISO timestamp fallback to avoid collisions when startedAt is missing
+  const streamSessionId = payload.channelId + ':' + (payload.startedAt ?? `no-start-${new Date().toISOString()}`);
 
   const templateVars = {
     streamer_name: streamer.displayName,
@@ -144,6 +146,10 @@ async function handleStreamOnline(
       logger.info({ chatId: chat.chatId, provider: chat.provider, messageId: result.messageId }, 'announce.sent');
       results.push({ chatTitle: title, ok: true });
     } catch (error) {
+      // Release dedup lock so BullMQ retry can re-attempt this chat
+      const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
+      await redis.del(lockKey).catch(() => {});
+
       const errMsg = error instanceof Error ? error.message : String(error);
       logger.error({ chatId: chat.chatId, provider: chat.provider, error: errMsg }, 'announce.send_failed');
 
@@ -186,7 +192,7 @@ async function handleStreamOnline(
 
 // ─── Stream Offline ───────────────────────────────────────
 
-async function handleStreamOffline(streamerId: string): Promise<void> {
+async function handleStreamOffline(streamerId: string, streamSessionId?: string): Promise<void> {
   // Query ALL chats with deleteAfterEnd=true, regardless of enabled status,
   // so previously-sent announcements are cleaned up even if the chat was disabled mid-stream.
   const chats = await prisma.connectedChat.findMany({
@@ -198,12 +204,21 @@ async function handleStreamOffline(streamerId: string): Promise<void> {
 
   for (const chat of chats) {
     try {
-      // Use lastMessageId if available, otherwise fall back to AnnouncementLog
-      let messageIdToDelete = chat.lastMessageId;
+      // Prefer finding the exact announcement for this stream session
+      let messageIdToDelete: string | null = null;
+
+      if (streamSessionId) {
+        const sessionLog = await prisma.announcementLog.findFirst({
+          where: { chatId: chat.id, streamSessionId, status: 'sent' },
+        });
+        messageIdToDelete = sessionLog?.providerMsgId ?? null;
+      }
+
+      // Fall back to lastMessageId or recent log entry
       if (!messageIdToDelete) {
-        // Fallback: find the most recent UNSENT-deleted announcement for this chat,
-        // but only consider recent ones (last 24h) to avoid deleting announcements
-        // from a subsequent stream session
+        messageIdToDelete = chat.lastMessageId;
+      }
+      if (!messageIdToDelete) {
         const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const logEntry = await prisma.announcementLog.findFirst({
           where: { chatId: chat.id, status: 'sent', sentAt: { gte: cutoff } },

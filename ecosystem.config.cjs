@@ -13,7 +13,7 @@ function loadEnv(filePath) {
       if (idx === -1) continue;
       let val = trimmed.slice(idx + 1).trim();
       if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-        val = val.slice(1, -1);
+        val = val.slice(1, -1).replace(/\\(.)/g, '$1');
       } else {
         // Strip inline comments (only for unquoted values)
         const commentIdx = val.indexOf(' #');

@@ -81,7 +81,7 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   if (existingLink && existingLink.id !== streamerId) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: `Ваш Telegram уже привязан к аккаунту <b>${existingLink.displayName}</b>.\n\nОтвяжите его на дашборде, чтобы привязать к другому аккаунту.`,
+      text: 'Ваш Telegram уже привязан к другому аккаунту.\n\nОтвяжите его на дашборде, чтобы привязать к другому аккаунту.',
     });
     return;
   }

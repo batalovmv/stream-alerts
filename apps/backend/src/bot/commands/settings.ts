@@ -139,6 +139,13 @@ export async function clearPendingTemplateEdit(userId: number): Promise<void> {
 }
 
 export async function handleSettingsTemplate(ctx: CallbackContext, chatDbId: string): Promise<void> {
+  // Verify ownership before storing pending edit state
+  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
+    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    return;
+  }
+
   await redis.setex(PENDING_TEMPLATE_PREFIX + ctx.userId, PENDING_TEMPLATE_TTL, chatDbId);
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
@@ -192,6 +199,13 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
 
   if (!chat || !streamer) {
     await tg.sendMessage({ chatId: String(chatId), text: '❌ Канал не найден или не принадлежит вашему аккаунту.' });
+    return;
+  }
+
+  // Validate template length (same limit as REST API)
+  const MAX_TEMPLATE_LENGTH = 2000;
+  if (text.length > MAX_TEMPLATE_LENGTH) {
+    await tg.sendMessage({ chatId: String(chatId), text: `❌ Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH} символов). Сократите текст.` });
     return;
   }
 

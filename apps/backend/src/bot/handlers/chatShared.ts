@@ -104,15 +104,27 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   }
 
   // Save the connected chat
-  await prisma.connectedChat.create({
-    data: {
-      streamerId: streamer.id,
-      provider: 'telegram',
-      chatId: selectedChatId,
-      chatTitle,
-      chatType: resolvedChatType,
-    },
-  });
+  try {
+    await prisma.connectedChat.create({
+      data: {
+        streamerId: streamer.id,
+        provider: 'telegram',
+        chatId: selectedChatId,
+        chatTitle,
+        chatType: resolvedChatType,
+      },
+    });
+  } catch (error) {
+    logger.error(
+      { streamerId: streamer.id, chatId: selectedChatId, error: error instanceof Error ? error.message : String(error) },
+      'bot.chat_connect_failed',
+    );
+    await tg.removeReplyKeyboard(
+      chatId,
+      'Не удалось сохранить подключение. Попробуйте /connect ещё раз.',
+    );
+    return;
+  }
 
   logger.info(
     { streamerId: streamer.id, chatId: selectedChatId, chatTitle, chatType: resolvedChatType },
