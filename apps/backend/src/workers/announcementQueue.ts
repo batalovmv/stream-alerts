@@ -12,12 +12,13 @@ import { processStreamEvent, type StreamEventPayload } from '../services/announc
 
 const QUEUE_NAME = 'announcements';
 
-// Parse Redis URL properly to extract host/port/password for BullMQ
+// Parse Redis URL properly to extract host/port/password/tls for BullMQ
 const redisUrl = new URL(config.redisUrl);
 const connection = {
   host: redisUrl.hostname || 'localhost',
   port: parseInt(redisUrl.port || '6379', 10),
   password: redisUrl.password || undefined,
+  ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
 };
 
 export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {
@@ -45,8 +46,8 @@ export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<v
   logger.info({ jobId, event: payload.event, channelId: payload.channelId }, 'queue.enqueued');
 }
 
-/** Start the announcement worker */
-export function startAnnouncementWorker(): void {
+/** Start the announcement worker. Returns the Worker instance for graceful shutdown. */
+export function startAnnouncementWorker(): Worker<StreamEventPayload> {
   const worker = new Worker<StreamEventPayload>(
     QUEUE_NAME,
     async (job) => {
@@ -82,4 +83,5 @@ export function startAnnouncementWorker(): void {
   });
 
   logger.info('queue.worker_started');
+  return worker;
 }

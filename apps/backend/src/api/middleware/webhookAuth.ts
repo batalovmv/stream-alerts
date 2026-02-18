@@ -1,12 +1,11 @@
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, createHash } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 
 /**
  * Middleware to verify webhook requests from MemeLab backend.
- * Checks X-Webhook-Secret header against configured secret.
- * Uses timing-safe comparison to prevent timing attacks.
+ * Compares SHA-256 digests of secrets to prevent both timing and length-leak attacks.
  */
 export function webhookAuth(req: Request, res: Response, next: NextFunction): void {
   const secret = req.headers['x-webhook-secret'];
@@ -17,10 +16,11 @@ export function webhookAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  const incoming = Buffer.from(typeof secret === 'string' ? secret : '', 'utf8');
-  const expected = Buffer.from(config.webhookSecret, 'utf8');
+  // Compare SHA-256 digests (always 32 bytes) to prevent length information leakage
+  const incomingHash = createHash('sha256').update(typeof secret === 'string' ? secret : '').digest();
+  const expectedHash = createHash('sha256').update(config.webhookSecret).digest();
 
-  if (incoming.length !== expected.length || !timingSafeEqual(incoming, expected)) {
+  if (!timingSafeEqual(incomingHash, expectedHash)) {
     logger.warn({ ip: req.ip }, 'webhook.invalid_secret');
     res.status(403).json({ error: 'Invalid webhook secret' });
     return;

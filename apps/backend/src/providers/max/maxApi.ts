@@ -63,6 +63,11 @@ async function callApi<T>(method: string, path: string, body?: Record<string, un
     }
 
     return data;
+  } catch (error) {
+    if (error instanceof MaxApiError) throw error;
+    // Network / timeout errors
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new MaxApiError(0, 'NETWORK_ERROR', msg);
   } finally {
     clearTimeout(timeout);
   }

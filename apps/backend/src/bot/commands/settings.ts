@@ -55,8 +55,8 @@ export async function sendSettingsMenu(
 }
 
 export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: string): Promise<void> {
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId } });
-  if (!chat) {
+  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
     await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
     return;
   }
@@ -89,8 +89,8 @@ export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: str
 }
 
 export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: string): Promise<void> {
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId } });
-  if (!chat) {
+  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
     await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
     return;
   }
@@ -110,8 +110,8 @@ export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: strin
 }
 
 export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: string): Promise<void> {
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId } });
-  if (!chat) {
+  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
     await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
     return;
   }

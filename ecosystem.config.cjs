@@ -14,6 +14,10 @@ function loadEnv(filePath) {
       let val = trimmed.slice(idx + 1).trim();
       if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
         val = val.slice(1, -1);
+      } else {
+        // Strip inline comments (only for unquoted values)
+        const commentIdx = val.indexOf(' #');
+        if (commentIdx !== -1) val = val.slice(0, commentIdx).trimEnd();
       }
       env[trimmed.slice(0, idx)] = val;
     }

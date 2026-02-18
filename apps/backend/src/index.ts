@@ -14,6 +14,10 @@ import { authRouter } from './api/routes/auth.js';
 import { setupBot } from './bot/setup.js';
 import { startAnnouncementWorker } from './workers/announcementQueue.js';
 
+import type { Worker } from 'bullmq';
+
+let announcementWorker: Worker | null = null;
+
 const app = express();
 
 // ─── Middleware ────────────────────────────────────────────
@@ -59,7 +63,7 @@ const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, 'MemeLab Notify started');
 
   // Start BullMQ announcement worker
-  startAnnouncementWorker();
+  announcementWorker = startAnnouncementWorker();
 
   // Initialize Telegram bot (polling or webhook)
   setupBot(app).catch((err) => {
@@ -71,6 +75,7 @@ const server = app.listen(config.port, () => {
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down...');
+  if (announcementWorker) await announcementWorker.close();
   server.close();
   await prisma.$disconnect();
   redis.disconnect();

@@ -5,6 +5,7 @@
  * In production, registers a webhook endpoint on Express.
  */
 
+import { timingSafeEqual, createHash } from 'node:crypto';
 import type { Express, Request, Response } from 'express';
 import * as tg from '../providers/telegram/telegramApi.js';
 import { config } from '../lib/config.js';
@@ -66,9 +67,11 @@ async function startWebhook(app: Express): Promise<void> {
   const webhookUrl = `https://notify.memelab.ru${WEBHOOK_PATH}`;
 
   app.post(WEBHOOK_PATH, (req: Request, res: Response) => {
-    // Validate secret token header
+    // Validate secret token header (timing-safe comparison via SHA-256 digests)
     const secretHeader = req.headers['x-telegram-bot-api-secret-token'];
-    if (secretHeader !== WEBHOOK_SECRET) {
+    const incomingHash = createHash('sha256').update(typeof secretHeader === 'string' ? secretHeader : '').digest();
+    const expectedHash = createHash('sha256').update(WEBHOOK_SECRET).digest();
+    if (!timingSafeEqual(incomingHash, expectedHash)) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }

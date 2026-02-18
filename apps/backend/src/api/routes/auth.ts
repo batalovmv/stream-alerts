@@ -20,24 +20,28 @@ const BOT_USERNAME = 'MemelabNotifyBot';
  * GET /api/auth/me — Return current authenticated streamer.
  */
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
-  const { streamer } = req as AuthenticatedRequest;
+  try {
+    const { streamer } = req as AuthenticatedRequest;
 
-  const dbStreamer = await prisma.streamer.findUnique({
-    where: { id: streamer.id },
-    select: { telegramUserId: true },
-  });
+    const dbStreamer = await prisma.streamer.findUnique({
+      where: { id: streamer.id },
+      select: { telegramUserId: true },
+    });
 
-  res.json({
-    user: {
-      id: streamer.id,
-      memelabUserId: streamer.memelabUserId,
-      displayName: streamer.displayName,
-      avatarUrl: streamer.avatarUrl,
-      twitchLogin: streamer.twitchLogin,
-      channelId: streamer.memelabChannelId,
-      telegramLinked: !!dbStreamer?.telegramUserId,
-    },
-  });
+    res.json({
+      user: {
+        id: streamer.id,
+        memelabUserId: streamer.memelabUserId,
+        displayName: streamer.displayName,
+        avatarUrl: streamer.avatarUrl,
+        twitchLogin: streamer.twitchLogin,
+        channelId: streamer.memelabChannelId,
+        telegramLinked: !!dbStreamer?.telegramUserId,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 /**
@@ -69,45 +73,53 @@ router.post('/logout', (_req: Request, res: Response) => {
  * for linking the user's Telegram account to their MemeLab streamer.
  */
 router.post('/telegram-link', requireAuth, async (req: Request, res: Response) => {
-  const { streamer } = req as AuthenticatedRequest;
+  try {
+    const { streamer } = req as AuthenticatedRequest;
 
-  const dbStreamer = await prisma.streamer.findUnique({
-    where: { id: streamer.id },
-    select: { telegramUserId: true },
-  });
-
-  if (dbStreamer?.telegramUserId) {
-    res.json({
-      linked: true,
-      message: 'Telegram account is already linked',
+    const dbStreamer = await prisma.streamer.findUnique({
+      where: { id: streamer.id },
+      select: { telegramUserId: true },
     });
-    return;
+
+    if (dbStreamer?.telegramUserId) {
+      res.json({
+        linked: true,
+        message: 'Telegram account is already linked',
+      });
+      return;
+    }
+
+    const token = randomBytes(16).toString('hex');
+    await redis.setex(LINK_TOKEN_PREFIX + token, LINK_TOKEN_TTL, streamer.id);
+
+    const deepLink = `https://t.me/${BOT_USERNAME}?start=link_${token}`;
+
+    res.json({
+      linked: false,
+      deepLink,
+      expiresIn: LINK_TOKEN_TTL,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  const token = randomBytes(16).toString('hex');
-  await redis.setex(LINK_TOKEN_PREFIX + token, LINK_TOKEN_TTL, streamer.id);
-
-  const deepLink = `https://t.me/${BOT_USERNAME}?start=link_${token}`;
-
-  res.json({
-    linked: false,
-    deepLink,
-    expiresIn: LINK_TOKEN_TTL,
-  });
 });
 
 /**
  * POST /api/auth/telegram-unlink — Unlink Telegram account from streamer.
  */
 router.post('/telegram-unlink', requireAuth, async (req: Request, res: Response) => {
-  const { streamer } = req as AuthenticatedRequest;
+  try {
+    const { streamer } = req as AuthenticatedRequest;
 
-  await prisma.streamer.update({
-    where: { id: streamer.id },
-    data: { telegramUserId: null },
-  });
+    await prisma.streamer.update({
+      where: { id: streamer.id },
+      data: { telegramUserId: null },
+    });
 
-  res.json({ ok: true });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export { router as authRouter };

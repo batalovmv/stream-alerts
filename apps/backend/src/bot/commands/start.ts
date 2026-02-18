@@ -86,11 +86,21 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     return;
   }
 
-  // Link the Telegram account
-  const streamer = await prisma.streamer.update({
-    where: { id: streamerId },
+  // Atomically link only if not already linked (prevents TOCTOU race)
+  const { count } = await prisma.streamer.updateMany({
+    where: { id: streamerId, telegramUserId: null },
     data: { telegramUserId: String(ctx.userId) },
   });
+
+  if (count === 0) {
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text: 'Не удалось привязать аккаунт — возможно, он уже привязан.\n\nСоздайте новую ссылку на дашборде: https://notify.memelab.ru/dashboard',
+    });
+    return;
+  }
+
+  const streamer = await prisma.streamer.findUniqueOrThrow({ where: { id: streamerId } });
 
   logger.info(
     { streamerId, telegramUserId: ctx.userId },
