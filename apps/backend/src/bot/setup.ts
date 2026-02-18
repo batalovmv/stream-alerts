@@ -75,7 +75,11 @@ async function startPolling(): Promise<void> {
 
 /** Register webhook endpoint on Express app (production mode) */
 async function startWebhook(app: Express): Promise<void> {
-  const webhookUrl = `https://notify.memelab.ru${WEBHOOK_PATH}`;
+  if (!WEBHOOK_SECRET) {
+    throw new Error('TELEGRAM_WEBHOOK_SECRET is required in production for webhook mode');
+  }
+
+  const webhookUrl = `${config.publicUrl}${WEBHOOK_PATH}`;
 
   app.post(WEBHOOK_PATH, (req: Request, res: Response) => {
     // Validate secret token header (timing-safe comparison via SHA-256 digests)

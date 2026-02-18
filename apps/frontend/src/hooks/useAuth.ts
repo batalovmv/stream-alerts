@@ -1,9 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, API_BASE } from '../api/client';
 import type { AuthMeResponse, User } from '../types/auth';
 
 const AUTH_QUERY_KEY = ['auth', 'me'] as const;
-const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -39,7 +38,7 @@ export function useAuth() {
     user,
     isLoading,
     isAuthenticated,
-    isError: error instanceof ApiError && error.status !== 401,
+    isError: !!error && !(error instanceof ApiError && error.status === 401),
     login,
     logout,
   };

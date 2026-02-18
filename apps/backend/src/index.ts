@@ -17,6 +17,7 @@ import { startAnnouncementWorker } from './workers/announcementQueue.js';
 import type { Worker } from 'bullmq';
 
 let announcementWorker: Worker | null = null;
+let botReady = false;
 
 const app = express();
 
@@ -47,7 +48,7 @@ const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', version });
+  res.json({ status: 'ok', version, bot: botReady });
 });
 
 app.use('/api/auth', authRouter);
@@ -70,9 +71,11 @@ const server = app.listen(config.port, () => {
   announcementWorker = startAnnouncementWorker();
 
   // Initialize Telegram bot (polling or webhook)
-  setupBot(app).catch((err) => {
-    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'bot.init_failed');
-  });
+  setupBot(app)
+    .then(() => { botReady = true; })
+    .catch((err) => {
+      logger.error({ error: err instanceof Error ? err.message : String(err) }, 'bot.init_failed');
+    });
 });
 
 // ─── Graceful Shutdown ────────────────────────────────────
@@ -80,10 +83,12 @@ const server = app.listen(config.port, () => {
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down...');
   stopPolling();
-  if (announcementWorker) await announcementWorker.close();
+  // Close HTTP server first to stop accepting new requests
   await new Promise<void>((resolve, reject) => {
     server.close((err) => (err ? reject(err) : resolve()));
   });
+  // Then drain the worker queue
+  if (announcementWorker) await announcementWorker.close();
   await prisma.$disconnect();
   redis.disconnect();
   process.exit(0);

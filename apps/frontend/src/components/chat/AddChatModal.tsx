@@ -4,6 +4,15 @@ import { Button, Input } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useChats } from '../../hooks/useChats';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
+import { ApiError } from '../../api/client';
+
+function isSafeDeepLink(url: string): boolean {
+  try {
+    return new URL(url).hostname === 't.me';
+  } catch {
+    return false;
+  }
+}
 
 interface AddChatModalProps {
   open: boolean;
@@ -89,7 +98,7 @@ function LinkAccountFlow() {
 
       {deepLink ? (
         <a
-          href={deepLink}
+          href={deepLink && isSafeDeepLink(deepLink) ? deepLink : '#'}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-glow !px-5 !py-2.5 text-sm w-full text-center block"
@@ -183,7 +192,13 @@ function MaxFlow({ onClose }: { onClose: () => void }) {
       { provider: 'max', chatId: chatId.trim() },
       {
         onSuccess: () => onClose(),
-        onError: (err) => setError(err instanceof Error ? err.message : 'Ошибка при добавлении'),
+        onError: (err) => {
+          if (err instanceof ApiError && err.data && typeof err.data === 'object' && 'error' in err.data) {
+            setError(String((err.data as { error: string }).error));
+          } else {
+            setError('Ошибка при добавлении');
+          }
+        },
       },
     );
   }

@@ -11,9 +11,29 @@ import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from './templateService.js';
+import { escapeHtml } from '../lib/escapeHtml.js';
 
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Allowed hosts for thumbnail URLs to prevent SSRF via Telegram fetch */
+const ALLOWED_THUMBNAIL_HOSTS = new Set([
+  'static-cdn.jtvnw.net',  // Twitch CDN
+  'i.ytimg.com',            // YouTube thumbnails
+  'memelab.ru',
+]);
+
+/** Validate and sanitize thumbnailUrl — only allow known CDN hosts */
+function sanitizeThumbnailUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return undefined;
+    if (!ALLOWED_THUMBNAIL_HOSTS.has(parsed.hostname)) {
+      logger.warn({ thumbnailUrl: url, host: parsed.hostname }, 'announce.thumbnail_blocked');
+      return undefined;
+    }
+    return url;
+  } catch {
+    return undefined;
+  }
 }
 
 export interface StreamEventPayload {
@@ -25,6 +45,20 @@ export interface StreamEventPayload {
   gameName?: string;
   thumbnailUrl?: string;
   startedAt?: string;
+}
+
+/**
+ * Build a deterministic stream session ID.
+ *
+ * Uses channelId + startedAt when available.
+ * Falls back to channelId-only (stable across retries, unlike Date-based fallbacks).
+ */
+function buildStreamSessionId(channelId: string, startedAt?: string): string {
+  if (startedAt) {
+    return `${channelId}:${startedAt}`;
+  }
+  // Deterministic fallback — same across BullMQ retries for the same job
+  return `${channelId}:no-start`;
 }
 
 /**
@@ -48,15 +82,17 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
     return;
   }
 
+  const streamSessionId = buildStreamSessionId(payload.channelId, payload.startedAt);
+
   if (event === 'stream.online') {
     if (streamer.chats.length === 0) {
       logger.info({ streamerId: streamer.id }, 'announce.no_chats');
       return;
     }
-    await handleStreamOnline(streamer, payload);
+    await handleStreamOnline(streamer, payload, streamSessionId);
   } else {
-    // Pass startedAt so offline handler can find the matching session's announcements
-    await handleStreamOffline(streamer.id, payload.startedAt ? payload.channelId + ':' + payload.startedAt : undefined);
+    // Use the same session ID for offline so it matches the online log entries
+    await handleStreamOffline(streamer.id, streamSessionId);
   }
 }
 
@@ -65,10 +101,9 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
 async function handleStreamOnline(
   streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
+  streamSessionId: string,
 ): Promise<void> {
-  // Stable session ID: channelId + startedAt (required for dedup)
-  // Use ISO timestamp fallback to avoid collisions when startedAt is missing
-  const streamSessionId = payload.channelId + ':' + (payload.startedAt ?? `no-start-${new Date().toISOString()}`);
+  const safePhotoUrl = sanitizeThumbnailUrl(payload.thumbnailUrl);
 
   const templateVars = {
     streamer_name: streamer.displayName,
@@ -80,6 +115,17 @@ async function handleStreamOnline(
 
   const buttons = buildDefaultButtons(templateVars);
 
+  // Batch dedup check: find all existing sent records for this session at once
+  const chatIds = streamer.chats.map((c) => c.id);
+  const existingLogs = await prisma.announcementLog.findMany({
+    where: {
+      chatId: { in: chatIds },
+      streamSessionId,
+      status: 'sent',
+    },
+  });
+  const existingByChat = new Map(existingLogs.map((log) => [log.chatId, log]));
+
   const results: Array<{ chatTitle: string; ok: boolean }> = [];
 
   for (const chat of streamer.chats) {
@@ -89,20 +135,14 @@ async function handleStreamOnline(
       const text = renderTemplate(template, templateVars);
       const provider = getProvider(chat.provider);
 
-      // Check if already sent for this stream session
-      const existing = await prisma.announcementLog.findFirst({
-        where: {
-          chatId: chat.id,
-          streamSessionId,
-          status: 'sent',
-        },
-      });
+      // Check if already sent for this stream session (from batch query)
+      const existing = existingByChat.get(chat.id);
 
       if (existing?.providerMsgId) {
         // Update existing announcement (title/game changed)
         await provider.editAnnouncement(chat.chatId, existing.providerMsgId, {
           text,
-          photoUrl: payload.thumbnailUrl,
+          photoUrl: safePhotoUrl,
           buttons,
         });
         logger.info({ chatId: chat.chatId, streamSessionId, messageId: existing.providerMsgId }, 'announce.updated');
@@ -111,8 +151,10 @@ async function handleStreamOnline(
       }
 
       if (existing) {
-        logger.info({ chatId: chat.chatId, streamSessionId }, 'announce.dedup_skipped');
-        continue;
+        // Record exists but no providerMsgId — previous partial write.
+        // Delete the stale record so we can re-send.
+        await prisma.announcementLog.delete({ where: { id: existing.id } });
+        logger.warn({ chatId: chat.chatId, streamSessionId }, 'announce.stale_record_cleaned');
       }
 
       // Atomic dedup lock: prevent concurrent workers from sending to the same chat+session
@@ -125,7 +167,7 @@ async function handleStreamOnline(
 
       const result = await provider.sendAnnouncement(chat.chatId, {
         text,
-        photoUrl: payload.thumbnailUrl,
+        photoUrl: safePhotoUrl,
         buttons,
       });
 
@@ -181,10 +223,11 @@ async function handleStreamOnline(
     }
   }
 
-  // If ALL deliveries failed, throw so BullMQ retries the job
+  // If ANY deliveries failed, throw so BullMQ retries the job
+  // (already-sent chats will be skipped via dedup on retry)
   const failedCount = results.filter((r) => !r.ok).length;
-  if (failedCount > 0 && failedCount === results.length) {
-    throw new Error(`All ${failedCount} announcement deliveries failed`);
+  if (failedCount > 0) {
+    throw new Error(`${failedCount}/${results.length} announcement deliveries failed`);
   }
 
   // Notify streamer about delivery results via Telegram (if linked and provider available)
@@ -203,7 +246,7 @@ async function handleStreamOnline(
 
 // ─── Stream Offline ───────────────────────────────────────
 
-async function handleStreamOffline(streamerId: string, streamSessionId?: string): Promise<void> {
+async function handleStreamOffline(streamerId: string, streamSessionId: string): Promise<void> {
   // Query ALL chats with deleteAfterEnd=true, regardless of enabled status,
   // so previously-sent announcements are cleaned up even if the chat was disabled mid-stream.
   const chats = await prisma.connectedChat.findMany({
@@ -213,17 +256,18 @@ async function handleStreamOffline(streamerId: string, streamSessionId?: string)
     },
   });
 
+  let failedCount = 0;
+  const totalCount = chats.length;
+
   for (const chat of chats) {
     try {
       // Prefer finding the exact announcement for this stream session
       let messageIdToDelete: string | null = null;
 
-      if (streamSessionId) {
-        const sessionLog = await prisma.announcementLog.findFirst({
-          where: { chatId: chat.id, streamSessionId, status: 'sent' },
-        });
-        messageIdToDelete = sessionLog?.providerMsgId ?? null;
-      }
+      const sessionLog = await prisma.announcementLog.findFirst({
+        where: { chatId: chat.id, streamSessionId, status: 'sent' },
+      });
+      messageIdToDelete = sessionLog?.providerMsgId ?? null;
 
       // Fall back to lastMessageId or recent log entry
       if (!messageIdToDelete) {
@@ -266,8 +310,14 @@ async function handleStreamOffline(streamerId: string, streamSessionId?: string)
 
       logger.info({ chatId: chat.chatId, provider: chat.provider }, 'announce.deleted_after_offline');
     } catch (error) {
+      failedCount++;
       const errMsg = error instanceof Error ? error.message : String(error);
       logger.error({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, error: errMsg }, 'announce.delete_failed');
     }
+  }
+
+  // If all deletion attempts failed, throw so BullMQ retries the job
+  if (failedCount > 0 && failedCount === totalCount) {
+    throw new Error(`All ${failedCount} announcement deletions failed`);
   }
 }

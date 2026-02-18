@@ -4,6 +4,8 @@
  * Renders announcement text by replacing {variables} with actual values.
  */
 
+import { escapeHtml } from '../lib/escapeHtml.js';
+
 const DEFAULT_ONLINE_TEMPLATE = [
   '🔴 <b>Стрим начался!</b>',
   '',
@@ -19,11 +21,6 @@ export interface TemplateVariables {
   stream_url?: string;
   memelab_url?: string;
   viewer_count?: string;
-}
-
-/** Escape HTML special characters for Telegram HTML parse mode. */
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /** Render a template, replacing {var} placeholders with HTML-escaped values. */

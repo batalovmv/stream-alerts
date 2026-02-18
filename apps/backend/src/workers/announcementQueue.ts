@@ -24,7 +24,7 @@ function parseRedisConnection() {
     };
   } catch (error) {
     logger.error({ url: config.redisUrl, error: error instanceof Error ? error.message : String(error) }, 'queue.invalid_redis_url');
-    return { host: 'localhost', port: 6379 };
+    throw new Error(`Invalid REDIS_URL: ${config.redisUrl}`);
   }
 }
 

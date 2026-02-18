@@ -9,7 +9,7 @@ function env(key: string, fallback?: string): string {
 const nodeEnv = env('NODE_ENV', 'development');
 
 export const config = {
-  port: parseInt(env('PORT', '3000'), 10),
+  port: (() => { const p = parseInt(env('PORT', '3000'), 10); if (isNaN(p) || p < 1 || p > 65535) throw new Error('PORT must be a valid port number (1-65535)'); return p; })(),
   nodeEnv,
   isDev: nodeEnv === 'development',
 
@@ -32,11 +32,15 @@ export const config = {
   jwtCookieName: env('JWT_COOKIE_NAME', 'token'),
 
   // Telegram Bot
-  telegramBotToken: env('TELEGRAM_BOT_TOKEN', ''),
+  telegramBotToken: env('TELEGRAM_BOT_TOKEN', nodeEnv === 'development' ? '' : undefined),
 
   // Telegram webhook secret (separate from MemeLab webhook secret)
-  telegramWebhookSecret: env('TELEGRAM_WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-tg-webhook-secret' : undefined),
+  // Optional at config level — validated at runtime in startWebhook() when actually needed
+  telegramWebhookSecret: env('TELEGRAM_WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-tg-webhook-secret' : ''),
 
   // MAX Bot (Phase 3)
-  maxBotToken: env('MAX_BOT_TOKEN', ''),
+  maxBotToken: env('MAX_BOT_TOKEN', nodeEnv === 'development' ? '' : undefined),
+
+  // Public URL (for webhook registration etc.)
+  publicUrl: env('PUBLIC_URL', nodeEnv === 'development' ? 'http://localhost:3000' : 'https://notify.memelab.ru'),
 } as const;

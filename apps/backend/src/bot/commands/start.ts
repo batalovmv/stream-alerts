@@ -11,12 +11,9 @@ import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import { logger } from '../../lib/logger.js';
 import type { BotContext } from '../types.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 const LINK_TOKEN_PREFIX = 'link:token:';
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 export async function handleStart(ctx: BotContext, args: string): Promise<void> {
   // ─── Account linking via deep link ───────────────────────

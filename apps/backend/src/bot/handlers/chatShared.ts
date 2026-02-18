@@ -11,6 +11,7 @@ import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 import { REQUEST_ID_GROUP, REQUEST_ID_CHANNEL } from '../commands/connect.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   const shared = msg.chat_shared;
@@ -144,9 +145,3 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   );
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}

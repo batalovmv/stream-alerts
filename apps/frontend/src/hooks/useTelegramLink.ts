@@ -17,6 +17,7 @@ export function useTelegramLink() {
         setDeepLink(data.deepLink);
       }
     },
+    onError: (error) => { console.error('Failed to generate Telegram link:', error); },
   });
 
   const unlinkMutation = useMutation({
@@ -25,6 +26,7 @@ export function useTelegramLink() {
       setDeepLink(null);
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },
+    onError: (error) => { console.error('Failed to unlink Telegram:', error); },
   });
 
   return {

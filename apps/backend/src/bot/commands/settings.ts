@@ -9,6 +9,7 @@ import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import type { BotContext, CallbackContext } from '../types.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 const PENDING_TEMPLATE_PREFIX = 'pending:template:';
 const PENDING_TEMPLATE_TTL = 300; // 5 minutes
@@ -227,6 +228,3 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон обновлён!\n\nИспользуйте /preview чтобы посмотреть результат.' });
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}

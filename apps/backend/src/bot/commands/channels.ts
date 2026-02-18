@@ -8,6 +8,7 @@
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import type { BotContext } from '../types.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export async function handleChannels(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
@@ -73,9 +74,3 @@ export async function sendChannelsList(
   });
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}

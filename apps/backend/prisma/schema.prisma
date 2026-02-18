@@ -82,7 +82,7 @@ model AnnouncementLog {
   provider        MessengerProvider
   providerMsgId   String?            // Message ID from messenger API (for deletion)
 
-  status          AnnouncementStatus @default(queued)
+  status          AnnouncementStatus @default(sent)
   error           String?            @db.Text
   attempts        Int                @default(0)
 

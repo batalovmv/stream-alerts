@@ -29,11 +29,13 @@ export function useChats() {
       customTemplate?: string | null;
     }) => api.patch<ChatResponse>(`/api/chats/${id}`, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CHATS_QUERY_KEY }),
+    onError: (error) => { console.error('Failed to update chat:', error); },
   });
 
   const deleteChat = useMutation({
     mutationFn: (id: string) => api.delete(`/api/chats/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CHATS_QUERY_KEY }),
+    onError: (error) => { console.error('Failed to delete chat:', error); },
   });
 
   const testChat = useMutation({

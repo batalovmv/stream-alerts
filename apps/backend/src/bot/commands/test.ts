@@ -11,6 +11,7 @@ import { getProvider } from '../../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 import { logger } from '../../lib/logger.js';
 import type { BotContext } from '../types.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export async function handleTest(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
@@ -89,9 +90,3 @@ export async function sendTestAnnouncement(
   }
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}

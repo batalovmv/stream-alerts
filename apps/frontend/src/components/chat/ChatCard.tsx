@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ConnectedChat } from '../../types/chat';
 import { useChats } from '../../hooks/useChats';
 import { Badge, Button, Toggle } from '../ui';
@@ -13,6 +13,19 @@ export function ChatCard({ chat }: ChatCardProps) {
   const [showTemplate, setShowTemplate] = useState(false);
   const [template, setTemplate] = useState(chat.customTemplate ?? '');
   const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // Sync template when chat.customTemplate changes externally (#11)
+  useEffect(() => {
+    setTemplate(chat.customTemplate ?? '');
+  }, [chat.customTemplate]);
+
+  // Ref for test status reset timer to prevent leaks (#39)
+  const testTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Cleanup timer on unmount (#39)
+  useEffect(() => {
+    return () => clearTimeout(testTimerRef.current);
+  }, []);
 
   const providerLabel = chat.provider === 'telegram' ? 'Telegram' : 'MAX';
   const providerEmoji = chat.provider === 'telegram' ? '\u2708\uFE0F' : '\uD83D\uDCAC';
@@ -31,6 +44,7 @@ export function ChatCard({ chat }: ChatCardProps) {
   function handleDelete() {
     deleteChat.mutate(chat.id, {
       onSuccess: () => setConfirmDelete(false),
+      onError: () => setConfirmDelete(false),
     });
   }
 
@@ -39,11 +53,13 @@ export function ChatCard({ chat }: ChatCardProps) {
     testChat.mutate(chat.id, {
       onSuccess: () => {
         setTestStatus('success');
-        setTimeout(() => setTestStatus('idle'), 3000);
+        clearTimeout(testTimerRef.current);
+        testTimerRef.current = setTimeout(() => setTestStatus('idle'), 3000);
       },
       onError: () => {
         setTestStatus('error');
-        setTimeout(() => setTestStatus('idle'), 3000);
+        clearTimeout(testTimerRef.current);
+        testTimerRef.current = setTimeout(() => setTestStatus('idle'), 3000);
       },
     });
   }
@@ -121,7 +137,7 @@ export function ChatCard({ chat }: ChatCardProps) {
               onClick={() => setConfirmDelete(true)}
               disabled={isBusy}
             >
-              Отключить
+              Удалить
             </Button>
           )}
         </div>

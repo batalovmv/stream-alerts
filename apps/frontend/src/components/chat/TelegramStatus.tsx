@@ -1,10 +1,20 @@
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 import { Button } from '../ui';
 
+function isSafeDeepLink(url: string): boolean {
+  try {
+    return new URL(url).hostname === 't.me';
+  } catch {
+    return false;
+  }
+}
+
 export function TelegramStatus() {
   const { user } = useAuth();
   const { deepLink, isLoading, generate, unlink, isUnlinking } = useTelegramLink();
+  const [confirmUnlink, setConfirmUnlink] = useState(false);
 
   if (!user) return null;
 
@@ -25,14 +35,29 @@ export function TelegramStatus() {
             </a>
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => unlink()}
-          loading={isUnlinking}
-        >
-          Отвязать
-        </Button>
+        {confirmUnlink ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => { unlink(); setConfirmUnlink(false); }}
+              loading={isUnlinking}
+            >
+              Подтвердить
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmUnlink(false)}>
+              Отмена
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmUnlink(true)}
+          >
+            Отвязать
+          </Button>
+        )}
       </div>
     );
   }
@@ -47,7 +72,7 @@ export function TelegramStatus() {
       </div>
       {deepLink ? (
         <a
-          href={deepLink}
+          href={deepLink && isSafeDeepLink(deepLink) ? deepLink : '#'}
           target="_blank"
           rel="noopener noreferrer"
           className="btn-glow !px-3 !py-1.5 text-sm"

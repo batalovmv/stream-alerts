@@ -8,10 +8,7 @@
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import type { BotContext } from '../types.js';
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export async function handleStats(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
@@ -34,10 +31,10 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const [total, sentCount, failedCount, lastAnnouncement] = await Promise.all([
-    prisma.announcementLog.count({ where: { chatId: { in: chatIds } } }),
+  const [sentCount, failedCount, deletedCount, lastAnnouncement] = await Promise.all([
     prisma.announcementLog.count({ where: { chatId: { in: chatIds }, status: 'sent' } }),
     prisma.announcementLog.count({ where: { chatId: { in: chatIds }, status: 'failed' } }),
+    prisma.announcementLog.count({ where: { chatId: { in: chatIds }, status: 'deleted' } }),
     prisma.announcementLog.findFirst({
       where: { chatId: { in: chatIds }, status: 'sent' },
       orderBy: { sentAt: 'desc' },
@@ -45,9 +42,12 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     }),
   ]);
 
+  const total = sentCount + failedCount + deletedCount;
+
   let text = '📊 <b>Статистика анонсов</b>\n\n';
   text += `Всего: ${total}\n`;
   text += `✅ Отправлено: ${sentCount}\n`;
+  text += `🗑 Удалено: ${deletedCount}\n`;
   text += `❌ Ошибок: ${failedCount}\n`;
 
   if (lastAnnouncement?.sentAt) {

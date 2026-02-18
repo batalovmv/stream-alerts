@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 
 export const addChatSchema = z.object({
   provider: z.enum(['telegram', 'max']),
-  chatId: z.string().min(1).max(100),
+  chatId: z.string().min(1).max(100).regex(/^-?\d+$|^@[\w]+$/, 'chatId must be a numeric ID or @username'),
 });
 
 export const updateChatSchema = z.object({

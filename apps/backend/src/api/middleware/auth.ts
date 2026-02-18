@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
-import type { AuthenticatedRequest, MemelabUserProfile } from './types.js';
+import type { AuthenticatedRequest, AuthStreamer, MemelabUserProfile } from './types.js';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 import { redis } from '../../lib/redis.js';
+import { prisma } from '../../lib/prisma.js';
 import { upsertStreamerFromProfile } from '../../services/streamerService.js';
 
 const AUTH_CACHE_PREFIX = 'auth:profile:';
@@ -12,7 +13,7 @@ const AUTH_CACHE_TTL = 300; // 5 minutes
 /**
  * Auth middleware: validates JWT cookie by calling MemeLab API.
  * Caches user profile in Redis for 5 minutes.
- * Upserts Streamer record on each request.
+ * Upserts Streamer record only on fresh profile fetch; uses findUnique when serving from cache.
  */
 export async function requireAuth(
   req: Request,
@@ -27,6 +28,7 @@ export async function requireAuth(
     }
 
     let profile = await getCachedProfile(token);
+    let fromCache = !!profile;
 
     if (!profile) {
       profile = await fetchMemelabProfile(token);
@@ -43,7 +45,31 @@ export async function requireAuth(
     }
 
     // channel is guaranteed non-null after the guard above
-    const streamer = await upsertStreamerFromProfile(profile as typeof profile & { channel: NonNullable<typeof profile.channel> });
+    type ProfileWithChannel = typeof profile & { channel: NonNullable<typeof profile.channel> };
+    let streamer: AuthStreamer;
+    if (fromCache) {
+      // Profile from cache — avoid unnecessary upsert write on every cached request
+      const existing = await prisma.streamer.findUnique({
+        where: { memelabUserId: profile.id },
+        select: {
+          id: true,
+          memelabUserId: true,
+          memelabChannelId: true,
+          channelSlug: true,
+          twitchLogin: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      });
+      if (existing) {
+        streamer = existing as AuthStreamer;
+      } else {
+        // Cache is stale (streamer not in DB) — fall back to upsert
+        streamer = await upsertStreamerFromProfile(profile as ProfileWithChannel);
+      }
+    } else {
+      streamer = await upsertStreamerFromProfile(profile as ProfileWithChannel);
+    }
     (req as AuthenticatedRequest).streamer = streamer;
 
     next();
@@ -63,7 +89,7 @@ function extractToken(req: Request): string | null {
     const escapedName = cookieName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(?:^|;\\s*)${escapedName}=([^;]+)`);
     const match = cookieHeader.match(regex);
-    if (match) return match[1];
+    if (match) return decodeURIComponent(match[1]);
   }
 
   const authHeader = req.headers.authorization;

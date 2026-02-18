@@ -22,6 +22,7 @@ import {
   handleSettingsBack,
 } from '../commands/settings.js';
 import type { CallbackContext } from '../types.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
   const { data, userId, callbackQueryId, chatId, messageId } = ctx;
@@ -99,8 +100,9 @@ async function handleToggle(
     return;
   }
 
+  // Use streamerId in where clause to prevent TOCTOU authorization bypass
   const updated = await prisma.connectedChat.update({
-    where: { id: chatDbId },
+    where: { id: chatDbId, streamerId: streamer.id },
     data: { enabled: !chat.enabled },
   });
 
@@ -230,10 +232,13 @@ async function handleTestCallback(
     : streamer.chats.filter((c) => c.id === targetId);
 
   if (chatsToTest.length === 0) {
+    const msg = targetId && targetId !== 'all'
+      ? 'Канал не найден — возможно, он был удалён.'
+      : 'Нет доступных каналов для теста.';
     await tg.editMessageText({
       chatId: String(ctx.chatId),
       messageId: ctx.messageId,
-      text: 'Нет доступных каналов для теста.',
+      text: msg,
     });
     return;
   }
@@ -253,9 +258,3 @@ async function handleTestCallback(
   });
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
