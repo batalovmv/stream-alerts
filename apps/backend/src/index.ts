@@ -27,7 +27,7 @@ app.use(cors({
   origin: config.isDev ? 'http://localhost:5173' : ['https://notify.memelab.ru'],
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 
 // ─── Register Providers ───────────────────────────────────
 
@@ -82,15 +82,27 @@ const server = app.listen(config.port, () => {
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down...');
-  stopPolling();
-  // Close HTTP server first to stop accepting new requests
-  await new Promise<void>((resolve, reject) => {
-    server.close((err) => (err ? reject(err) : resolve()));
-  });
-  // Then drain the worker queue
-  if (announcementWorker) await announcementWorker.close();
-  await prisma.$disconnect();
-  redis.disconnect();
+
+  // Hard deadline: force exit after 15 seconds to prevent hanging
+  const forceTimer = setTimeout(() => {
+    logger.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 15_000);
+  forceTimer.unref();
+
+  try {
+    stopPolling();
+    // Close HTTP server first to stop accepting new requests
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()));
+    });
+    // Then drain the worker queue
+    if (announcementWorker) await announcementWorker.close();
+    await prisma.$disconnect();
+    redis.disconnect();
+  } catch (err) {
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'shutdown.error');
+  }
   process.exit(0);
 }
 

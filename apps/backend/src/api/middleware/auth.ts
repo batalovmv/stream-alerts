@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import type { AuthenticatedRequest, AuthStreamer, MemelabUserProfile } from './types.js';
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
@@ -31,11 +32,16 @@ export async function requireAuth(
     let fromCache = !!profile;
 
     if (!profile) {
-      profile = await fetchMemelabProfile(token);
-      if (!profile) {
+      const fetchResult = await fetchMemelabProfile(token);
+      if (fetchResult.error === 'network') {
+        res.status(503).json({ error: 'Authentication service temporarily unavailable' });
+        return;
+      }
+      if (!fetchResult.profile) {
         res.status(401).json({ error: 'Invalid or expired token' });
         return;
       }
+      profile = fetchResult.profile;
       await cacheProfile(token, profile);
     }
 
@@ -122,7 +128,30 @@ async function cacheProfile(token: string, profile: MemelabUserProfile): Promise
   }
 }
 
-async function fetchMemelabProfile(token: string): Promise<MemelabUserProfile | null> {
+/** Zod schema for MemeLab API /v1/me response to catch upstream changes */
+const memelabProfileSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string(),
+  profileImageUrl: z.string().nullable(),
+  role: z.string(),
+  channelId: z.string().nullable(),
+  channel: z.object({
+    id: z.string().min(1),
+    slug: z.string().min(1),
+    name: z.string(),
+  }).nullable(),
+  externalAccounts: z.array(z.object({
+    provider: z.string(),
+    providerAccountId: z.string(),
+    displayName: z.string().nullable(),
+    login: z.string().nullable(),
+    avatarUrl: z.string().nullable(),
+  })),
+});
+
+type FetchResult = { profile: MemelabUserProfile; error?: undefined } | { profile: null; error: 'rejected' | 'network' };
+
+async function fetchMemelabProfile(token: string): Promise<FetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -134,16 +163,23 @@ async function fetchMemelabProfile(token: string): Promise<MemelabUserProfile | 
 
     if (!res.ok) {
       logger.warn({ status: res.status }, 'auth.memelab_api_rejected');
-      return null;
+      return { profile: null, error: 'rejected' };
     }
 
-    return (await res.json()) as MemelabUserProfile;
+    const json = await res.json();
+    const parsed = memelabProfileSchema.safeParse(json);
+    if (!parsed.success) {
+      logger.error({ issues: parsed.error.issues.map((i) => i.message) }, 'auth.memelab_api_invalid_response');
+      return { profile: null, error: 'network' };
+    }
+
+    return { profile: parsed.data as MemelabUserProfile };
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error.message : String(error) },
       'auth.memelab_api_failed',
     );
-    return null;
+    return { profile: null, error: 'network' };
   } finally {
     clearTimeout(timeout);
   }

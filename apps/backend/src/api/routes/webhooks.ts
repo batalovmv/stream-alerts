@@ -7,9 +7,9 @@ import { logger } from '../../lib/logger.js';
 
 const streamEventSchema = z.object({
   event: z.enum(['stream.online', 'stream.offline']),
-  channelId: z.string().min(1),
-  channelSlug: z.string().min(1),
-  twitchLogin: z.string().min(1),
+  channelId: z.string().min(1).max(100),
+  channelSlug: z.string().min(1).max(100).regex(/^[\w-]+$/, 'channelSlug must be alphanumeric'),
+  twitchLogin: z.string().min(1).max(100).regex(/^[\w]+$/, 'twitchLogin must be alphanumeric'),
   streamTitle: z.string().optional(),
   gameName: z.string().optional(),
   thumbnailUrl: z.string().url().optional(),

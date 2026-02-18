@@ -23,7 +23,7 @@ services:
     ports:
       - '127.0.0.1:6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping || redis-cli ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     env_file:
       - apps/backend/.env
     depends_on:
@@ -41,6 +41,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

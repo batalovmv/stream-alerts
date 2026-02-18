@@ -39,7 +39,7 @@ module.exports = {
       autorestart: true,
       max_restarts: 10,
       restart_delay: 5000,
-      max_memory_restart: "256M",
+      max_memory_restart: "512M",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
       error_file: "/var/log/memelab-notify/error.log",
       out_file: "/var/log/memelab-notify/out.log",

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface DashboardLayoutProps {
@@ -6,6 +7,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
+  const [avatarError, setAvatarError] = useState(false);
 
   return (
     <div className="min-h-screen bg-surface relative overflow-hidden">
@@ -24,18 +26,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {user && (
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
-                {user.avatarUrl ? (
+                {user.avatarUrl && !avatarError ? (
                   <img
                     src={user.avatarUrl}
                     alt={user.displayName}
                     className="w-8 h-8 rounded-full"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                    }}
+                    onError={() => setAvatarError(true)}
                   />
-                ) : null}
-                <div className={`w-8 h-8 rounded-full animated-gradient ${user.avatarUrl ? 'hidden' : ''}`} />
+                ) : (
+                  <div className="w-8 h-8 rounded-full animated-gradient" />
+                )}
                 <span className="text-sm font-medium hidden sm:block">
                   {user.displayName}
                 </span>

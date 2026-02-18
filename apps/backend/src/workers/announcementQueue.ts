@@ -23,8 +23,8 @@ function parseRedisConnection() {
       ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
     };
   } catch (error) {
-    logger.error({ url: config.redisUrl, error: error instanceof Error ? error.message : String(error) }, 'queue.invalid_redis_url');
-    throw new Error(`Invalid REDIS_URL: ${config.redisUrl}`);
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'queue.invalid_redis_url');
+    throw new Error('Invalid REDIS_URL format');
   }
 }
 

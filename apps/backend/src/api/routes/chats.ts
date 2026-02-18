@@ -4,7 +4,7 @@ import { getProvider, hasProvider } from '../../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 import { logger } from '../../lib/logger.js';
 import { requireAuth } from '../middleware/auth.js';
-import { validate, addChatSchema, updateChatSchema } from '../middleware/validation.js';
+import { validate, validateIdParam, addChatSchema, updateChatSchema } from '../middleware/validation.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
 
 const router: RouterType = Router();
@@ -57,6 +57,13 @@ router.post('/', validate(addChatSchema), async (req: Request, res: Response) =>
 
     const chatInfo = await messengerProvider.getChatInfo(chatId);
 
+    // Enforce max chats per streamer (same limit as bot: 20)
+    const chatCount = await prisma.connectedChat.count({ where: { streamerId: streamer.id } });
+    if (chatCount >= 20) {
+      res.status(400).json({ error: 'Maximum 20 chats per streamer' });
+      return;
+    }
+
     const existing = await prisma.connectedChat.findUnique({
       where: {
         streamerId_provider_chatId: {
@@ -98,7 +105,7 @@ router.post('/', validate(addChatSchema), async (req: Request, res: Response) =>
 /**
  * PATCH /api/chats/:id — Update chat settings.
  */
-router.patch('/:id', validate(updateChatSchema), async (req: Request, res: Response) => {
+router.patch('/:id', validateIdParam, validate(updateChatSchema), async (req: Request, res: Response) => {
   try {
     const { streamer } = req as AuthenticatedRequest;
 
@@ -133,7 +140,7 @@ router.patch('/:id', validate(updateChatSchema), async (req: Request, res: Respo
 /**
  * DELETE /api/chats/:id — Disconnect a chat.
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', validateIdParam, async (req: Request, res: Response) => {
   try {
     const { streamer } = req as AuthenticatedRequest;
 
@@ -161,7 +168,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 /**
  * POST /api/chats/:id/test — Send a test announcement.
  */
-router.post('/:id/test', async (req: Request, res: Response) => {
+router.post('/:id/test', validateIdParam, async (req: Request, res: Response) => {
   try {
     const { streamer } = req as AuthenticatedRequest;
 

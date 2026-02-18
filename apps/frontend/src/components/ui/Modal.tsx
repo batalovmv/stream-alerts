@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 
 interface ModalProps {
   open: boolean;
@@ -28,28 +28,33 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, onClose]);
 
-  // Focus trap
-  useEffect(() => {
-    if (!open || !modalRef.current) return;
-    const modal = modalRef.current;
-    const focusable = modal.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  // Focus trap — re-query focusable elements on each Tab to handle dynamic DOM changes
+  const handleTab = useCallback((e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || !modalRef.current) return;
+    const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );
     if (focusable.length === 0) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    first.focus();
-    function handleTab(e: KeyboardEvent) {
-      if (e.key !== 'Tab') return;
-      if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
+  }, []);
+
+  useEffect(() => {
+    if (!open || !modalRef.current) return;
+    const modal = modalRef.current;
+    // Focus first focusable element on open
+    const focusable = modal.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length > 0) focusable[0].focus();
     modal.addEventListener('keydown', handleTab);
     return () => modal.removeEventListener('keydown', handleTab);
-  }, [open]);
+  }, [open, handleTab]);
 
   if (!open) return null;
 
