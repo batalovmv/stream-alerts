@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Modal } from '../ui/Modal';
-import { Button } from '../ui';
+import { Button, Input } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
+import { useChats } from '../../hooks/useChats';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 
 interface AddChatModalProps {
@@ -12,6 +13,7 @@ interface AddChatModalProps {
 export function AddChatModal({ open, onClose }: AddChatModalProps) {
   const { user } = useAuth();
   const telegramLinked = user?.telegramLinked ?? false;
+  const [provider, setProvider] = useState<'telegram' | 'max'>('telegram');
 
   return (
     <Modal open={open} onClose={onClose} title="Подключить канал">
@@ -20,22 +22,31 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
         <div>
           <label className="block text-sm text-white/50 mb-2">Мессенджер</label>
           <div className="flex gap-3">
-            <div className="flex-1 glass-card p-4 text-center !border-accent/50 shadow-glow">
+            <button
+              className={`flex-1 glass-card p-4 text-center transition-all ${provider === 'telegram' ? '!border-accent/50 shadow-glow' : 'opacity-60 hover:opacity-80'}`}
+              onClick={() => setProvider('telegram')}
+            >
               <div className="text-2xl mb-1">{'\u2708\uFE0F'}</div>
               <div className="text-sm font-medium">Telegram</div>
-            </div>
-            <div className="flex-1 glass-card p-4 text-center opacity-50">
+            </button>
+            <button
+              className={`flex-1 glass-card p-4 text-center transition-all ${provider === 'max' ? '!border-accent/50 shadow-glow' : 'opacity-60 hover:opacity-80'}`}
+              onClick={() => setProvider('max')}
+            >
               <div className="text-2xl mb-1">{'\uD83D\uDCAC'}</div>
               <div className="text-sm font-medium">MAX</div>
-              <div className="text-xs text-white/30">Скоро</div>
-            </div>
+            </button>
           </div>
         </div>
 
-        {telegramLinked ? (
-          <LinkedFlow onClose={onClose} />
+        {provider === 'telegram' ? (
+          telegramLinked ? (
+            <LinkedFlow onClose={onClose} />
+          ) : (
+            <LinkAccountFlow />
+          )
         ) : (
-          <LinkAccountFlow />
+          <MaxFlow onClose={onClose} />
         )}
       </div>
     </Modal>
@@ -140,6 +151,59 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
         >
           Открыть бота
         </a>
+        <Button variant="secondary" size="md" onClick={onClose}>
+          Закрыть
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/** Flow for adding a MAX chat — enter chat ID manually */
+function MaxFlow({ onClose }: { onClose: () => void }) {
+  const [chatId, setChatId] = useState('');
+  const { addChat } = useChats();
+  const [error, setError] = useState('');
+
+  async function handleAdd() {
+    if (!chatId.trim()) {
+      setError('Введите ID чата');
+      return;
+    }
+    setError('');
+    addChat.mutate(
+      { provider: 'max', chatId: chatId.trim() },
+      {
+        onSuccess: () => onClose(),
+        onError: (err) => setError(err instanceof Error ? err.message : 'Ошибка при добавлении'),
+      },
+    );
+  }
+
+  return (
+    <>
+      <div className="glass-card p-4 text-sm text-white/50 space-y-3">
+        <p>
+          Добавьте бота <span className="text-accent-light">@MemelabNotifyBot</span> как администратора в MAX-группу, затем введите ID чата:
+        </p>
+        <Input
+          placeholder="ID чата в MAX"
+          value={chatId}
+          onChange={(e) => setChatId(e.target.value)}
+          error={error}
+        />
+      </div>
+
+      <div className="flex gap-3">
+        <Button
+          variant="primary"
+          size="md"
+          onClick={handleAdd}
+          loading={addChat.isPending}
+          className="flex-1"
+        >
+          Подключить
+        </Button>
         <Button variant="secondary" size="md" onClick={onClose}>
           Закрыть
         </Button>
