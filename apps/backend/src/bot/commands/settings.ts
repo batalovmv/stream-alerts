@@ -43,7 +43,7 @@ export async function sendSettingsMenu(
   chats: Array<{ id: string; chatTitle: string | null; chatId: string; enabled: boolean; deleteAfterEnd: boolean; customTemplate: string | null }>,
 ): Promise<void> {
   const keyboard: Array<Array<{ text: string; callback_data: string }>> = chats.map((chat) => [{
-    text: `${chat.enabled ? '🟢' : '🔴'} ${escapeHtml(chat.chatTitle || chat.chatId)}`,
+    text: `${chat.enabled ? '🟢' : '🔴'} ${chat.chatTitle || chat.chatId}`,
     callback_data: `settings:${chat.id}`,
   }]);
 
@@ -175,7 +175,7 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
 
   const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat) => [{
-    text: `${chat.enabled ? '🟢' : '🔴'} ${escapeHtml(chat.chatTitle || chat.chatId)}`,
+    text: `${chat.enabled ? '🟢' : '🔴'} ${chat.chatTitle || chat.chatId}`,
     callback_data: `settings:${chat.id}`,
   }]);
 
@@ -205,7 +205,9 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   // Validate template length (same limit as REST API)
   const MAX_TEMPLATE_LENGTH = 2000;
   if (text.length > MAX_TEMPLATE_LENGTH) {
-    await tg.sendMessage({ chatId: String(chatId), text: `❌ Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH} символов). Сократите текст.` });
+    // Restore pending state so user can retry with shorter text
+    await redis.setex(PENDING_TEMPLATE_PREFIX + userId, PENDING_TEMPLATE_TTL, chatDbId);
+    await tg.sendMessage({ chatId: String(chatId), text: `❌ Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH} символов). Сократите текст и отправьте снова.` });
     return;
   }
 

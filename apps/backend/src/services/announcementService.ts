@@ -5,6 +5,7 @@
  * Handles stream.offline → delete previous announcements (including disabled chats).
  */
 
+import type { MessengerProvider } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
@@ -132,7 +133,7 @@ async function handleStreamOnline(
         data: {
           chatId: chat.id,
           streamSessionId,
-          provider: chat.provider as 'telegram' | 'max',
+          provider: chat.provider as MessengerProvider,
           providerMsgId: result.messageId,
           status: 'sent',
           sentAt: new Date(),
@@ -147,7 +148,7 @@ async function handleStreamOnline(
         },
       });
 
-      logger.info({ chatId: chat.chatId, provider: chat.provider, messageId: result.messageId }, 'announce.sent');
+      logger.info({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, messageId: result.messageId }, 'announce.sent');
       results.push({ chatTitle: title, ok: true });
     } catch (error) {
       // Release dedup lock so BullMQ retry can re-attempt this chat
@@ -155,7 +156,7 @@ async function handleStreamOnline(
       await redis.del(lockKey).catch(() => {});
 
       const errMsg = error instanceof Error ? error.message : String(error);
-      logger.error({ chatId: chat.chatId, provider: chat.provider, error: errMsg }, 'announce.send_failed');
+      logger.error({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, error: errMsg }, 'announce.send_failed');
 
       // Auto-disable chat on permanent provider errors (bot blocked, chat deleted, etc.)
       if (error instanceof Error && 'permanent' in error && (error as { permanent: boolean }).permanent) {
@@ -170,7 +171,7 @@ async function handleStreamOnline(
         data: {
           chatId: chat.id,
           streamSessionId,
-          provider: chat.provider as 'telegram' | 'max',
+          provider: chat.provider as MessengerProvider,
           status: 'failed',
           error: errMsg,
         },
@@ -266,7 +267,7 @@ async function handleStreamOffline(streamerId: string, streamSessionId?: string)
       logger.info({ chatId: chat.chatId, provider: chat.provider }, 'announce.deleted_after_offline');
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      logger.error({ chatId: chat.chatId, provider: chat.provider, error: errMsg }, 'announce.delete_failed');
+      logger.error({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, error: errMsg }, 'announce.delete_failed');
     }
   }
 }

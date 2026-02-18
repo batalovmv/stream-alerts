@@ -37,12 +37,21 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
   const buttons = buildDefaultButtons(templateVars);
   const photoUrl = `https://static-cdn.jtvnw.net/previews-ttv/live_user_${streamer.twitchLogin ?? 'test'}-640x360.jpg`;
 
-  await tg.sendPhoto({
-    chatId: String(ctx.chatId),
-    photoUrl,
-    caption: text,
-    buttons,
-  });
+  try {
+    await tg.sendPhoto({
+      chatId: String(ctx.chatId),
+      photoUrl,
+      caption: text,
+      buttons,
+    });
+  } catch {
+    // Photo URL may be invalid (no active stream) — fall back to text-only
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text,
+      buttons: buttons.map((b) => ({ label: b.label, url: b.url })),
+    });
+  }
 
   await tg.sendMessage({
     chatId: String(ctx.chatId),

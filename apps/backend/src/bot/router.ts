@@ -65,6 +65,7 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
 
     // Handle cancel button from reply keyboard
     if (text === '\u274C Отмена' || text.toLowerCase() === 'отмена') {
+      if (msg.from?.id) await clearPendingTemplateEdit(msg.from.id);
       const { removeReplyKeyboard } = await import('../providers/telegram/telegramApi.js');
       await removeReplyKeyboard(msg.chat.id, 'Действие отменено.');
       return;
@@ -78,12 +79,15 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
 
     if (!text.startsWith('/')) return;
 
+    // Commands require a sender — ignore messages without from (e.g. channel posts)
+    if (!msg.from?.id) return;
+
     const ctx: BotContext = {
       update,
       message: msg,
       chatId: msg.chat.id,
-      userId: msg.from?.id ?? 0,
-      username: msg.from?.username,
+      userId: msg.from.id,
+      username: msg.from.username,
       text,
     };
 

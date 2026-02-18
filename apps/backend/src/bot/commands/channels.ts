@@ -61,7 +61,7 @@ export async function sendChannelsList(
     // Two buttons per chat: toggle enabled + remove
     const toggleText = chat.enabled ? '\u26D4 Отключить' : '\u2705 Включить';
     inlineKeyboard.push([
-      { text: `${toggleText} | ${escapeHtml(title).slice(0, 20)}`, callback_data: `toggle:${chat.id}` },
+      { text: `${toggleText} | ${title.slice(0, 20)}`, callback_data: `toggle:${chat.id}` },
       { text: '\u274C Удалить', callback_data: `remove:${chat.id}` },
     ]);
   }
