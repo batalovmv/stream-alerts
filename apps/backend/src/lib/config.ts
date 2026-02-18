@@ -38,8 +38,8 @@ export const config = {
   // Optional at config level — validated at runtime in startWebhook() when actually needed
   telegramWebhookSecret: env('TELEGRAM_WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-tg-webhook-secret' : ''),
 
-  // MAX Bot (Phase 3)
-  maxBotToken: env('MAX_BOT_TOKEN', nodeEnv === 'development' ? '' : undefined),
+  // MAX Bot (Phase 3 — optional until implemented)
+  maxBotToken: env('MAX_BOT_TOKEN', ''),
 
   // Public URL (for webhook registration etc.)
   publicUrl: env('PUBLIC_URL', nodeEnv === 'development' ? 'http://localhost:3000' : 'https://notify.memelab.ru'),
