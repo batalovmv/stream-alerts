@@ -2,7 +2,7 @@
  * /start command handler.
  *
  * Two modes:
- * 1. /start (no args) — welcome message with instructions
+ * 1. /start (no args) — welcome message with inline button menu
  * 2. /start link_<token> — link Telegram account to MemeLab streamer
  */
 
@@ -14,6 +14,27 @@ import type { BotContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
 
 const LINK_TOKEN_PREFIX = 'link:token:';
+
+/** Inline button menu for linked users */
+const MAIN_MENU_KEYBOARD = {
+  inline_keyboard: [
+    [
+      { text: '\u{1F4E1} Подключить канал', callback_data: 'menu:connect' },
+      { text: '\u{1F4CB} Мои каналы', callback_data: 'menu:channels' },
+    ],
+    [
+      { text: '\u{2699}\u{FE0F} Настройки', callback_data: 'menu:settings' },
+      { text: '\u{1F4E3} Тест анонса', callback_data: 'menu:test' },
+    ],
+    [
+      { text: '\u{1F441} Предпросмотр', callback_data: 'menu:preview' },
+      { text: '\u{1F4CA} Статистика', callback_data: 'menu:stats' },
+    ],
+    [
+      { text: '\u{1F310} Открыть дашборд', url: 'https://notify.memelab.ru/dashboard' },
+    ],
+  ],
+};
 
 export async function handleStart(ctx: BotContext, args: string): Promise<void> {
   // ─── Account linking via deep link ───────────────────────
@@ -27,40 +48,35 @@ export async function handleStart(ctx: BotContext, args: string): Promise<void> 
     where: { telegramUserId: String(ctx.userId) },
   });
 
-  const linked = !!streamer;
-
-  const lines = [
-    '<b>MemeLab Notify Bot</b>',
-    '',
-    'Автоматические анонсы стримов в Telegram-каналы и группы.',
-    '',
-  ];
-
-  if (linked) {
-    lines.push(
-      `Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
-      '',
-      'Доступные команды:',
-      '/connect — подключить канал/группу',
-      '/channels — мои подключённые каналы',
-      '/settings — настройки каналов (шаблон, удаление)',
-      '/test — отправить тестовый анонс',
-      '/preview — предпросмотр шаблона',
-      '/stats — статистика анонсов',
-    );
+  if (streamer) {
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text: [
+        '\u{1F7E3} <b>MemeLab Notify</b>',
+        '',
+        `\u{1F464} <b>${escapeHtml(streamer.displayName)}</b>`,
+        '',
+        'Выберите действие:',
+      ].join('\n'),
+      replyMarkup: MAIN_MENU_KEYBOARD,
+    });
   } else {
-    lines.push(
-      'Чтобы начать, привяжите аккаунт через дашборд:',
-      'https://notify.memelab.ru/dashboard',
-      '',
-      'Нажмите кнопку «Привязать Telegram» на дашборде.',
-    );
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text: [
+        '\u{1F7E3} <b>MemeLab Notify</b>',
+        '',
+        'Автоматические анонсы стримов в Telegram-каналы и группы.',
+        '',
+        'Для начала привяжите аккаунт:',
+      ].join('\n'),
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F517} Привязать аккаунт', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
+    });
   }
-
-  await tg.sendMessage({
-    chatId: String(ctx.chatId),
-    text: lines.join('\n'),
-  });
 }
 
 async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
@@ -72,7 +88,12 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   if (!streamerId) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Ссылка для привязки недействительна или истекла.\n\nСоздайте новую на дашборде: https://notify.memelab.ru/dashboard',
+      text: '\u{274C} Ссылка для привязки недействительна или истекла.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F504} Создать новую ссылку', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }
@@ -85,7 +106,12 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   if (existingLink && existingLink.id !== streamerId) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Ваш Telegram уже привязан к другому аккаунту.\n\nОтвяжите его на дашборде, чтобы привязать к другому аккаунту.',
+      text: '\u{26A0}\u{FE0F} Ваш Telegram уже привязан к другому аккаунту.\n\nОтвяжите его на дашборде, чтобы привязать к другому.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F310} Открыть дашборд', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }
@@ -94,7 +120,8 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   if (existingLink && existingLink.id === streamerId) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: `✅ Аккаунт <b>${escapeHtml(existingLink.displayName)}</b> уже привязан.\n\nИспользуйте /connect для подключения каналов.`,
+      text: `\u{2705} Аккаунт <b>${escapeHtml(existingLink.displayName)}</b> уже привязан.`,
+      replyMarkup: MAIN_MENU_KEYBOARD,
     });
     return;
   }
@@ -108,7 +135,12 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   if (count === 0) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
-      text: 'Не удалось привязать аккаунт — возможно, он уже привязан.\n\nСоздайте новую ссылку на дашборде: https://notify.memelab.ru/dashboard',
+      text: '\u{274C} Не удалось привязать аккаунт — возможно, он уже привязан.',
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F504} Создать новую ссылку', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }
@@ -123,15 +155,10 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   await tg.sendMessage({
     chatId: String(ctx.chatId),
     text: [
-      `✅ Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
+      `\u{2705} Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
       '',
-      'Теперь вы можете:',
-      '/connect — подключить канал/группу',
-      '/channels — мои подключённые каналы',
-      '/settings — настройки каналов',
-      '/test — отправить тестовый анонс',
-      '/preview — предпросмотр шаблона',
-      '/stats — статистика анонсов',
+      'Выберите действие:',
     ].join('\n'),
+    replyMarkup: MAIN_MENU_KEYBOARD,
   });
 }

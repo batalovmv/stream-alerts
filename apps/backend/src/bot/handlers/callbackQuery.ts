@@ -2,6 +2,7 @@
  * Callback query handler for inline keyboard interactions.
  *
  * Handles:
+ * - menu:<command> — main menu button presses (calls command handlers)
  * - toggle:<chatId> — enable/disable a connected chat
  * - remove:<chatId> — disconnect a chat (with confirmation)
  * - confirm_remove:<chatId> — confirmed removal
@@ -13,6 +14,12 @@ import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
 import { sendChannelsList, buildChannelsListContent } from '../commands/channels.js';
+import { handleConnect } from '../commands/connect.js';
+import { handleChannels } from '../commands/channels.js';
+import { handleSettings } from '../commands/settings.js';
+import { handleTest } from '../commands/test.js';
+import { handlePreview } from '../commands/preview.js';
+import { handleStats } from '../commands/stats.js';
 import { sendTestAnnouncement } from '../commands/test.js';
 import {
   handleSettingsCallback,
@@ -21,7 +28,7 @@ import {
   handleSettingsTemplate,
   handleSettingsBack,
 } from '../commands/settings.js';
-import type { CallbackContext } from '../types.js';
+import type { BotContext, CallbackContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
@@ -43,6 +50,10 @@ export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
   }
 
   switch (action) {
+    case 'menu':
+      await handleMenuButton(ctx, targetId);
+      return;
+
     case 'toggle':
       await handleToggle(ctx, streamer, targetId);
       break;
@@ -267,5 +278,35 @@ async function handleTestCallback(
     messageId: ctx.messageId,
     text: `<b>Результаты тестовой отправки:</b>\n\n${results.join('\n')}`,
   });
+}
+
+/** Handle main menu inline button presses — dispatches to command handlers */
+async function handleMenuButton(ctx: CallbackContext, command: string): Promise<void> {
+  await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
+
+  // Build a BotContext from the callback context to pass to command handlers
+  // The message/text fields are not used by command handlers (they use chatId/userId),
+  // but are required by the interface, so we provide safe defaults.
+  const botCtx: BotContext = {
+    update: ctx.update,
+    message: ctx.update.callback_query?.message ?? { message_id: ctx.messageId, chat: { id: ctx.chatId, type: 'private' }, date: Math.floor(Date.now() / 1000) },
+    chatId: ctx.chatId,
+    userId: ctx.userId,
+    text: `/${command}`,
+  };
+
+  const handlers: Record<string, () => Promise<void>> = {
+    connect: () => handleConnect(botCtx),
+    channels: () => handleChannels(botCtx),
+    settings: () => handleSettings(botCtx),
+    test: () => handleTest(botCtx),
+    preview: () => handlePreview(botCtx),
+    stats: () => handleStats(botCtx),
+  };
+
+  const handler = handlers[command];
+  if (handler) {
+    await handler();
+  }
 }
 
