@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderTemplate, buildDefaultButtons, renderOfflineTemplate } from './templateService.js';
+import { renderTemplate, buildDefaultButtons } from './templateService.js';
 
 describe('renderTemplate', () => {
   it('replaces all variables in default template', () => {
@@ -66,14 +66,3 @@ describe('buildDefaultButtons', () => {
   });
 });
 
-describe('renderOfflineTemplate', () => {
-  it('returns default offline text when no template', () => {
-    const result = renderOfflineTemplate(null);
-    expect(result).toContain('Стрим завершён');
-  });
-
-  it('uses custom offline template', () => {
-    const result = renderOfflineTemplate('Stream is over!');
-    expect(result).toBe('Stream is over!');
-  });
-});

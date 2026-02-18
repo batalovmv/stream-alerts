@@ -12,7 +12,7 @@
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
-import { sendChannelsList } from '../commands/channels.js';
+import { sendChannelsList, buildChannelsListContent } from '../commands/channels.js';
 import { sendTestAnnouncement } from '../commands/test.js';
 import {
   handleSettingsCallback,
@@ -112,20 +112,19 @@ async function handleToggle(
     text: `${chat.chatTitle || chat.chatId}: ${statusText}`,
   });
 
-  // Refresh the channels list
+  // Refresh the channels list in-place (edit instead of delete+send to avoid flicker)
   const freshChats = await prisma.connectedChat.findMany({
     where: { streamerId: streamer.id },
     orderBy: { createdAt: 'asc' },
   });
 
-  // Delete old message and send updated list
-  try {
-    await tg.deleteMessageApi(String(ctx.chatId), ctx.messageId);
-  } catch {
-    // Ignore if message can't be deleted
-  }
-
-  await sendChannelsList(ctx.chatId, freshChats);
+  const { text: listText, replyMarkup } = buildChannelsListContent(freshChats);
+  await tg.editMessageText({
+    chatId: String(ctx.chatId),
+    messageId: ctx.messageId,
+    text: listText,
+    replyMarkup,
+  });
 }
 
 async function handleRemovePrompt(
@@ -191,12 +190,13 @@ async function handleConfirmRemove(
       text: 'Все каналы отключены.\n\nИспользуйте /connect чтобы добавить новый.',
     });
   } else {
-    try {
-      await tg.deleteMessageApi(String(ctx.chatId), ctx.messageId);
-    } catch {
-      // Ignore
-    }
-    await sendChannelsList(ctx.chatId, freshChats);
+    const { text: listText, replyMarkup } = buildChannelsListContent(freshChats);
+    await tg.editMessageText({
+      chatId: String(ctx.chatId),
+      messageId: ctx.messageId,
+      text: listText,
+      replyMarkup,
+    });
   }
 }
 
@@ -211,13 +211,13 @@ async function handleCancelRemove(
     orderBy: { createdAt: 'asc' },
   });
 
-  try {
-    await tg.deleteMessageApi(String(ctx.chatId), ctx.messageId);
-  } catch {
-    // Ignore
-  }
-
-  await sendChannelsList(ctx.chatId, freshChats);
+  const { text, replyMarkup } = buildChannelsListContent(freshChats);
+  await tg.editMessageText({
+    chatId: String(ctx.chatId),
+    messageId: ctx.messageId,
+    text,
+    replyMarkup,
+  });
 }
 
 async function handleTestCallback(
@@ -225,6 +225,17 @@ async function handleTestCallback(
   streamer: { id: string; displayName: string; twitchLogin: string | null; memelabChannelId: string; defaultTemplate: string | null; chats: Array<{ id: string; chatId: string; chatTitle: string | null; provider: string; customTemplate: string | null; enabled: boolean }> },
   targetId: string,
 ): Promise<void> {
+  // Handle cancel
+  if (targetId === 'cancel') {
+    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
+    await tg.editMessageText({
+      chatId: String(ctx.chatId),
+      messageId: ctx.messageId,
+      text: 'Тестовая отправка отменена.',
+    });
+    return;
+  }
+
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Отправляю...' });
 
   const chatsToTest = targetId === 'all'

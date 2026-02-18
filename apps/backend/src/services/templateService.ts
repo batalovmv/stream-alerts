@@ -20,7 +20,6 @@ export interface TemplateVariables {
   game_name?: string;
   stream_url?: string;
   memelab_url?: string;
-  viewer_count?: string;
 }
 
 /** Render a template, replacing {var} placeholders with HTML-escaped values. */
@@ -31,13 +30,6 @@ export function renderTemplate(template: string | null | undefined, vars: Templa
     const value = vars[key as keyof TemplateVariables];
     return value ? escapeHtml(value) : '';
   });
-}
-
-const DEFAULT_OFFLINE_TEMPLATE = '📴 Стрим завершён';
-
-/** Render an offline template (simple — no variables needed). */
-export function renderOfflineTemplate(template: string | null | undefined): string {
-  return template?.trim() || DEFAULT_OFFLINE_TEMPLATE;
 }
 
 /** Build the default inline buttons for an announcement. */

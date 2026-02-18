@@ -16,6 +16,10 @@ import { routeUpdate } from './router.js';
 const WEBHOOK_PATH = '/api/telegram/webhook';
 const WEBHOOK_SECRET = config.telegramWebhookSecret;
 
+/** Bot username resolved from getMe() at startup */
+let botUsername = 'MemelabNotifyBot'; // fallback
+export function getBotUsername(): string { return botUsername; }
+
 /** Register bot commands menu in Telegram */
 async function registerCommands(): Promise<void> {
   await tg.setMyCommands([
@@ -120,7 +124,8 @@ export async function setupBot(app: Express): Promise<void> {
 
   try {
     const me = await tg.getMe();
-    logger.info({ botId: me.id, botUsername: me.username }, 'bot.connected');
+    if (me.username) botUsername = me.username;
+    logger.info({ botId: me.id, botUsername }, 'bot.connected');
 
     await registerCommands();
 

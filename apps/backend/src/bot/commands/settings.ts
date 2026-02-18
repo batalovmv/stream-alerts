@@ -10,6 +10,7 @@ import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import type { BotContext, CallbackContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 
 const PENDING_TEMPLATE_PREFIX = 'pending:template:';
 const PENDING_TEMPLATE_TTL = 300; // 5 minutes
@@ -156,7 +157,9 @@ export async function handleSettingsTemplate(ctx: CallbackContext, chatDbId: str
       + 'Доступные переменные:\n'
       + '<code>{streamer_name}</code> — имя стримера\n'
       + '<code>{stream_title}</code> — название стрима\n'
-      + '<code>{game_name}</code> — игра\n\n'
+      + '<code>{game_name}</code> — игра\n'
+      + '<code>{stream_url}</code> — ссылка на стрим\n'
+      + '<code>{memelab_url}</code> — ссылка на MemeLab\n\n'
       + 'Отправьте <code>reset</code> чтобы сбросить на стандартный.\n'
       + '/cancel — отмена',
   });
@@ -190,7 +193,13 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
 
 export async function handleTemplateTextInput(chatId: number, userId: number, text: string): Promise<void> {
   const chatDbId = await redis.getdel(PENDING_TEMPLATE_PREFIX + userId);
-  if (!chatDbId) return;
+  if (!chatDbId) {
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: '⏰ Сессия редактирования шаблона истекла.\n\nОткройте /settings и нажмите «Изменить шаблон» снова.',
+    });
+    return;
+  }
 
   // Verify ownership: the chat must belong to this user's streamer account
   const streamer = await prisma.streamer.findUnique({ where: { telegramUserId: String(userId) } });
@@ -225,6 +234,22 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     where: { id: chatDbId, streamerId: streamer.id },
     data: { customTemplate: text },
   });
-  await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон обновлён!\n\nИспользуйте /preview чтобы посмотреть результат.' });
+  await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон обновлён! Вот как будет выглядеть анонс:' });
+
+  // Auto-preview the saved template
+  const previewVars = {
+    streamer_name: streamer.displayName,
+    stream_title: 'Играем в новый инди-хоррор!',
+    game_name: 'Phasmophobia',
+    stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
+    memelab_url: `https://memelab.ru/${streamer.memelabChannelId}`,
+  };
+  const previewText = renderTemplate(text, previewVars);
+  const buttons = buildDefaultButtons(previewVars);
+  await tg.sendMessage({
+    chatId: String(chatId),
+    text: previewText,
+    buttons: buttons.map((b) => ({ label: b.label, url: b.url })),
+  });
 }
 

@@ -35,20 +35,22 @@ export async function handleChannels(ctx: BotContext): Promise<void> {
   await sendChannelsList(ctx.chatId, streamer.chats);
 }
 
-export async function sendChannelsList(
-  chatId: number,
-  chats: Array<{
-    id: string;
-    chatTitle: string | null;
-    chatId: string;
-    chatType: string | null;
-    provider: string;
-    enabled: boolean;
-    deleteAfterEnd: boolean;
-  }>,
-): Promise<void> {
-  const lines = ['<b>Подключённые каналы:</b>', ''];
+type ChatListItem = {
+  id: string;
+  chatTitle: string | null;
+  chatId: string;
+  chatType: string | null;
+  provider: string;
+  enabled: boolean;
+  deleteAfterEnd: boolean;
+};
 
+/** Build channels list text + keyboard (reusable for both send and edit) */
+export function buildChannelsListContent(chats: ChatListItem[]): {
+  text: string;
+  replyMarkup: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> };
+} {
+  const lines = ['<b>Подключённые каналы:</b>', ''];
   const inlineKeyboard: Array<Array<{ text: string; callback_data: string }>> = [];
 
   for (const chat of chats) {
@@ -59,18 +61,18 @@ export async function sendChannelsList(
 
     lines.push(`${status} ${typeEmoji} <b>${escapeHtml(title)}</b> ${deleteLabel}`);
 
-    // Two buttons per chat: toggle enabled + remove
     const toggleText = chat.enabled ? '\u26D4 Отключить' : '\u2705 Включить';
     inlineKeyboard.push([
-      { text: `${toggleText} | ${title.slice(0, 20)}`, callback_data: `toggle:${chat.id}` },
+      { text: `${toggleText} | ${[...title].slice(0, 20).join('')}`, callback_data: `toggle:${chat.id}` },
       { text: '\u274C Удалить', callback_data: `remove:${chat.id}` },
     ]);
   }
 
-  await tg.sendMessage({
-    chatId: String(chatId),
-    text: lines.join('\n'),
-    replyMarkup: { inline_keyboard: inlineKeyboard },
-  });
+  return { text: lines.join('\n'), replyMarkup: { inline_keyboard: inlineKeyboard } };
+}
+
+export async function sendChannelsList(chatId: number, chats: ChatListItem[]): Promise<void> {
+  const { text, replyMarkup } = buildChannelsListContent(chats);
+  await tg.sendMessage({ chatId: String(chatId), text, replyMarkup });
 }
 

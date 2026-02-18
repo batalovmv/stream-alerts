@@ -77,10 +77,24 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
     await tg.removeReplyKeyboard(
       chatId,
       [
-        'Бот не является администратором в выбранном чате.',
+        '⚠️ Бот не смог получить права администратора в выбранном чате.',
         '',
-        'Убедитесь, что бот добавлен как администратор, и попробуйте /connect снова.',
+        'Автоматическое добавление не сработало. Пожалуйста:',
+        '1. Откройте настройки чата',
+        '2. Добавьте @MemelabNotifyBot как администратора вручную',
+        '3. Попробуйте /connect снова',
       ].join('\n'),
+    );
+    return;
+  }
+
+  // Enforce per-streamer chat limit
+  const MAX_CHATS_PER_STREAMER = 20;
+  const chatCount = await prisma.connectedChat.count({ where: { streamerId: streamer.id } });
+  if (chatCount >= MAX_CHATS_PER_STREAMER) {
+    await tg.removeReplyKeyboard(
+      chatId,
+      `Достигнут лимит подключённых каналов (${MAX_CHATS_PER_STREAMER}).\n\nУдалите ненужные через /channels, затем попробуйте снова.`,
     );
     return;
   }

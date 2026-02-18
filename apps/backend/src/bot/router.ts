@@ -73,6 +73,15 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
 
     // Check for pending template edit (text input for /settings)
     if (!text.startsWith('/') && msg.from?.id && await getPendingTemplateEdit(msg.from.id)) {
+      // Ignore non-text messages (stickers, photos, voice etc.) — they produce empty text
+      if (!msg.text || msg.text.trim() === '') {
+        const { sendMessage } = await import('../providers/telegram/telegramApi.js');
+        await sendMessage({
+          chatId: String(msg.chat.id),
+          text: 'Пожалуйста, отправьте текст шаблона.\n\n/cancel — отмена',
+        });
+        return;
+      }
       await handleTemplateTextInput(msg.chat.id, msg.from.id, text);
       return;
     }

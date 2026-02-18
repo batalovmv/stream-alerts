@@ -43,7 +43,10 @@ export async function handleStart(ctx: BotContext, args: string): Promise<void> 
       'Доступные команды:',
       '/connect — подключить канал/группу',
       '/channels — мои подключённые каналы',
+      '/settings — настройки каналов (шаблон, удаление)',
       '/test — отправить тестовый анонс',
+      '/preview — предпросмотр шаблона',
+      '/stats — статистика анонсов',
     );
   } else {
     lines.push(
@@ -87,6 +90,15 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     return;
   }
 
+  // Already linked to the same streamer — no-op with friendly message
+  if (existingLink && existingLink.id === streamerId) {
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text: `✅ Аккаунт <b>${escapeHtml(existingLink.displayName)}</b> уже привязан.\n\nИспользуйте /connect для подключения каналов.`,
+    });
+    return;
+  }
+
   // Atomically link only if not already linked (prevents TOCTOU race)
   const { count } = await prisma.streamer.updateMany({
     where: { id: streamerId, telegramUserId: null },
@@ -111,12 +123,15 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   await tg.sendMessage({
     chatId: String(ctx.chatId),
     text: [
-      `Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
+      `✅ Аккаунт привязан: <b>${escapeHtml(streamer.displayName)}</b>`,
       '',
       'Теперь вы можете:',
       '/connect — подключить канал/группу',
       '/channels — мои подключённые каналы',
+      '/settings — настройки каналов',
       '/test — отправить тестовый анонс',
+      '/preview — предпросмотр шаблона',
+      '/stats — статистика анонсов',
     ].join('\n'),
   });
 }

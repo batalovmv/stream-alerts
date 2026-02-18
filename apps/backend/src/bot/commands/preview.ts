@@ -10,10 +10,13 @@ import { prisma } from '../../lib/prisma.js';
 import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
 import type { BotContext } from '../types.js';
 
+/** Static placeholder image for preview (Twitch live thumbnails only work during active streams) */
+const PREVIEW_PLACEHOLDER_URL = 'https://static-cdn.jtvnw.net/ttv-static/404_preview-640x360.jpg';
+
 export async function handlePreview(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
     where: { telegramUserId: String(ctx.userId) },
-    include: { chats: { select: { customTemplate: true }, take: 1 } },
+    include: { chats: { select: { customTemplate: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
   });
 
   if (!streamer) {
@@ -29,13 +32,15 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
     stream_title: 'Играем в новый инди-хоррор!',
     game_name: 'Phasmophobia',
     stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
-    memelab_url: `https://memelab.ru/preview`,
+    memelab_url: `https://memelab.ru/${streamer.memelabChannelId}`,
   };
 
   const template = streamer.chats[0]?.customTemplate || streamer.defaultTemplate;
   const text = renderTemplate(template, templateVars);
   const buttons = buildDefaultButtons(templateVars);
-  const photoUrl = `https://static-cdn.jtvnw.net/previews-ttv/live_user_${streamer.twitchLogin ?? 'test'}-640x360.jpg`;
+
+  // Use static placeholder — live Twitch thumbnails only work during active streams
+  const photoUrl = PREVIEW_PLACEHOLDER_URL;
 
   try {
     await tg.sendPhoto({
@@ -45,7 +50,7 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
       buttons,
     });
   } catch {
-    // Photo URL may be invalid (no active stream) — fall back to text-only
+    // Photo URL unavailable — fall back to text-only
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text,
@@ -56,6 +61,7 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
   await tg.sendMessage({
     chatId: String(ctx.chatId),
     text: '👆 Так будет выглядеть анонс.\n\n'
-      + 'Переменные: <code>{streamer_name}</code>, <code>{stream_title}</code>, <code>{game_name}</code>',
+      + 'Переменные: <code>{streamer_name}</code>, <code>{stream_title}</code>, <code>{game_name}</code>, '
+      + '<code>{stream_url}</code>, <code>{memelab_url}</code>',
   });
 }

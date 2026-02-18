@@ -54,13 +54,17 @@ export async function handleTest(ctx: BotContext): Promise<void> {
     return;
   }
 
-  // Single chat — send immediately
-  const result = await sendTestAnnouncement(streamer, streamer.chats[0]);
+  // Single chat — ask for confirmation first
+  const chatTitle = streamer.chats[0].chatTitle || streamer.chats[0].chatId;
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: result.success
-      ? `Тестовый анонс отправлен в <b>${escapeHtml(streamer.chats[0].chatTitle || streamer.chats[0].chatId)}</b>`
-      : `Ошибка: ${escapeHtml(result.error ?? 'неизвестная ошибка')}`,
+    text: `Отправить тестовый анонс в <b>${escapeHtml(chatTitle)}</b>?`,
+    replyMarkup: {
+      inline_keyboard: [[
+        { text: '✅ Отправить', callback_data: `test:${streamer.chats[0].id}` },
+        { text: '❌ Отмена', callback_data: 'test:cancel' },
+      ]],
+    },
   });
 }
 

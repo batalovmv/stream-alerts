@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from '../middleware/types.js';
 import { config } from '../../lib/config.js';
 import { redis } from '../../lib/redis.js';
 import { prisma } from '../../lib/prisma.js';
+import { getBotUsername } from '../../bot/setup.js';
 
 const router: RouterType = Router();
 
@@ -14,7 +15,6 @@ const MEMELAB_LOGIN_URL = config.isDev
 
 const LINK_TOKEN_PREFIX = 'link:token:';
 const LINK_TOKEN_TTL = 600; // 10 minutes
-const BOT_USERNAME = 'MemelabNotifyBot';
 
 /**
  * GET /api/auth/me — Return current authenticated streamer.
@@ -92,7 +92,7 @@ router.post('/telegram-link', requireAuth, async (req: Request, res: Response) =
     const token = randomBytes(16).toString('hex');
     await redis.setex(LINK_TOKEN_PREFIX + token, LINK_TOKEN_TTL, streamer.id);
 
-    const deepLink = `https://t.me/${BOT_USERNAME}?start=link_${token}`;
+    const deepLink = `https://t.me/${getBotUsername()}?start=link_${token}`;
 
     res.json({
       linked: false,
