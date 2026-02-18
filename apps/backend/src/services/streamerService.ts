@@ -7,14 +7,15 @@ import type { MemelabUserProfile, AuthStreamer } from '../api/middleware/types.j
  * Called on every authenticated request (idempotent).
  */
 export async function upsertStreamerFromProfile(
-  profile: MemelabUserProfile,
+  profile: MemelabUserProfile & { channel: NonNullable<MemelabUserProfile['channel']> },
 ): Promise<AuthStreamer> {
   const twitchAccount = profile.externalAccounts.find(
     (acc) => acc.provider === 'twitch',
   );
 
   const data = {
-    memelabChannelId: profile.channel!.id,
+    memelabChannelId: profile.channel.id,
+    channelSlug: profile.channel.slug,
     twitchLogin: twitchAccount?.login ?? null,
     displayName: profile.displayName,
     avatarUrl: profile.profileImageUrl ?? twitchAccount?.avatarUrl ?? null,
@@ -38,6 +39,7 @@ export async function upsertStreamerFromProfile(
     id: streamer.id,
     memelabUserId: streamer.memelabUserId,
     memelabChannelId: streamer.memelabChannelId,
+    channelSlug: streamer.channelSlug,
     twitchLogin: streamer.twitchLogin,
     displayName: streamer.displayName,
     avatarUrl: streamer.avatarUrl,

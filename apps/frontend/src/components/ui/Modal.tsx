@@ -39,6 +39,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
           <h2 className="text-lg font-semibold">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="Закрыть"
             className="text-white/40 hover:text-white transition"
           >
             &#x2715;

@@ -1,14 +1,8 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
-
-function handleLogin() {
-  window.location.href = `${API_BASE}/api/auth/login`;
-}
-
 export function Landing() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, login } = useAuth();
 
   if (!isLoading && isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -35,7 +29,7 @@ export function Landing() {
             <a href="#how-it-works" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
               Как это работает
             </a>
-            <button onClick={handleLogin} className="btn-glow text-sm !px-5 !py-2.5 !shadow-glow">
+            <button onClick={login} className="btn-glow text-sm !px-5 !py-2.5 !shadow-glow">
               Войти через MemeLab
             </button>
           </nav>
@@ -65,7 +59,7 @@ export function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6 opacity-0 animate-fade-up-delayed-2">
-            <button onClick={handleLogin} className="btn-glow text-lg">
+            <button onClick={login} className="btn-glow text-lg">
               Начать бесплатно
             </button>
             <a href="#how-it-works" className="btn-secondary text-lg text-center">
@@ -250,7 +244,7 @@ export function Landing() {
             <p className="text-white/40 mb-8 max-w-md mx-auto">
               Бесплатно. Настройка за 2 минуты. Работает с Twitch и VK Video.
             </p>
-            <button onClick={handleLogin} className="btn-glow text-lg">
+            <button onClick={login} className="btn-glow text-lg">
               Начать бесплатно
             </button>
           </div>

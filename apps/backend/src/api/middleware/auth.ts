@@ -42,7 +42,8 @@ export async function requireAuth(
       return;
     }
 
-    const streamer = await upsertStreamerFromProfile(profile);
+    // channel is guaranteed non-null after the guard above
+    const streamer = await upsertStreamerFromProfile(profile as typeof profile & { channel: NonNullable<typeof profile.channel> });
     (req as AuthenticatedRequest).streamer = streamer;
 
     next();
@@ -73,7 +74,7 @@ function extractToken(req: Request): string | null {
 }
 
 function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex').slice(0, 16);
+  return createHash('sha256').update(token).digest('hex');
 }
 
 async function getCachedProfile(token: string): Promise<MemelabUserProfile | null> {

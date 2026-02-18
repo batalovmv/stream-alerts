@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export function Dashboard() {
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const { chats, isLoading } = useChats();
+  const { chats, isLoading, error } = useChats();
   const { user } = useAuth();
 
   return (
@@ -41,6 +41,8 @@ export function Dashboard() {
             <div key={i} className="glass-card p-6 animate-pulse h-24" />
           ))}
         </div>
+      ) : error ? (
+        <ErrorState />
       ) : chats.length === 0 ? (
         <EmptyState
           telegramLinked={user?.telegramLinked ?? false}
@@ -59,6 +61,21 @@ export function Dashboard() {
         onClose={() => setAddModalOpen(false)}
       />
     </DashboardLayout>
+  );
+}
+
+function ErrorState() {
+  return (
+    <div className="glass-card p-12 text-center">
+      <div className="feature-icon mx-auto mb-5">&#x26A0;&#xFE0F;</div>
+      <h2 className="text-xl font-semibold mb-2">Не удалось загрузить каналы</h2>
+      <p className="text-white/40 mb-6 max-w-sm mx-auto">
+        Произошла ошибка при загрузке данных. Попробуйте обновить страницу.
+      </p>
+      <Button variant="primary" onClick={() => window.location.reload()}>
+        Обновить страницу
+      </Button>
+    </div>
   );
 }
 

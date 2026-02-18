@@ -94,6 +94,17 @@ export async function callApi<T>(method: string, body: Record<string, unknown>):
     }
 
     return data.result;
+  } catch (error) {
+    // Re-throw TelegramApiError as-is
+    if (error instanceof TelegramApiError) throw error;
+
+    // Wrap network/timeout errors into TelegramApiError
+    const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+    const code = isTimeout ? 408 : 0;
+    const desc = isTimeout
+      ? `Request to ${method} timed out after ${TIMEOUT_MS}ms`
+      : `Network error calling ${method}: ${error instanceof Error ? error.message : String(error)}`;
+    throw new TelegramApiError(code, desc);
   } finally {
     clearTimeout(timeout);
   }
@@ -112,7 +123,7 @@ export class TelegramApiError extends Error {
 
   /** Transient errors that make sense to retry */
   get retryable(): boolean {
-    return this.code === 429 || this.code >= 500;
+    return this.code === 0 || this.code === 408 || this.code === 429 || this.code >= 500;
   }
 
   /** Bot was blocked or chat was deleted — disable subscription */
@@ -123,6 +134,16 @@ export class TelegramApiError extends Error {
       (this.code === 400 && this.description.includes('chat not found'))
     );
   }
+}
+
+// ─── Cached Bot Info ──────────────────────────────────────
+
+let cachedBotInfo: TelegramUser | null = null;
+
+export async function getMe(): Promise<TelegramUser> {
+  if (cachedBotInfo) return cachedBotInfo;
+  cachedBotInfo = await callApi<TelegramUser>('getMe', {});
+  return cachedBotInfo;
 }
 
 // ─── Public API ───────────────────────────────────────────
@@ -263,14 +284,6 @@ export async function getBotChatMember(chatId: string | number): Promise<{ statu
     chat_id: chatId,
     user_id: botInfo.id,
   });
-}
-
-/** Get bot info (cached) */
-let cachedBotInfo: TelegramUser | null = null;
-export async function getMe(): Promise<TelegramUser> {
-  if (cachedBotInfo) return cachedBotInfo;
-  cachedBotInfo = await callApi<TelegramUser>('getMe', {});
-  return cachedBotInfo;
 }
 
 /** Set webhook URL */

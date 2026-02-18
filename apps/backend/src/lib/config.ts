@@ -5,28 +5,27 @@ function env(key: string, fallback?: string): string {
   throw new Error(`Missing required environment variable: ${key}`);
 }
 
+const nodeEnv = env('NODE_ENV', 'development');
+
 export const config = {
   port: parseInt(env('PORT', '3000'), 10),
-  nodeEnv: env('NODE_ENV', 'development'),
-  isDev: env('NODE_ENV', 'development') === 'development',
+  nodeEnv,
+  isDev: nodeEnv === 'development',
 
-  // Database
-  databaseUrl: env('DATABASE_URL', ''),
+  // Database (required — no silent empty-string fallback)
+  databaseUrl: env('DATABASE_URL'),
 
   // Redis
   redisUrl: env('REDIS_URL', 'redis://localhost:6379'),
 
-  // MemeLab OAuth
-  memelabClientId: env('MEMELAB_CLIENT_ID', ''),
-  memelabClientSecret: env('MEMELAB_CLIENT_SECRET', ''),
-  memelabOAuthUrl: env('MEMELAB_OAUTH_URL', 'https://memelab.ru/oauth'),
+  // MemeLab API
   memelabApiUrl: env('MEMELAB_API_URL', 'https://memelab.ru/api'),
 
-  // Webhook
-  webhookSecret: env('WEBHOOK_SECRET', ''),
+  // Webhook (required in production)
+  webhookSecret: env('WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-webhook-secret' : undefined),
 
-  // Session
-  sessionSecret: env('SESSION_SECRET', 'dev-session-secret'),
+  // Session (required in production)
+  sessionSecret: env('SESSION_SECRET', nodeEnv === 'development' ? 'dev-session-secret' : undefined),
 
   // JWT Cookie
   jwtCookieName: env('JWT_COOKIE_NAME', 'token'),

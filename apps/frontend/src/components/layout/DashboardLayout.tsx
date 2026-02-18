@@ -29,10 +29,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     src={user.avatarUrl}
                     alt={user.displayName}
                     className="w-8 h-8 rounded-full"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
                   />
-                ) : (
-                  <div className="w-8 h-8 rounded-full animated-gradient" />
-                )}
+                ) : null}
+                <div className={`w-8 h-8 rounded-full animated-gradient ${user.avatarUrl ? 'hidden' : ''}`} />
                 <span className="text-sm font-medium hidden sm:block">
                   {user.displayName}
                 </span>

@@ -12,9 +12,13 @@ export function ChatCard({ chat }: ChatCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   const [template, setTemplate] = useState(chat.customTemplate ?? '');
+  const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const providerLabel = chat.provider === 'telegram' ? 'Telegram' : 'MAX';
   const providerEmoji = chat.provider === 'telegram' ? '\u2708\uFE0F' : '\uD83D\uDCAC';
+
+  // Disable all actions while any mutation is in progress to prevent race conditions
+  const isBusy = updateChat.isPending || deleteChat.isPending || testChat.isPending;
 
   function handleToggleEnabled() {
     updateChat.mutate({ id: chat.id, enabled: !chat.enabled });
@@ -31,7 +35,17 @@ export function ChatCard({ chat }: ChatCardProps) {
   }
 
   function handleTest() {
-    testChat.mutate(chat.id);
+    setTestStatus('idle');
+    testChat.mutate(chat.id, {
+      onSuccess: () => {
+        setTestStatus('success');
+        setTimeout(() => setTestStatus('idle'), 3000);
+      },
+      onError: () => {
+        setTestStatus('error');
+        setTimeout(() => setTestStatus('idle'), 3000);
+      },
+    });
   }
 
   return (
@@ -56,7 +70,7 @@ export function ChatCard({ chat }: ChatCardProps) {
           </div>
         </div>
 
-        <Toggle checked={chat.enabled} onChange={handleToggleEnabled} />
+        <Toggle checked={chat.enabled} onChange={handleToggleEnabled} disabled={isBusy} />
       </div>
 
       {/* Settings row */}
@@ -66,6 +80,7 @@ export function ChatCard({ chat }: ChatCardProps) {
             checked={chat.deleteAfterEnd}
             onChange={handleToggleDelete}
             label="Удалять после стрима"
+            disabled={isBusy}
           />
         </div>
 
@@ -75,8 +90,9 @@ export function ChatCard({ chat }: ChatCardProps) {
             size="sm"
             onClick={handleTest}
             loading={testChat.isPending}
+            disabled={isBusy}
           >
-            Тест
+            {testStatus === 'success' ? 'Отправлено!' : testStatus === 'error' ? 'Ошибка' : 'Тест'}
           </Button>
           {confirmDelete ? (
             <div className="flex items-center gap-2">
@@ -85,6 +101,7 @@ export function ChatCard({ chat }: ChatCardProps) {
                 size="sm"
                 onClick={handleDelete}
                 loading={deleteChat.isPending}
+                disabled={isBusy}
               >
                 Удалить
               </Button>
@@ -92,6 +109,7 @@ export function ChatCard({ chat }: ChatCardProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setConfirmDelete(false)}
+                disabled={isBusy}
               >
                 Отмена
               </Button>
@@ -101,6 +119,7 @@ export function ChatCard({ chat }: ChatCardProps) {
               variant="danger"
               size="sm"
               onClick={() => setConfirmDelete(true)}
+              disabled={isBusy}
             >
               Отключить
             </Button>

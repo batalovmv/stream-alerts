@@ -1,8 +1,8 @@
 /**
  * Core announcement logic.
  *
- * Handles stream.online → create announcements → enqueue delivery.
- * Handles stream.offline → delete previous announcements.
+ * Handles stream.online → create announcements → deliver.
+ * Handles stream.offline → delete previous announcements (including disabled chats).
  */
 
 import { prisma } from '../lib/prisma.js';
@@ -26,12 +26,14 @@ export interface StreamEventPayload {
  * Process a stream event from MemeLab webhook.
  */
 export async function processStreamEvent(payload: StreamEventPayload): Promise<void> {
-  const { event, channelSlug } = payload;
+  const { event } = payload;
 
   // Find streamer by MemeLab channel ID
   const streamer = await prisma.streamer.findUnique({
     where: { memelabChannelId: payload.channelId },
     include: {
+      // For online: only enabled chats
+      // For offline: we re-query to include all chats with deleteAfterEnd
       chats: { where: { enabled: true } },
     },
   });
@@ -41,15 +43,14 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
     return;
   }
 
-  if (streamer.chats.length === 0) {
-    logger.info({ streamerId: streamer.id }, 'announce.no_chats');
-    return;
-  }
-
   if (event === 'stream.online') {
+    if (streamer.chats.length === 0) {
+      logger.info({ streamerId: streamer.id }, 'announce.no_chats');
+      return;
+    }
     await handleStreamOnline(streamer, payload);
   } else {
-    await handleStreamOffline(streamer);
+    await handleStreamOffline(streamer.id);
   }
 }
 
@@ -163,10 +164,10 @@ async function handleStreamOnline(
   // Notify streamer about delivery results
   if (streamer.telegramUserId && results.length > 0) {
     try {
-      const lines = results.map((r) => `${r.ok ? '✅' : '❌'} ${r.chatTitle}`);
+      const lines = results.map((r) => `${r.ok ? '\u2705' : '\u274C'} ${r.chatTitle}`);
       await tgSendMessage({
         chatId: streamer.telegramUserId,
-        text: `📢 Анонс стрима:\n\n${lines.join('\n')}`,
+        text: `\uD83D\uDCE2 Анонс стрима:\n\n${lines.join('\n')}`,
       });
     } catch {
       // Don't fail the whole flow if notification to streamer fails
@@ -176,21 +177,27 @@ async function handleStreamOnline(
 
 // ─── Stream Offline ───────────────────────────────────────
 
-async function handleStreamOffline(
-  streamer: { id: string; chats: Array<{ id: string; provider: string; chatId: string; deleteAfterEnd: boolean; lastMessageId: string | null }> },
-): Promise<void> {
-  for (const chat of streamer.chats) {
-    if (!chat.deleteAfterEnd || !chat.lastMessageId) continue;
+async function handleStreamOffline(streamerId: string): Promise<void> {
+  // Query ALL chats with deleteAfterEnd=true, regardless of enabled status,
+  // so previously-sent announcements are cleaned up even if the chat was disabled mid-stream.
+  const chats = await prisma.connectedChat.findMany({
+    where: {
+      streamerId,
+      deleteAfterEnd: true,
+      lastMessageId: { not: null },
+    },
+  });
 
+  for (const chat of chats) {
     try {
       const provider = getProvider(chat.provider);
-      await provider.deleteMessage(chat.chatId, chat.lastMessageId);
+      await provider.deleteMessage(chat.chatId, chat.lastMessageId!);
 
       // Update announcement log
       await prisma.announcementLog.updateMany({
         where: {
           chatId: chat.id,
-          providerMsgId: chat.lastMessageId,
+          providerMsgId: chat.lastMessageId!,
           status: 'sent',
         },
         data: {

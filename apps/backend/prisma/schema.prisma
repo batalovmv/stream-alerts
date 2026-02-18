@@ -12,6 +12,7 @@ model Streamer {
   id               String   @id @default(uuid())
   memelabUserId    String   @unique
   memelabChannelId String   @unique
+  channelSlug      String   @default("")
   twitchLogin      String?
   displayName      String
   avatarUrl        String?

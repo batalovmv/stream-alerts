@@ -15,14 +15,20 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
   const telegramLinked = user?.telegramLinked ?? false;
   const [provider, setProvider] = useState<'telegram' | 'max'>('telegram');
 
+  function handleClose() {
+    setProvider('telegram');
+    onClose();
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title="Подключить канал">
+    <Modal open={open} onClose={handleClose} title="Подключить канал">
       <div className="space-y-5">
         {/* Provider selection */}
         <div>
           <label className="block text-sm text-white/50 mb-2">Мессенджер</label>
           <div className="flex gap-3">
             <button
+              type="button"
               className={`flex-1 glass-card p-4 text-center transition-all ${provider === 'telegram' ? '!border-accent/50 shadow-glow' : 'opacity-60 hover:opacity-80'}`}
               onClick={() => setProvider('telegram')}
             >
@@ -30,6 +36,7 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
               <div className="text-sm font-medium">Telegram</div>
             </button>
             <button
+              type="button"
               className={`flex-1 glass-card p-4 text-center transition-all ${provider === 'max' ? '!border-accent/50 shadow-glow' : 'opacity-60 hover:opacity-80'}`}
               onClick={() => setProvider('max')}
             >
@@ -41,12 +48,12 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
 
         {provider === 'telegram' ? (
           telegramLinked ? (
-            <LinkedFlow onClose={onClose} />
+            <LinkedFlow onClose={handleClose} />
           ) : (
             <LinkAccountFlow />
           )
         ) : (
-          <MaxFlow onClose={onClose} />
+          <MaxFlow onClose={handleClose} />
         )}
       </div>
     </Modal>
@@ -127,6 +134,7 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
         </p>
 
         <button
+          type="button"
           onClick={handleCopy}
           className="w-full glass-card p-3 text-left font-mono text-accent-light hover:bg-white/5 transition-all cursor-pointer group"
         >

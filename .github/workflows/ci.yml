@@ -74,7 +74,7 @@ jobs:
           HEALTH_PORT="${{ env.HEALTH_PORT }}"
 
           if [ ! -d "$APP_DIR" ]; then
-            echo "❌ $APP_DIR not found"
+            echo "APP_DIR $APP_DIR not found"
             exit 1
           fi
 
@@ -106,13 +106,17 @@ jobs:
           # Generate Prisma client
           pnpm --filter backend exec prisma generate
 
-          # Apply database migrations
+          # Apply database schema changes (fail deploy if schema push fails)
           if [ -f "$BACKEND_DIR/.env" ]; then
             set -a
             source "$BACKEND_DIR/.env"
             set +a
           fi
-          pnpm --filter backend exec prisma db push --skip-generate 2>&1 || true
+          echo "Applying database schema..."
+          if ! pnpm --filter backend exec prisma db push --skip-generate 2>&1; then
+            echo "Database schema push failed!"
+            exit 1
+          fi
 
           # Build
           pnpm --filter backend build
@@ -138,7 +142,7 @@ jobs:
           done
 
           if [ "$HEALTH_OK" != "1" ]; then
-            echo "❌ Healthcheck failed! Recent logs:"
+            echo "Healthcheck failed! Recent logs:"
             pm2 logs "$PM2_NAME" --lines 30 --nostream || true
 
             # Attempt rollback
@@ -147,6 +151,13 @@ jobs:
               git -C "$APP_DIR" checkout "$PREV_SHA"
               pnpm install
               pnpm --filter backend exec prisma generate
+              # Also rollback the database schema to match the previous code
+              if [ -f "$BACKEND_DIR/.env" ]; then
+                set -a
+                source "$BACKEND_DIR/.env"
+                set +a
+              fi
+              pnpm --filter backend exec prisma db push --skip-generate 2>&1 || true
               pnpm --filter backend build
               pm2 restart "$PM2_NAME" --update-env
               pm2 save
@@ -157,6 +168,6 @@ jobs:
           # Reload nginx (in case frontend changed)
           sudo nginx -t && sudo systemctl reload nginx || true
 
-          echo "✅ Deployed successfully"
+          echo "Deployed successfully"
           echo "   Backend: http://127.0.0.1:${HEALTH_PORT}/api/health"
           echo "   Frontend: https://notify.memelab.ru"

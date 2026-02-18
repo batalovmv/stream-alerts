@@ -12,8 +12,6 @@ const DEFAULT_ONLINE_TEMPLATE = [
   '🎮 {game_name}',
 ].join('\n');
 
-const DEFAULT_OFFLINE_TEMPLATE = '⚫ <b>Стрим завершён</b>\n\nСпасибо за просмотр! 👋';
-
 export interface TemplateVariables {
   streamer_name: string;
   stream_title?: string;
@@ -33,6 +31,13 @@ export function renderTemplate(template: string | null | undefined, vars: Templa
   });
 }
 
+const DEFAULT_OFFLINE_TEMPLATE = '📴 Стрим завершён';
+
+/** Render an offline template (simple — no variables needed). */
+export function renderOfflineTemplate(template: string | null | undefined): string {
+  return template?.trim() || DEFAULT_OFFLINE_TEMPLATE;
+}
+
 /** Build the default inline buttons for an announcement. */
 export function buildDefaultButtons(vars: TemplateVariables): Array<{ label: string; url: string }> {
   const buttons: Array<{ label: string; url: string }> = [];
@@ -48,7 +53,3 @@ export function buildDefaultButtons(vars: TemplateVariables): Array<{ label: str
   return buttons;
 }
 
-/** Render offline announcement text. */
-export function renderOfflineTemplate(template?: string | null): string {
-  return template?.trim() || DEFAULT_OFFLINE_TEMPLATE;
-}

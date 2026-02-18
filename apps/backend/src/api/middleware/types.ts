@@ -26,6 +26,7 @@ export interface AuthStreamer {
   id: string;
   memelabUserId: string;
   memelabChannelId: string;
+  channelSlug: string;
   twitchLogin: string | null;
   displayName: string;
   avatarUrl: string | null;
