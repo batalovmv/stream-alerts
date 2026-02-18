@@ -106,15 +106,15 @@ jobs:
           # Generate Prisma client
           pnpm --filter backend exec prisma generate
 
-          # Apply database schema changes (fail deploy if schema push fails)
+          # Apply database migrations (safe for production — uses migration history)
           if [ -f "$BACKEND_DIR/.env" ]; then
             set -a
             source "$BACKEND_DIR/.env"
             set +a
           fi
-          echo "Applying database schema..."
-          if ! pnpm --filter backend exec prisma db push --skip-generate 2>&1; then
-            echo "Database schema push failed!"
+          echo "Applying database migrations..."
+          if ! pnpm --filter backend exec prisma migrate deploy 2>&1; then
+            echo "Database migration failed!"
             exit 1
           fi
 
@@ -151,13 +151,8 @@ jobs:
               git -C "$APP_DIR" checkout "$PREV_SHA"
               pnpm install
               pnpm --filter backend exec prisma generate
-              # Also rollback the database schema to match the previous code
-              if [ -f "$BACKEND_DIR/.env" ]; then
-                set -a
-                source "$BACKEND_DIR/.env"
-                set +a
-              fi
-              pnpm --filter backend exec prisma db push --skip-generate 2>&1 || true
+              # Note: database migrations are forward-only; manual intervention may be needed
+              # if the failed deploy included destructive schema changes
               pnpm --filter backend build
               pm2 restart "$PM2_NAME" --update-env
               pm2 save

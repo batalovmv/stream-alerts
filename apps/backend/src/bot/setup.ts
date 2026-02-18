@@ -12,7 +12,7 @@ import { logger } from '../lib/logger.js';
 import { routeUpdate } from './router.js';
 
 const WEBHOOK_PATH = '/api/telegram/webhook';
-const WEBHOOK_SECRET = config.webhookSecret || 'tg-webhook-secret';
+const WEBHOOK_SECRET = config.telegramWebhookSecret;
 
 /** Register bot commands menu in Telegram */
 async function registerCommands(): Promise<void> {

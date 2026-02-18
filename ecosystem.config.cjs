@@ -11,7 +11,11 @@ function loadEnv(filePath) {
       if (!trimmed || trimmed.startsWith("#")) continue;
       const idx = trimmed.indexOf("=");
       if (idx === -1) continue;
-      env[trimmed.slice(0, idx)] = trimmed.slice(idx + 1);
+      let val = trimmed.slice(idx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      env[trimmed.slice(0, idx)] = val;
     }
   } catch {
     // .env missing — rely on system env

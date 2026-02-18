@@ -71,7 +71,7 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
     }
 
     // Check for pending template edit (text input for /settings)
-    if (!text.startsWith('/') && msg.from?.id && getPendingTemplateEdit(msg.from.id)) {
+    if (!text.startsWith('/') && msg.from?.id && await getPendingTemplateEdit(msg.from.id)) {
       await handleTemplateTextInput(msg.chat.id, msg.from.id, text);
       return;
     }
@@ -117,7 +117,7 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
         await handlePreview(ctx);
         break;
       case 'cancel': {
-        if (msg.from?.id) clearPendingTemplateEdit(msg.from.id);
+        if (msg.from?.id) await clearPendingTemplateEdit(msg.from.id);
         const { sendMessage } = await import('../providers/telegram/telegramApi.js');
         await sendMessage({ chatId: String(ctx.chatId), text: 'Отменено.' });
         break;

@@ -7,9 +7,8 @@
 
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
-import { getProvider } from '../providers/registry.js';
+import { getProvider, hasProvider } from '../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from './templateService.js';
-import { TelegramApiError, sendMessage as tgSendMessage } from '../providers/telegram/telegramApi.js';
 
 export interface StreamEventPayload {
   event: 'stream.online' | 'stream.offline';
@@ -139,7 +138,8 @@ async function handleStreamOnline(
       const errMsg = error instanceof Error ? error.message : String(error);
       logger.error({ chatId: chat.chatId, provider: chat.provider, error: errMsg }, 'announce.send_failed');
 
-      if (error instanceof TelegramApiError && error.permanent) {
+      // Auto-disable chat on permanent provider errors (bot blocked, chat deleted, etc.)
+      if (error instanceof Error && 'permanent' in error && (error as { permanent: boolean }).permanent) {
         await prisma.connectedChat.update({
           where: { id: chat.id },
           data: { enabled: false },
@@ -161,12 +161,12 @@ async function handleStreamOnline(
     }
   }
 
-  // Notify streamer about delivery results
-  if (streamer.telegramUserId && results.length > 0) {
+  // Notify streamer about delivery results via Telegram (if linked and provider available)
+  if (streamer.telegramUserId && results.length > 0 && hasProvider('telegram')) {
     try {
+      const tgProvider = getProvider('telegram');
       const lines = results.map((r) => `${r.ok ? '\u2705' : '\u274C'} ${r.chatTitle}`);
-      await tgSendMessage({
-        chatId: streamer.telegramUserId,
+      await tgProvider.sendAnnouncement(streamer.telegramUserId, {
         text: `\uD83D\uDCE2 Анонс стрима:\n\n${lines.join('\n')}`,
       });
     } catch {
@@ -184,20 +184,31 @@ async function handleStreamOffline(streamerId: string): Promise<void> {
     where: {
       streamerId,
       deleteAfterEnd: true,
-      lastMessageId: { not: null },
     },
   });
 
   for (const chat of chats) {
     try {
+      // Use lastMessageId if available, otherwise fall back to AnnouncementLog
+      let messageIdToDelete = chat.lastMessageId;
+      if (!messageIdToDelete) {
+        const logEntry = await prisma.announcementLog.findFirst({
+          where: { chatId: chat.id, status: 'sent' },
+          orderBy: { sentAt: 'desc' },
+        });
+        messageIdToDelete = logEntry?.providerMsgId ?? null;
+      }
+
+      if (!messageIdToDelete) continue;
+
       const provider = getProvider(chat.provider);
-      await provider.deleteMessage(chat.chatId, chat.lastMessageId!);
+      await provider.deleteMessage(chat.chatId, messageIdToDelete);
 
       // Update announcement log
       await prisma.announcementLog.updateMany({
         where: {
           chatId: chat.id,
-          providerMsgId: chat.lastMessageId!,
+          providerMsgId: messageIdToDelete,
           status: 'sent',
         },
         data: {
@@ -207,10 +218,12 @@ async function handleStreamOffline(streamerId: string): Promise<void> {
       });
 
       // Clear last message ID
-      await prisma.connectedChat.update({
-        where: { id: chat.id },
-        data: { lastMessageId: null },
-      });
+      if (chat.lastMessageId) {
+        await prisma.connectedChat.update({
+          where: { id: chat.id },
+          data: { lastMessageId: null },
+        });
+      }
 
       logger.info({ chatId: chat.chatId, provider: chat.provider }, 'announce.deleted_after_offline');
     } catch (error) {

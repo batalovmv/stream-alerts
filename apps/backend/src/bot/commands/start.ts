@@ -62,8 +62,8 @@ export async function handleStart(ctx: BotContext, args: string): Promise<void> 
 async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
   const token = args.slice(5); // remove "link_" prefix
 
-  // Look up the token in Redis
-  const streamerId = await redis.get(LINK_TOKEN_PREFIX + token);
+  // Atomically consume the token (read + delete in one call) to prevent double-use
+  const streamerId = await redis.getdel(LINK_TOKEN_PREFIX + token);
 
   if (!streamerId) {
     await tg.sendMessage({
@@ -91,9 +91,6 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     where: { id: streamerId },
     data: { telegramUserId: String(ctx.userId) },
   });
-
-  // Delete the used token
-  await redis.del(LINK_TOKEN_PREFIX + token);
 
   logger.info(
     { streamerId, telegramUserId: ctx.userId },

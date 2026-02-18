@@ -6,16 +6,18 @@
  */
 
 import { Queue, Worker } from 'bullmq';
-import { redis } from '../lib/redis.js';
 import { logger } from '../lib/logger.js';
+import { config } from '../lib/config.js';
 import { processStreamEvent, type StreamEventPayload } from '../services/announcementService.js';
 
 const QUEUE_NAME = 'announcements';
 
+// Parse Redis URL properly to extract host/port/password for BullMQ
+const redisUrl = new URL(config.redisUrl);
 const connection = {
-  host: redis.options.host ?? 'localhost',
-  port: redis.options.port ?? 6379,
-  password: redis.options.password,
+  host: redisUrl.hostname || 'localhost',
+  port: parseInt(redisUrl.port || '6379', 10),
+  password: redisUrl.password || undefined,
 };
 
 export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {

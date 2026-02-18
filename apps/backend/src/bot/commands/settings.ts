@@ -7,7 +7,11 @@
 
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
+import { redis } from '../../lib/redis.js';
 import type { BotContext, CallbackContext } from '../types.js';
+
+const PENDING_TEMPLATE_PREFIX = 'pending:template:';
+const PENDING_TEMPLATE_TTL = 300; // 5 minutes
 
 export async function handleSettings(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
@@ -125,19 +129,17 @@ export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: strin
   await handleSettingsCallback(ctx, chatDbId);
 }
 
-// Pending template edits: userId → chatDbId
-const pendingTemplateEdits = new Map<number, string>();
-
-export function getPendingTemplateEdit(userId: number): string | undefined {
-  return pendingTemplateEdits.get(userId);
+export async function getPendingTemplateEdit(userId: number): Promise<string | undefined> {
+  const val = await redis.get(PENDING_TEMPLATE_PREFIX + userId);
+  return val ?? undefined;
 }
 
-export function clearPendingTemplateEdit(userId: number): void {
-  pendingTemplateEdits.delete(userId);
+export async function clearPendingTemplateEdit(userId: number): Promise<void> {
+  await redis.del(PENDING_TEMPLATE_PREFIX + userId);
 }
 
 export async function handleSettingsTemplate(ctx: CallbackContext, chatDbId: string): Promise<void> {
-  pendingTemplateEdits.set(ctx.userId, chatDbId);
+  await redis.setex(PENDING_TEMPLATE_PREFIX + ctx.userId, PENDING_TEMPLATE_TTL, chatDbId);
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
   await tg.sendMessage({
@@ -179,10 +181,19 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
 }
 
 export async function handleTemplateTextInput(chatId: number, userId: number, text: string): Promise<void> {
-  const chatDbId = pendingTemplateEdits.get(userId);
+  const chatDbId = await redis.getdel(PENDING_TEMPLATE_PREFIX + userId);
   if (!chatDbId) return;
 
-  pendingTemplateEdits.delete(userId);
+  // Verify ownership: the chat must belong to this user's streamer account
+  const streamer = await prisma.streamer.findUnique({ where: { telegramUserId: String(userId) } });
+  const chat = streamer
+    ? await prisma.connectedChat.findFirst({ where: { id: chatDbId, streamerId: streamer.id } })
+    : null;
+
+  if (!chat) {
+    await tg.sendMessage({ chatId: String(chatId), text: '❌ Канал не найден или не принадлежит вашему аккаунту.' });
+    return;
+  }
 
   if (text.toLowerCase() === 'reset') {
     await prisma.connectedChat.update({

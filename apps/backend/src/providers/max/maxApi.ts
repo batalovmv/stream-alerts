@@ -47,7 +47,7 @@ async function callApi<T>(method: string, path: string, body?: Record<string, un
     const res = await fetch(url, {
       method,
       headers: {
-        'Authorization': config.maxBotToken,
+        'Authorization': `Bearer ${config.maxBotToken}`,
         'Content-Type': 'application/json',
       },
       body: body ? JSON.stringify(body) : undefined,

@@ -33,6 +33,9 @@ export const config = {
   // Telegram Bot
   telegramBotToken: env('TELEGRAM_BOT_TOKEN', ''),
 
+  // Telegram webhook secret (separate from MemeLab webhook secret)
+  telegramWebhookSecret: env('TELEGRAM_WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-tg-webhook-secret' : undefined),
+
   // MAX Bot (Phase 3)
   maxBotToken: env('MAX_BOT_TOKEN', ''),
 } as const;
