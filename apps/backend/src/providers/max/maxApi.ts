@@ -169,12 +169,12 @@ export async function editMessage(params: {
     body.attachments = attachments;
   }
 
-  await callApi<unknown>('PUT', `/messages/${params.messageId}`, body);
+  await callApi<unknown>('PUT', `/messages/${encodeURIComponent(params.messageId)}`, body);
 }
 
 export async function deleteMessage(messageId: string): Promise<void> {
   try {
-    await callApi<unknown>('DELETE', `/messages/${messageId}`);
+    await callApi<unknown>('DELETE', `/messages/${encodeURIComponent(messageId)}`);
   } catch (error) {
     if (error instanceof MaxApiError && error.httpStatus === 404) {
       logger.info({ messageId }, 'max.deleteMessage: already deleted');
@@ -185,9 +185,9 @@ export async function deleteMessage(messageId: string): Promise<void> {
 }
 
 export async function getChat(chatId: string): Promise<MaxChat> {
-  return callApi<MaxChat>('GET', `/chats/${chatId}`);
+  return callApi<MaxChat>('GET', `/chats/${encodeURIComponent(chatId)}`);
 }
 
 export async function getBotMembership(chatId: string): Promise<MaxMembership> {
-  return callApi<MaxMembership>('GET', `/chats/${chatId}/members/me`);
+  return callApi<MaxMembership>('GET', `/chats/${encodeURIComponent(chatId)}/members/me`);
 }

@@ -9,6 +9,10 @@ import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import type { BotContext } from '../types.js';
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export async function handleStats(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
     where: { telegramUserId: String(ctx.userId) },
@@ -50,7 +54,7 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     const date = lastAnnouncement.sentAt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
     text += `\n🕐 Последний: ${date}`;
     if (lastAnnouncement.chat?.chatTitle) {
-      text += ` → ${lastAnnouncement.chat.chatTitle}`;
+      text += ` → ${escapeHtml(lastAnnouncement.chat.chatTitle)}`;
     }
   }
 

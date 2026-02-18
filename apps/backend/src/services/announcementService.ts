@@ -11,6 +11,10 @@ import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from './templateService.js';
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export interface StreamEventPayload {
   event: 'stream.online' | 'stream.offline';
   channelId: string;
@@ -78,7 +82,7 @@ async function handleStreamOnline(
   const results: Array<{ chatTitle: string; ok: boolean }> = [];
 
   for (const chat of streamer.chats) {
-    const title = chat.chatTitle ?? chat.chatId;
+    const title = escapeHtml(chat.chatTitle ?? chat.chatId);
     try {
       const template = chat.customTemplate || streamer.defaultTemplate;
       const text = renderTemplate(template, templateVars);
