@@ -60,7 +60,8 @@ function extractToken(req: Request): string | null {
   const cookieHeader = req.headers.cookie;
   if (cookieHeader) {
     const cookieName = config.jwtCookieName;
-    const regex = new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`);
+    const escapedName = cookieName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(?:^|;\\s*)${escapedName}=([^;]+)`);
     const match = cookieHeader.match(regex);
     if (match) return match[1];
   }

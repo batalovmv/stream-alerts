@@ -190,14 +190,14 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     ? await prisma.connectedChat.findFirst({ where: { id: chatDbId, streamerId: streamer.id } })
     : null;
 
-  if (!chat) {
+  if (!chat || !streamer) {
     await tg.sendMessage({ chatId: String(chatId), text: '❌ Канал не найден или не принадлежит вашему аккаунту.' });
     return;
   }
 
   if (text.toLowerCase() === 'reset') {
     await prisma.connectedChat.update({
-      where: { id: chatDbId },
+      where: { id: chatDbId, streamerId: streamer.id },
       data: { customTemplate: null },
     });
     await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон сброшен на стандартный.' });
@@ -205,7 +205,7 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   }
 
   await prisma.connectedChat.update({
-    where: { id: chatDbId },
+    where: { id: chatDbId, streamerId: streamer.id },
     data: { customTemplate: text },
   });
   await tg.sendMessage({ chatId: String(chatId), text: '✅ Шаблон обновлён!\n\nИспользуйте /preview чтобы посмотреть результат.' });

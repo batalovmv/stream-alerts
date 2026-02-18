@@ -11,7 +11,7 @@ import { MaxProvider } from './providers/max/MaxProvider.js';
 import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
-import { setupBot } from './bot/setup.js';
+import { setupBot, stopPolling } from './bot/setup.js';
 import { startAnnouncementWorker } from './workers/announcementQueue.js';
 
 import type { Worker } from 'bullmq';
@@ -42,8 +42,12 @@ if (config.maxBotToken) {
 
 // ─── Routes ───────────────────────────────────────────────
 
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json') as { version: string };
+
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', version: '0.1.0' });
+  res.json({ status: 'ok', version });
 });
 
 app.use('/api/auth', authRouter);
@@ -75,8 +79,11 @@ const server = app.listen(config.port, () => {
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'Shutting down...');
+  stopPolling();
   if (announcementWorker) await announcementWorker.close();
-  server.close();
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
   await prisma.$disconnect();
   redis.disconnect();
   process.exit(0);

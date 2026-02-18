@@ -13,13 +13,22 @@ import { processStreamEvent, type StreamEventPayload } from '../services/announc
 const QUEUE_NAME = 'announcements';
 
 // Parse Redis URL properly to extract host/port/password/tls for BullMQ
-const redisUrl = new URL(config.redisUrl);
-const connection = {
-  host: redisUrl.hostname || 'localhost',
-  port: parseInt(redisUrl.port || '6379', 10),
-  password: redisUrl.password || undefined,
-  ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
-};
+function parseRedisConnection() {
+  try {
+    const redisUrl = new URL(config.redisUrl);
+    return {
+      host: redisUrl.hostname || 'localhost',
+      port: parseInt(redisUrl.port || '6379', 10),
+      password: redisUrl.password || undefined,
+      ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
+    };
+  } catch (error) {
+    logger.error({ url: config.redisUrl, error: error instanceof Error ? error.message : String(error) }, 'queue.invalid_redis_url');
+    return { host: 'localhost', port: 6379 };
+  }
+}
+
+const connection = parseRedisConnection();
 
 export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {
   connection,
@@ -36,7 +45,7 @@ export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {
 
 /** Enqueue a stream event for async processing */
 export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<void> {
-  const jobId = `${payload.event}:${payload.channelId}:${Date.now()}`;
+  const jobId = `${payload.event}:${payload.channelId}:${payload.startedAt ?? Date.now()}`;
 
   await announcementQueue.add(payload.event, payload, {
     jobId,

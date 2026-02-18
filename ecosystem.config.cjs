@@ -19,7 +19,7 @@ function loadEnv(filePath) {
         const commentIdx = val.indexOf(' #');
         if (commentIdx !== -1) val = val.slice(0, commentIdx).trimEnd();
       }
-      env[trimmed.slice(0, idx)] = val;
+      env[trimmed.slice(0, idx).trim()] = val;
     }
   } catch {
     // .env missing — rely on system env

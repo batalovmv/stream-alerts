@@ -1,6 +1,7 @@
 function env(key: string, fallback?: string): string {
-  const value = process.env[key];
-  if (value !== undefined) return value;
+  const raw = process.env[key];
+  const value = raw !== undefined ? raw.trim() : undefined;
+  if (value !== undefined && value !== '') return value;
   if (fallback !== undefined) return fallback;
   throw new Error(`Missing required environment variable: ${key}`);
 }

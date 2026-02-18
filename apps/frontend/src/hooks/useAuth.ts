@@ -24,10 +24,15 @@ export function useAuth() {
   }
 
   async function logout() {
-    await api.post('/api/auth/logout');
-    queryClient.setQueryData(AUTH_QUERY_KEY, null);
-    queryClient.invalidateQueries();
-    window.location.href = '/';
+    try {
+      await api.post('/api/auth/logout');
+    } catch {
+      // Proceed with local cleanup even if server request fails
+    } finally {
+      queryClient.setQueryData(AUTH_QUERY_KEY, null);
+      queryClient.clear();
+      window.location.href = '/';
+    }
   }
 
   return {

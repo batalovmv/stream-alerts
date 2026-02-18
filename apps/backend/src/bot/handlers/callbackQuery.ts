@@ -26,7 +26,9 @@ import type { CallbackContext } from '../types.js';
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
   const { data, userId, callbackQueryId, chatId, messageId } = ctx;
 
-  const [action, targetId] = data.split(':');
+  const colonIdx = data.indexOf(':');
+  const action = colonIdx === -1 ? data : data.slice(0, colonIdx);
+  const targetId = colonIdx === -1 ? '' : data.slice(colonIdx + 1);
 
   // Find the streamer
   const streamer = await prisma.streamer.findUnique({
@@ -165,7 +167,7 @@ async function handleConfirmRemove(
     return;
   }
 
-  await prisma.connectedChat.delete({ where: { id: chatDbId } });
+  await prisma.connectedChat.delete({ where: { id: chatDbId, streamerId: streamer.id } });
 
   logger.info({ chatId: chat.chatId, streamerId: streamer.id }, 'bot.chat_removed');
 

@@ -7,6 +7,7 @@
 
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
+import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
 import { renderTemplate, buildDefaultButtons } from './templateService.js';
 
@@ -107,6 +108,14 @@ async function handleStreamOnline(
         continue;
       }
 
+      // Atomic dedup lock: prevent concurrent workers from sending to the same chat+session
+      const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
+      const acquired = await redis.set(lockKey, '1', 'EX', 300, 'NX');
+      if (!acquired) {
+        logger.info({ chatId: chat.chatId, streamSessionId }, 'announce.dedup_locked');
+        continue;
+      }
+
       const result = await provider.sendAnnouncement(chat.chatId, {
         text,
         photoUrl: payload.thumbnailUrl,
@@ -192,8 +201,12 @@ async function handleStreamOffline(streamerId: string): Promise<void> {
       // Use lastMessageId if available, otherwise fall back to AnnouncementLog
       let messageIdToDelete = chat.lastMessageId;
       if (!messageIdToDelete) {
+        // Fallback: find the most recent UNSENT-deleted announcement for this chat,
+        // but only consider recent ones (last 24h) to avoid deleting announcements
+        // from a subsequent stream session
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const logEntry = await prisma.announcementLog.findFirst({
-          where: { chatId: chat.id, status: 'sent' },
+          where: { chatId: chat.id, status: 'sent', sentAt: { gte: cutoff } },
           orderBy: { sentAt: 'desc' },
         });
         messageIdToDelete = logEntry?.providerMsgId ?? null;

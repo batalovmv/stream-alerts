@@ -28,25 +28,34 @@ async function registerCommands(): Promise<void> {
   ]);
 }
 
+/** Polling state — allows graceful cancellation */
+let pollingActive = false;
+
+/** Stop polling loop (called on shutdown) */
+export function stopPolling(): void {
+  pollingActive = false;
+}
+
 /** Start long polling (development mode) */
 async function startPolling(): Promise<void> {
   await tg.deleteWebhook();
+  pollingActive = true;
   logger.info('bot.polling_started');
 
   let offset: number | undefined;
 
   async function poll() {
+    if (!pollingActive) return;
     try {
       const updates = await tg.getUpdates(offset);
       for (const update of updates) {
+        if (!pollingActive) return;
         offset = update.update_id + 1;
-        // Process each update without blocking the poll loop
         routeUpdate(update).catch((err) => {
           logger.error({ err: err instanceof Error ? err.message : String(err) }, 'bot.update_error');
         });
       }
     } catch (error) {
-      // On network errors, wait briefly before retrying
       if (error instanceof Error && error.name === 'AbortError') {
         // Timeout is normal for long polling
       } else {
@@ -55,8 +64,7 @@ async function startPolling(): Promise<void> {
       }
     }
 
-    // Schedule next poll
-    setImmediate(poll);
+    if (pollingActive) setImmediate(poll);
   }
 
   poll();
@@ -76,7 +84,13 @@ async function startWebhook(app: Express): Promise<void> {
       return;
     }
 
-    const update = req.body as tg.TelegramUpdate;
+    const update = req.body;
+
+    // Basic shape validation before processing
+    if (!update || typeof update.update_id !== 'number') {
+      res.status(400).json({ error: 'Invalid update' });
+      return;
+    }
 
     // Respond immediately, process async
     res.status(200).json({ ok: true });
