@@ -37,6 +37,9 @@ export interface MessengerProvider {
   /** Send an announcement to a chat/channel */
   sendAnnouncement(chatId: string, data: AnnouncementData): Promise<SendResult>;
 
+  /** Edit a previously sent announcement (update text/caption/buttons) */
+  editAnnouncement(chatId: string, messageId: string, data: AnnouncementData): Promise<void>;
+
   /** Delete a previously sent message */
   deleteMessage(chatId: string, messageId: string): Promise<void>;
 

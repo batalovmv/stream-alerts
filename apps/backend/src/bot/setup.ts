@@ -20,7 +20,10 @@ async function registerCommands(): Promise<void> {
     { command: 'start', description: 'Начать работу / привязать аккаунт' },
     { command: 'connect', description: 'Подключить канал или группу' },
     { command: 'channels', description: 'Мои подключённые каналы' },
+    { command: 'settings', description: 'Настройки каналов (шаблон, удаление)' },
     { command: 'test', description: 'Отправить тестовый анонс' },
+    { command: 'preview', description: 'Предпросмотр шаблона' },
+    { command: 'stats', description: 'Статистика анонсов' },
   ]);
 }
 

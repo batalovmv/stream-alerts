@@ -195,6 +195,27 @@ export async function editMessageText(params: {
   });
 }
 
+/** Edit message caption (for photo announcements) */
+export async function editMessageCaption(params: {
+  chatId: string;
+  messageId: number;
+  caption: string;
+  parseMode?: string;
+  buttons?: Array<{ label: string; url: string }>;
+}): Promise<TelegramMessage> {
+  const inlineKeyboard = params.buttons?.length
+    ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
+    : undefined;
+
+  return callApi<TelegramMessage>('editMessageCaption', {
+    chat_id: params.chatId,
+    message_id: params.messageId,
+    caption: params.caption,
+    parse_mode: params.parseMode ?? 'HTML',
+    reply_markup: inlineKeyboard,
+  });
+}
+
 /** Delete a message */
 export async function deleteMessageApi(chatId: string, messageId: number): Promise<boolean> {
   try {

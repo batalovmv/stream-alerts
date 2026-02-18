@@ -4,6 +4,7 @@ import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { registerProvider } from './providers/registry.js';
 import { TelegramProvider } from './providers/telegram/TelegramProvider.js';
+import { MaxProvider } from './providers/max/MaxProvider.js';
 import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
@@ -27,7 +28,10 @@ if (config.telegramBotToken) {
   logger.info('Telegram provider registered');
 }
 
-// TODO: Register MAX provider when ready (Phase 3)
+if (config.maxBotToken) {
+  registerProvider(new MaxProvider());
+  logger.info('MAX provider registered');
+}
 
 // ─── Routes ───────────────────────────────────────────────
 

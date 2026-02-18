@@ -26,6 +26,34 @@ export class TelegramProvider implements MessengerProvider {
     return { messageId: String(msg.message_id) };
   }
 
+  async editAnnouncement(chatId: string, messageId: string, data: AnnouncementData): Promise<void> {
+    const numericId = parseInt(messageId, 10);
+    if (!Number.isFinite(numericId)) {
+      logger.warn({ chatId, messageId }, 'telegram.editAnnouncement: invalid message ID');
+      return;
+    }
+
+    if (data.photoUrl) {
+      // Photo message — edit caption only (Telegram doesn't allow changing photo via editMessageMedia without InputMedia)
+      await tg.editMessageCaption({
+        chatId,
+        messageId: numericId,
+        caption: data.text,
+        buttons: data.buttons,
+      });
+    } else {
+      const replyMarkup = data.buttons?.length
+        ? { inline_keyboard: [data.buttons.map((b) => ({ text: b.label, url: b.url }))] }
+        : undefined;
+      await tg.editMessageText({
+        chatId,
+        messageId: numericId,
+        text: data.text,
+        replyMarkup,
+      });
+    }
+  }
+
   async deleteMessage(chatId: string, messageId: string): Promise<void> {
     const numericId = parseInt(messageId, 10);
     if (!Number.isFinite(numericId)) {
