@@ -32,6 +32,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Clean pnpm store (self-hosted runner fix)
+        run: pnpm store prune
+
       - run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
@@ -99,6 +102,9 @@ jobs:
           sudo chown -R "$(whoami):$(whoami)" "$APP_DIR"
 
           cd "$APP_DIR"
+
+          # Clean corrupted pnpm store entries (self-hosted runner fix)
+          pnpm store prune || true
 
           # Install dependencies
           pnpm install --frozen-lockfile
