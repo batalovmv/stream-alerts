@@ -26,7 +26,7 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const chatIds = streamer.chats.map((c) => c.id);
+  const chatIds = streamer.chats.map((c: { id: string }) => c.id);
 
   if (chatIds.length === 0) {
     await tg.sendMessage({

@@ -191,7 +191,7 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
 
-  const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat) => [{
+  const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat: { id: string; chatTitle: string | null; chatId: string; enabled: boolean }) => [{
     text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
     callback_data: `settings:${chat.id}`,
   }]);

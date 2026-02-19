@@ -45,7 +45,7 @@ export async function handleTest(ctx: BotContext): Promise<void> {
 
   // If multiple chats, let the user choose
   if (streamer.chats.length > 1) {
-    const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat) => [
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat: { id: string; chatTitle: string | null; chatId: string }) => [
       {
         text: `${chat.chatTitle || chat.chatId}`,
         callback_data: `test:${chat.id}`,
