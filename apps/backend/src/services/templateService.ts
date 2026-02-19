@@ -36,6 +36,9 @@ export interface TemplateVariables {
   start_time?: string;     // HH:MM (Moscow)
   start_date?: string;     // "19 февраля"
 
+  // Stats
+  viewer_count?: string;
+
   // Extra
   twitch_login?: string;
   channel_slug?: string;
@@ -54,6 +57,7 @@ export const TEMPLATE_VARIABLE_DOCS: Array<{ name: string; description: string }
   { name: 'kick_url', description: 'Ссылка на Kick' },
   { name: 'start_time', description: 'Время начала (МСК, HH:MM)' },
   { name: 'start_date', description: 'Дата начала («19 февраля»)' },
+  { name: 'viewer_count', description: 'Количество зрителей' },
   { name: 'twitch_login', description: 'Логин Twitch' },
   { name: 'channel_slug', description: 'Slug канала на MemeLab' },
 ];
@@ -147,8 +151,9 @@ export function buildTemplateVars(opts: {
   streamTitle?: string;
   gameName?: string;
   startedAt?: string;
+  viewerCount?: number;
 }): TemplateVariables {
-  const { displayName, platforms, channelSlug, twitchLogin, streamTitle, gameName, startedAt } = opts;
+  const { displayName, platforms, channelSlug, twitchLogin, streamTitle, gameName, startedAt, viewerCount } = opts;
 
   const findUrl = (platform: string) => platforms.find((p) => p.platform === platform)?.url;
 
@@ -172,6 +177,7 @@ export function buildTemplateVars(opts: {
     youtube_url: findUrl('youtube'),
     vk_url: findUrl('vk'),
     kick_url: findUrl('kick'),
+    viewer_count: viewerCount != null ? String(viewerCount) : undefined,
     twitch_login: twitchLogin || platforms.find((p) => p.platform === 'twitch')?.login,
     channel_slug: channelSlug,
     ...timeVars,

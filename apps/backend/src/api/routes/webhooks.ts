@@ -6,7 +6,7 @@ import { enqueueStreamEvent } from '../../workers/announcementQueue.js';
 import { logger } from '../../lib/logger.js';
 
 const streamEventSchema = z.object({
-  event: z.enum(['stream.online', 'stream.offline']),
+  event: z.enum(['stream.online', 'stream.offline', 'stream.update']),
   channelId: z.string().min(1).max(100),
   channelSlug: z.string().min(1).max(100).regex(/^[\w-]+$/, 'channelSlug must be alphanumeric'),
   twitchLogin: z.string().min(1).max(100).regex(/^[\w]+$/, 'twitchLogin must be alphanumeric'),
@@ -14,6 +14,7 @@ const streamEventSchema = z.object({
   gameName: z.string().max(200).optional(),
   thumbnailUrl: z.string().url().optional(),
   startedAt: z.string().datetime({ offset: true }).optional(),
+  viewerCount: z.number().int().nonnegative().optional(),
 });
 
 const router: RouterType = Router();

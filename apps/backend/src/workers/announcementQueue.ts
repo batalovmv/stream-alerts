@@ -48,8 +48,7 @@ export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {
 /** Enqueue a stream event for async processing */
 export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<void> {
   // Online events: deterministic jobId for dedup (same stream shouldn't be announced twice)
-  // Offline events: unique jobId so BullMQ doesn't drop subsequent offline events
-  //   (providers handle already-deleted messages gracefully)
+  // Offline/Update events: unique jobId so BullMQ processes each update
   const jobId = payload.event === 'stream.online'
     ? `${payload.event}:${payload.channelId}:${payload.startedAt ?? 'no-start'}`
     : `${payload.event}:${payload.channelId}:${Date.now()}`;
