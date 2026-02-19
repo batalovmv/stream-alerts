@@ -88,7 +88,7 @@ export async function requireAuth(
   }
 }
 
-function extractToken(req: Request): string | null {
+export function extractToken(req: Request): string | null {
   const cookieHeader = req.headers.cookie;
   if (cookieHeader) {
     const cookieName = config.jwtCookieName;
@@ -170,7 +170,7 @@ async function fetchMemelabProfile(token: string): Promise<FetchResult> {
     const parsed = memelabProfileSchema.safeParse(json);
     if (!parsed.success) {
       logger.error({ issues: parsed.error.issues.map((i) => i.message) }, 'auth.memelab_api_invalid_response');
-      return { profile: null, error: 'network' };
+      return { profile: null, error: 'rejected' };
     }
 
     return { profile: parsed.data as MemelabUserProfile };

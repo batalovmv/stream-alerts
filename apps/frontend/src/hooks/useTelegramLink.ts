@@ -44,7 +44,8 @@ export function useTelegramLink() {
     deepLink,
     isLoading: linkMutation.isPending,
     generate: () => linkMutation.mutate(),
-    unlink: () => unlinkMutation.mutate(),
+    unlink: (callbacks?: { onSuccess?: () => void; onError?: () => void }) =>
+      unlinkMutation.mutate(undefined, callbacks),
     isUnlinking: unlinkMutation.isPending,
   };
 }

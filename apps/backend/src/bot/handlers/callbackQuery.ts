@@ -51,54 +51,62 @@ export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
     return;
   }
 
-  switch (action) {
-    case 'menu':
-      await handleMenuButton(ctx, targetId);
-      return;
+  try {
+    switch (action) {
+      case 'menu':
+        await handleMenuButton(ctx, targetId);
+        return;
 
-    case 'toggle':
-      await handleToggle(ctx, streamer, targetId);
-      break;
+      case 'toggle':
+        await handleToggle(ctx, streamer, targetId);
+        break;
 
-    case 'remove':
-      await handleRemovePrompt(ctx, streamer, targetId);
-      break;
+      case 'remove':
+        await handleRemovePrompt(ctx, streamer, targetId);
+        break;
 
-    case 'confirm_remove':
-      await handleConfirmRemove(ctx, streamer, targetId);
-      break;
+      case 'confirm_remove':
+        await handleConfirmRemove(ctx, streamer, targetId);
+        break;
 
-    case 'cancel_remove':
-      await handleCancelRemove(ctx, streamer);
-      break;
+      case 'cancel_remove':
+        await handleCancelRemove(ctx, streamer);
+        break;
 
-    case 'test':
-      await handleTestCallback(ctx, streamer, targetId);
-      break;
+      case 'test':
+        await handleTestCallback(ctx, streamer, targetId);
+        break;
 
-    case 'settings':
-      await handleSettingsCallback(ctx, targetId);
-      break;
+      case 'settings':
+        await handleSettingsCallback(ctx, targetId);
+        break;
 
-    case 'stg_toggle':
-      await handleSettingsToggle(ctx, targetId);
-      break;
+      case 'stg_toggle':
+        await handleSettingsToggle(ctx, targetId);
+        break;
 
-    case 'stg_delete':
-      await handleSettingsDelete(ctx, targetId);
-      break;
+      case 'stg_delete':
+        await handleSettingsDelete(ctx, targetId);
+        break;
 
-    case 'stg_template':
-      await handleSettingsTemplate(ctx, targetId);
-      break;
+      case 'stg_template':
+        await handleSettingsTemplate(ctx, targetId);
+        break;
 
-    case 'stg_back':
-      await handleSettingsBack(ctx);
-      break;
+      case 'stg_back':
+        await handleSettingsBack(ctx);
+        break;
 
-    default:
-      await tg.answerCallbackQuery({ callbackQueryId });
-      break;
+      default:
+        await tg.answerCallbackQuery({ callbackQueryId });
+        break;
+    }
+  } catch (error) {
+    // Always answer the callback query to dismiss Telegram's loading spinner
+    try {
+      await tg.answerCallbackQuery({ callbackQueryId, text: 'Произошла ошибка', showAlert: true });
+    } catch { /* best-effort */ }
+    throw error;
   }
 }
 

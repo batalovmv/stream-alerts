@@ -44,7 +44,7 @@ export class TelegramProvider implements MessengerProvider {
     } else {
       const replyMarkup = data.buttons?.length
         ? { inline_keyboard: [data.buttons.map((b) => ({ text: b.label, url: b.url }))] }
-        : undefined;
+        : {};
       await tg.editMessageText({
         chatId,
         messageId: numericId,
@@ -72,9 +72,10 @@ export class TelegramProvider implements MessengerProvider {
       // member count may not be available for all chat types
     }
 
+    const VALID_CHAT_TYPES = new Set<string>(['channel', 'group', 'supergroup', 'private']);
     return {
       title: chat.title ?? 'Private Chat',
-      type: chat.type as ChatInfo['type'],
+      type: VALID_CHAT_TYPES.has(chat.type) ? (chat.type as ChatInfo['type']) : 'group',
       memberCount,
     };
   }

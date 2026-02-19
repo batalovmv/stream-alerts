@@ -111,7 +111,7 @@ export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: strin
   }
 
   await prisma.connectedChat.update({
-    where: { id: chatDbId },
+    where: { id: chatDbId, streamerId: chat.streamerId },
     data: { enabled: !chat.enabled },
   });
 
@@ -132,7 +132,7 @@ export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: strin
   }
 
   await prisma.connectedChat.update({
-    where: { id: chatDbId },
+    where: { id: chatDbId, streamerId: chat.streamerId },
     data: { deleteAfterEnd: !chat.deleteAfterEnd },
   });
 
@@ -207,7 +207,7 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
 }
 
 export async function handleTemplateTextInput(chatId: number, userId: number, text: string): Promise<void> {
-  const chatDbId = await redis.getdel(PENDING_TEMPLATE_PREFIX + userId);
+  const chatDbId = await redis.get(PENDING_TEMPLATE_PREFIX + userId);
   if (!chatDbId) {
     await tg.sendMessage({
       chatId: String(chatId),
@@ -223,6 +223,7 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     : null;
 
   if (!chat || !streamer) {
+    // Don't consume the pending key — user can retry after the issue resolves
     await tg.sendMessage({ chatId: String(chatId), text: '\u{274C} Канал не найден или не принадлежит вашему аккаунту.' });
     return;
   }
@@ -235,6 +236,9 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     await tg.sendMessage({ chatId: String(chatId), text: `\u{274C} Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH}). Сократите и отправьте снова.` });
     return;
   }
+
+  // Consume the pending key now that all checks passed
+  await redis.del(PENDING_TEMPLATE_PREFIX + userId);
 
   if (text.toLowerCase() === 'reset') {
     await prisma.connectedChat.update({

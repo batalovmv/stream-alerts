@@ -29,7 +29,6 @@ export class ErrorBoundary extends Component<Props, State> {
             <button
               className="btn-glow px-4 py-2 rounded-lg"
               onClick={() => {
-                this.setState({ hasError: false });
                 window.location.href = '/';
               }}
             >

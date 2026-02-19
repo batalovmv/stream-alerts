@@ -122,22 +122,15 @@ export async function setupBot(app: Express): Promise<void> {
     return;
   }
 
-  try {
-    const me = await tg.getMe();
-    if (me.username) botUsername = me.username;
-    logger.info({ botId: me.id, botUsername }, 'bot.connected');
+  const me = await tg.getMe();
+  if (me.username) botUsername = me.username;
+  logger.info({ botId: me.id, botUsername }, 'bot.connected');
 
-    await registerCommands();
+  await registerCommands();
 
-    if (config.isDev) {
-      await startPolling();
-    } else {
-      await startWebhook(app);
-    }
-  } catch (error) {
-    logger.error(
-      { error: error instanceof Error ? error.message : String(error) },
-      'bot.setup_failed',
-    );
+  if (config.isDev) {
+    await startPolling();
+  } else {
+    await startWebhook(app);
   }
 }

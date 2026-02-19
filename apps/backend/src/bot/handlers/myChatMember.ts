@@ -54,6 +54,7 @@ export async function handleMyChatMember(update: TelegramChatMemberUpdated): Pro
       where: {
         provider: 'telegram',
         chatId: chatIdStr,
+        enabled: true,
       },
       data: { enabled: false },
     });

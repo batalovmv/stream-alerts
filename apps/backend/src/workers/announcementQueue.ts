@@ -19,7 +19,9 @@ function parseRedisConnection() {
     return {
       host: redisUrl.hostname || 'localhost',
       port: parseInt(redisUrl.port || '6379', 10),
+      username: redisUrl.username || undefined,
       password: redisUrl.password || undefined,
+      maxRetriesPerRequest: null,
       ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
     };
   } catch (error) {
@@ -45,7 +47,7 @@ export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {
 
 /** Enqueue a stream event for async processing */
 export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<void> {
-  const jobId = `${payload.event}:${payload.channelId}:${payload.startedAt ?? Date.now()}`;
+  const jobId = `${payload.event}:${payload.channelId}:${payload.startedAt ?? 'no-start'}`;
 
   await announcementQueue.add(payload.event, payload, {
     jobId,
@@ -53,6 +55,11 @@ export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<v
   });
 
   logger.info({ jobId, event: payload.event, channelId: payload.channelId }, 'queue.enqueued');
+}
+
+/** Close the queue's Redis connection for graceful shutdown */
+export async function closeQueue(): Promise<void> {
+  await announcementQueue.close();
 }
 
 /** Start the announcement worker. Returns the Worker instance for graceful shutdown. */

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, extractToken } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
 import { config } from '../../lib/config.js';
 import { redis } from '../../lib/redis.js';
@@ -59,7 +59,7 @@ router.get('/login', (_req: Request, res: Response) => {
  */
 router.post('/logout', (req: Request, res: Response) => {
   // Invalidate cached profile so stale sessions can't be used
-  const token = extractTokenFromRequest(req);
+  const token = extractToken(req);
   if (token) {
     const hash = createHash('sha256').update(token).digest('hex');
     redis.del('auth:profile:' + hash).catch(() => {});
@@ -74,20 +74,6 @@ router.post('/logout', (req: Request, res: Response) => {
   });
   res.json({ ok: true });
 });
-
-/** Extract JWT token from cookie or Authorization header */
-function extractTokenFromRequest(req: Request): string | null {
-  const cookieHeader = req.headers.cookie;
-  if (cookieHeader) {
-    const name = config.jwtCookieName;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
-    if (match) return decodeURIComponent(match[1]);
-  }
-  const auth = req.headers.authorization;
-  if (auth?.startsWith('Bearer ')) return auth.slice(7);
-  return null;
-}
 
 /**
  * POST /api/auth/telegram-link — Generate a one-time Telegram deep link

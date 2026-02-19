@@ -12,7 +12,7 @@ import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
 import { setupBot, stopPolling } from './bot/setup.js';
-import { startAnnouncementWorker } from './workers/announcementQueue.js';
+import { startAnnouncementWorker, closeQueue } from './workers/announcementQueue.js';
 
 import type { Worker } from 'bullmq';
 
@@ -96,8 +96,9 @@ async function shutdown(signal: string) {
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
-    // Then drain the worker queue
+    // Then drain the worker queue and close queue connection
     if (announcementWorker) await announcementWorker.close();
+    await closeQueue();
     await prisma.$disconnect();
     redis.disconnect();
   } catch (err) {

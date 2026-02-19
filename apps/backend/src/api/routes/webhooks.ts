@@ -10,8 +10,8 @@ const streamEventSchema = z.object({
   channelId: z.string().min(1).max(100),
   channelSlug: z.string().min(1).max(100).regex(/^[\w-]+$/, 'channelSlug must be alphanumeric'),
   twitchLogin: z.string().min(1).max(100).regex(/^[\w]+$/, 'twitchLogin must be alphanumeric'),
-  streamTitle: z.string().optional(),
-  gameName: z.string().optional(),
+  streamTitle: z.string().max(512).optional(),
+  gameName: z.string().max(200).optional(),
   thumbnailUrl: z.string().url().optional(),
   startedAt: z.string().optional(),
 });

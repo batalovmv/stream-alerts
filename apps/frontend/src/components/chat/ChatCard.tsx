@@ -163,6 +163,7 @@ export function ChatCard({ chat }: ChatCardProps) {
               <Button
                 variant="secondary"
                 size="sm"
+                disabled={isBusy}
                 onClick={() => {
                   updateChat.mutate({ id: chat.id, customTemplate: template || null });
                 }}
@@ -174,6 +175,7 @@ export function ChatCard({ chat }: ChatCardProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  disabled={isBusy}
                   onClick={() => {
                     setTemplate('');
                     updateChat.mutate({ id: chat.id, customTemplate: null });

@@ -89,10 +89,16 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
       logger.info({ streamerId: streamer.id }, 'announce.no_chats');
       return;
     }
+    // Store active session ID in Redis so offline can retrieve it even without startedAt
+    const sessionKey = `announce:session:${payload.channelId}`;
+    await redis.set(sessionKey, streamSessionId, 'EX', 48 * 60 * 60); // 48h TTL
     await handleStreamOnline(streamer, payload, streamSessionId);
   } else {
-    // Use the same session ID for offline so it matches the online log entries
-    await handleStreamOffline(streamer.id, streamSessionId);
+    // Retrieve the session ID stored during online — guarantees match regardless of startedAt
+    const sessionKey = `announce:session:${payload.channelId}`;
+    const storedSessionId = await redis.get(sessionKey);
+    const effectiveSessionId = storedSessionId ?? streamSessionId;
+    await handleStreamOffline(streamer.id, effectiveSessionId);
   }
 }
 
@@ -139,30 +145,39 @@ async function handleStreamOnline(
       const existing = existingByChat.get(chat.id);
 
       if (existing?.providerMsgId) {
-        // Update existing announcement (title/game changed)
-        await provider.editAnnouncement(chat.chatId, existing.providerMsgId, {
-          text,
-          photoUrl: safePhotoUrl,
-          buttons,
-        });
-        logger.info({ chatId: chat.chatId, streamSessionId, messageId: existing.providerMsgId }, 'announce.updated');
+        // Already sent — try to update, but treat "message not found" as OK
+        // (message may have been manually deleted; that's acceptable on retry)
+        try {
+          await provider.editAnnouncement(chat.chatId, existing.providerMsgId, {
+            text,
+            photoUrl: safePhotoUrl,
+            buttons,
+          });
+          logger.info({ chatId: chat.chatId, streamSessionId, messageId: existing.providerMsgId }, 'announce.updated');
+        } catch (editError) {
+          const isPermanent = editError instanceof Error && 'permanent' in editError && (editError as { permanent: boolean }).permanent;
+          if (isPermanent) {
+            logger.info({ chatId: chat.chatId, messageId: existing.providerMsgId }, 'announce.edit_skipped_message_gone');
+          } else {
+            throw editError;
+          }
+        }
         results.push({ chatTitle: title, ok: true });
         continue;
       }
 
-      if (existing) {
-        // Record exists but no providerMsgId — previous partial write.
-        // Delete the stale record so we can re-send.
-        await prisma.announcementLog.delete({ where: { id: existing.id } });
-        logger.warn({ chatId: chat.chatId, streamSessionId }, 'announce.stale_record_cleaned');
-      }
-
       // Atomic dedup lock: prevent concurrent workers from sending to the same chat+session
       const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
-      const acquired = await redis.set(lockKey, '1', 'EX', 300, 'NX');
+      const acquired = await redis.set(lockKey, '1', 'EX', 60, 'NX');
       if (!acquired) {
         logger.info({ chatId: chat.chatId, streamSessionId }, 'announce.dedup_locked');
         continue;
+      }
+
+      // Clean up stale record AFTER acquiring lock (prevents race with concurrent workers)
+      if (existing) {
+        await prisma.announcementLog.delete({ where: { id: existing.id } });
+        logger.warn({ chatId: chat.chatId, streamSessionId }, 'announce.stale_record_cleaned');
       }
 
       const result = await provider.sendAnnouncement(chat.chatId, {
@@ -316,8 +331,9 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
     }
   }
 
-  // If all deletion attempts failed, throw so BullMQ retries the job
-  if (failedCount > 0 && failedCount === totalCount) {
-    throw new Error(`All ${failedCount} announcement deletions failed`);
+  // If any deletion failed, throw so BullMQ retries the job
+  // (already-deleted messages are handled gracefully by providers — won't re-fail)
+  if (failedCount > 0) {
+    throw new Error(`${failedCount}/${totalCount} announcement deletions failed`);
   }
 }

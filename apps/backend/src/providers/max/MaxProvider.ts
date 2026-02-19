@@ -11,12 +11,14 @@ export class MaxProvider implements MessengerProvider {
       text: data.text,
       photoUrl: data.photoUrl,
       buttons: data.buttons,
+      silent: data.silent,
     });
     return { messageId: result.messageId };
   }
 
   async editAnnouncement(chatId: string, messageId: string, data: AnnouncementData): Promise<void> {
     await max.editMessage({
+      chatId,
       messageId,
       text: data.text,
       buttons: data.buttons,

@@ -4,7 +4,15 @@ import { useAuth } from '../hooks/useAuth';
 export function Landing() {
   const { isAuthenticated, isLoading, login } = useAuth();
 
-  if (!isLoading && isAuthenticated) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full animated-gradient animate-spin" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 

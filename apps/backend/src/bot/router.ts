@@ -63,8 +63,8 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
     // Text commands
     const text = msg.text?.trim() ?? '';
 
-    // Handle cancel button from reply keyboard
-    if (text === '\u274C Отмена' || text.toLowerCase() === 'отмена') {
+    // Handle cancel button from reply keyboard (exact match only)
+    if (text === '\u274C Отмена') {
       if (msg.from?.id) await clearPendingTemplateEdit(msg.from.id);
       const { removeReplyKeyboard } = await import('../providers/telegram/telegramApi.js');
       await removeReplyKeyboard(msg.chat.id, 'Действие отменено.');

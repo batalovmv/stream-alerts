@@ -40,7 +40,12 @@ export function TelegramStatus() {
             <Button
               variant="danger"
               size="sm"
-              onClick={() => { unlink(); setConfirmUnlink(false); }}
+              onClick={() => {
+                unlink({
+                  onSuccess: () => setConfirmUnlink(false),
+                  onError: () => setConfirmUnlink(false),
+                });
+              }}
               loading={isUnlinking}
             >
               Подтвердить

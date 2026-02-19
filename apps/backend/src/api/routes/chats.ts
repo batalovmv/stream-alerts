@@ -181,6 +181,11 @@ router.post('/:id/test', validateIdParam, async (req: Request, res: Response) =>
       return;
     }
 
+    if (!chat.enabled) {
+      res.status(400).json({ error: 'Chat is disabled. Enable it first.' });
+      return;
+    }
+
     const dbStreamer = await prisma.streamer.findUnique({ where: { id: streamer.id } });
     if (!dbStreamer) {
       res.status(404).json({ error: 'Streamer not found' });
