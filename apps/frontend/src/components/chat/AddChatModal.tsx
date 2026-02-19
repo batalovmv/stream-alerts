@@ -4,15 +4,8 @@ import { Button, Input } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useChats } from '../../hooks/useChats';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
+import { isSafeDeepLink } from '../../lib/safeLink';
 import { ApiError } from '../../api/client';
-
-function isSafeDeepLink(url: string): boolean {
-  try {
-    return new URL(url).hostname === 't.me';
-  } catch {
-    return false;
-  }
-}
 
 interface AddChatModalProps {
   open: boolean;
@@ -125,7 +118,7 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
-    navigator.clipboard.writeText('/connect');
+    navigator.clipboard.writeText('/connect').catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

@@ -81,7 +81,9 @@ export class MaxApiError extends Error {
   }
 
   get permanent(): boolean {
-    return this.httpStatus === 403 || this.httpStatus === 404;
+    // Only 403 is truly permanent (bot kicked/blocked).
+    // 404 could be transient (message deleted) — deleteMessage handles it separately.
+    return this.httpStatus === 403;
   }
 
   get retryable(): boolean {
@@ -102,11 +104,12 @@ async function uploadImageByUrl(photoUrl: string): Promise<{ token: string } | n
     if (!imgRes.ok) return null;
     const imgBuffer = await imgRes.arrayBuffer();
 
-    // Step 3: Upload image to the provided URL
+    // Step 3: Upload image to the provided URL (with timeout)
     const uploadRes = await fetch(uploadInfo.url, {
       method: 'POST',
       headers: { 'Content-Type': imgRes.headers.get('content-type') ?? 'image/jpeg' },
       body: imgBuffer,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!uploadRes.ok) return null;
 
@@ -197,16 +200,18 @@ export async function editMessage(params: {
   }
 
   const msgId = encodeURIComponent(params.messageId);
-  await callApi<unknown>('PUT', `/messages?message_id=${msgId}`, body);
+  const chatIdParam = encodeURIComponent(params.chatId);
+  await callApi<unknown>('PUT', `/messages?message_id=${msgId}&chat_id=${chatIdParam}`, body);
 }
 
-export async function deleteMessage(messageId: string): Promise<void> {
+export async function deleteMessage(chatId: string, messageId: string): Promise<void> {
   try {
     const msgId = encodeURIComponent(messageId);
-    await callApi<unknown>('DELETE', `/messages?message_id=${msgId}`);
+    const chatIdParam = encodeURIComponent(chatId);
+    await callApi<unknown>('DELETE', `/messages?message_id=${msgId}&chat_id=${chatIdParam}`);
   } catch (error) {
     if (error instanceof MaxApiError && error.httpStatus === 404) {
-      logger.info({ messageId }, 'max.deleteMessage: already deleted');
+      logger.info({ chatId, messageId }, 'max.deleteMessage: already deleted');
       return;
     }
     throw error;

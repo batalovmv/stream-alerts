@@ -170,7 +170,8 @@ async function fetchMemelabProfile(token: string): Promise<FetchResult> {
     const parsed = memelabProfileSchema.safeParse(json);
     if (!parsed.success) {
       logger.error({ issues: parsed.error.issues.map((i) => i.message) }, 'auth.memelab_api_invalid_response');
-      return { profile: null, error: 'rejected' };
+      // Schema mismatch = upstream API changed; treat as service unavailable, not auth rejection
+      return { profile: null, error: 'network' };
     }
 
     return { profile: parsed.data as MemelabUserProfile };

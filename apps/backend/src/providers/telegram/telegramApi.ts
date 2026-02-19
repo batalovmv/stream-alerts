@@ -226,7 +226,7 @@ export async function editMessageCaption(params: {
 }): Promise<TelegramMessage> {
   const inlineKeyboard = params.buttons?.length
     ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
-    : {};
+    : { inline_keyboard: [] };
 
   return callApi<TelegramMessage>('editMessageCaption', {
     chat_id: params.chatId,

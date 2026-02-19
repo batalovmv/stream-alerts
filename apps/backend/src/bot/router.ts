@@ -37,6 +37,10 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
           userId: cq.from.id,
           data: cq.data,
         });
+      } else {
+        // Answer callback queries without data/message to dismiss Telegram's loading spinner
+        const { answerCallbackQuery } = await import('../providers/telegram/telegramApi.js');
+        await answerCallbackQuery({ callbackQueryId: cq.id });
       }
       return;
     }

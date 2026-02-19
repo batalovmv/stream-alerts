@@ -13,7 +13,7 @@ const streamEventSchema = z.object({
   streamTitle: z.string().max(512).optional(),
   gameName: z.string().max(200).optional(),
   thumbnailUrl: z.string().url().optional(),
-  startedAt: z.string().optional(),
+  startedAt: z.string().datetime({ offset: true }).optional(),
 });
 
 const router: RouterType = Router();

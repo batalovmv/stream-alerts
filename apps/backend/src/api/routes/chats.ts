@@ -96,6 +96,11 @@ router.post('/', validate(addChatSchema), async (req: Request, res: Response) =>
 
     res.status(201).json({ chat });
   } catch (error) {
+    // Handle unique constraint violation (race condition: two concurrent requests)
+    if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2002') {
+      res.status(409).json({ error: 'This chat is already connected' });
+      return;
+    }
     const errMsg = error instanceof Error ? error.message : String(error);
     logger.error({ error: errMsg }, 'chats.create_failed');
     res.status(500).json({ error: 'Failed to connect chat' });

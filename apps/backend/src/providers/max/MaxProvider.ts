@@ -26,7 +26,7 @@ export class MaxProvider implements MessengerProvider {
   }
 
   async deleteMessage(chatId: string, messageId: string): Promise<void> {
-    await max.deleteMessage(messageId);
+    await max.deleteMessage(chatId, messageId);
   }
 
   async getChatInfo(chatId: string): Promise<ChatInfo> {

@@ -66,10 +66,10 @@ export async function sendSettingsMenu(
   });
 }
 
-export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: string): Promise<void> {
+export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: string, skipAnswer = false): Promise<void> {
   const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
   if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    if (!skipAnswer) await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
     return;
   }
 
@@ -94,7 +94,7 @@ export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: str
     ],
   ];
 
-  await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
+  if (!skipAnswer) await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
   await tg.editMessageText({
     chatId: String(ctx.chatId),
     messageId: ctx.messageId,
@@ -120,8 +120,8 @@ export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: strin
     text: chat.enabled ? 'Канал выключен' : 'Канал включён',
   });
 
-  // Refresh settings view in-place
-  await handleSettingsCallback(ctx, chatDbId);
+  // Refresh settings view in-place (skipAnswer=true since we already answered above)
+  await handleSettingsCallback(ctx, chatDbId, true);
 }
 
 export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: string): Promise<void> {
@@ -141,7 +141,8 @@ export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: strin
     text: chat.deleteAfterEnd ? 'Удаление выключено' : 'Удаление включено',
   });
 
-  await handleSettingsCallback(ctx, chatDbId);
+  // Refresh settings view in-place (skipAnswer=true since we already answered above)
+  await handleSettingsCallback(ctx, chatDbId, true);
 }
 
 export async function getPendingTemplateEdit(userId: number): Promise<string | undefined> {
@@ -237,14 +238,13 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     return;
   }
 
-  // Consume the pending key now that all checks passed
-  await redis.del(PENDING_TEMPLATE_PREFIX + userId);
-
   if (text.toLowerCase() === 'reset') {
     await prisma.connectedChat.update({
       where: { id: chatDbId, streamerId: streamer.id },
       data: { customTemplate: null },
     });
+    // Consume pending key only after DB write succeeds (user can retry on failure)
+    await redis.del(PENDING_TEMPLATE_PREFIX + userId);
     await tg.sendMessage({
       chatId: String(chatId),
       text: '\u{2705} Шаблон сброшен на стандартный.',
@@ -257,6 +257,8 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
     where: { id: chatDbId, streamerId: streamer.id },
     data: { customTemplate: text },
   });
+  // Consume pending key only after DB write succeeds (user can retry on failure)
+  await redis.del(PENDING_TEMPLATE_PREFIX + userId);
 
   // Auto-preview the saved template
   const previewVars = {

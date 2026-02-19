@@ -118,6 +118,16 @@ router.post('/telegram-unlink', requireAuth, async (req: Request, res: Response)
   try {
     const { streamer } = req as AuthenticatedRequest;
 
+    const dbStreamer = await prisma.streamer.findUnique({
+      where: { id: streamer.id },
+      select: { telegramUserId: true },
+    });
+
+    if (!dbStreamer?.telegramUserId) {
+      res.json({ ok: true, message: 'No Telegram account linked' });
+      return;
+    }
+
     await prisma.streamer.update({
       where: { id: streamer.id },
       data: { telegramUserId: null },

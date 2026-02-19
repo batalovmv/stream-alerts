@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
+import { isSafeDeepLink } from '../../lib/safeLink';
 import { Button } from '../ui';
-
-function isSafeDeepLink(url: string): boolean {
-  try {
-    return new URL(url).hostname === 't.me';
-  } catch {
-    return false;
-  }
-}
 
 export function TelegramStatus() {
   const { user } = useAuth();

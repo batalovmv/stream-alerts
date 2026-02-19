@@ -125,7 +125,6 @@ export function ChatCard({ chat }: ChatCardProps) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setConfirmDelete(false)}
-                disabled={isBusy}
               >
                 Отмена
               </Button>

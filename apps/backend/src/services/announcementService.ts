@@ -85,13 +85,15 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
   const streamSessionId = buildStreamSessionId(payload.channelId, payload.startedAt);
 
   if (event === 'stream.online') {
+    // Store active session ID in Redis BEFORE checking chats — offline needs it
+    // even if no chats are enabled now (chats may be added mid-stream)
+    const sessionKey = `announce:session:${payload.channelId}`;
+    await redis.set(sessionKey, streamSessionId, 'EX', 48 * 60 * 60); // 48h TTL
+
     if (streamer.chats.length === 0) {
       logger.info({ streamerId: streamer.id }, 'announce.no_chats');
       return;
     }
-    // Store active session ID in Redis so offline can retrieve it even without startedAt
-    const sessionKey = `announce:session:${payload.channelId}`;
-    await redis.set(sessionKey, streamSessionId, 'EX', 48 * 60 * 60); // 48h TTL
     await handleStreamOnline(streamer, payload, streamSessionId);
   } else {
     // Retrieve the session ID stored during online — guarantees match regardless of startedAt
@@ -99,6 +101,8 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
     const storedSessionId = await redis.get(sessionKey);
     const effectiveSessionId = storedSessionId ?? streamSessionId;
     await handleStreamOffline(streamer.id, effectiveSessionId);
+    // Clean up session key after successful offline processing
+    await redis.del(sessionKey);
   }
 }
 
@@ -132,7 +136,7 @@ async function handleStreamOnline(
   });
   const existingByChat = new Map(existingLogs.map((log) => [log.chatId, log]));
 
-  const results: Array<{ chatTitle: string; ok: boolean }> = [];
+  const results: Array<{ chatTitle: string; ok: boolean; permanent?: boolean }> = [];
 
   for (const chat of streamer.chats) {
     const title = escapeHtml(chat.chatTitle ?? chat.chatId);
@@ -208,20 +212,23 @@ async function handleStreamOnline(
       logger.info({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, messageId: result.messageId }, 'announce.sent');
       results.push({ chatTitle: title, ok: true });
     } catch (error) {
-      // Release dedup lock so BullMQ retry can re-attempt this chat
-      const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
-      await redis.del(lockKey).catch(() => {});
-
       const errMsg = error instanceof Error ? error.message : String(error);
+      const isPermanent = error instanceof Error && 'permanent' in error && (error as { permanent: boolean }).permanent;
+
       logger.error({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, error: errMsg }, 'announce.send_failed');
 
       // Auto-disable chat on permanent provider errors (bot blocked, chat deleted, etc.)
-      if (error instanceof Error && 'permanent' in error && (error as { permanent: boolean }).permanent) {
+      if (isPermanent) {
         await prisma.connectedChat.update({
           where: { id: chat.id },
           data: { enabled: false },
         });
         logger.warn({ chatId: chat.chatId, provider: chat.provider }, 'announce.chat_disabled_permanent_error');
+        // Keep dedup lock — chat is disabled, no point retrying
+      } else {
+        // Release dedup lock so BullMQ retry can re-attempt this chat
+        const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
+        await redis.del(lockKey).catch(() => {});
       }
 
       await prisma.announcementLog.create({
@@ -234,18 +241,11 @@ async function handleStreamOnline(
         },
       });
 
-      results.push({ chatTitle: title, ok: false });
+      results.push({ chatTitle: title, ok: false, permanent: isPermanent });
     }
   }
 
-  // If ANY deliveries failed, throw so BullMQ retries the job
-  // (already-sent chats will be skipped via dedup on retry)
-  const failedCount = results.filter((r) => !r.ok).length;
-  if (failedCount > 0) {
-    throw new Error(`${failedCount}/${results.length} announcement deliveries failed`);
-  }
-
-  // Notify streamer about delivery results via Telegram (if linked and provider available)
+  // Notify streamer about delivery results BEFORE potentially throwing
   if (streamer.telegramUserId && results.length > 0 && hasProvider('telegram')) {
     try {
       const tgProvider = getProvider('telegram');
@@ -256,6 +256,12 @@ async function handleStreamOnline(
     } catch {
       // Don't fail the whole flow if notification to streamer fails
     }
+  }
+
+  // Count transient (retryable) failures — permanent failures are handled (chat disabled)
+  const retryableFailures = results.filter((r) => !r.ok && !r.permanent).length;
+  if (retryableFailures > 0) {
+    throw new Error(`${retryableFailures}/${results.length} announcement deliveries failed (retryable)`);
   }
 }
 

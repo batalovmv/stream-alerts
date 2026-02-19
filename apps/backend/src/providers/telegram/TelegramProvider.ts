@@ -44,7 +44,7 @@ export class TelegramProvider implements MessengerProvider {
     } else {
       const replyMarkup = data.buttons?.length
         ? { inline_keyboard: [data.buttons.map((b) => ({ text: b.label, url: b.url }))] }
-        : {};
+        : { inline_keyboard: [] };
       await tg.editMessageText({
         chatId,
         messageId: numericId,
