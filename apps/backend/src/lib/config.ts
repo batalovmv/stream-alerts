@@ -38,6 +38,9 @@ export const config = {
   // Optional at config level — validated at runtime in startWebhook() when actually needed
   telegramWebhookSecret: env('TELEGRAM_WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-tg-webhook-secret' : ''),
 
+  // Encryption key for custom bot tokens (32-byte hex, optional — feature disabled if empty)
+  botTokenEncryptionKey: env('BOT_TOKEN_ENCRYPTION_KEY', ''),
+
   // MAX Bot (Phase 3 — optional until implemented)
   maxBotToken: env('MAX_BOT_TOKEN', ''),
 

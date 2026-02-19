@@ -5,6 +5,7 @@ import { AddChatModal } from '../components/chat/AddChatModal';
 import { TelegramStatus } from '../components/chat/TelegramStatus';
 import { PlatformsEditor } from '../components/settings/PlatformsEditor';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
+import { CustomBotEditor } from '../components/settings/CustomBotEditor';
 import { Button } from '../components/ui';
 import { useChats } from '../hooks/useChats';
 import { useAuth } from '../hooks/useAuth';
@@ -14,7 +15,7 @@ export function Dashboard() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const { chats, isLoading, error } = useChats();
   const { user } = useAuth();
-  const { settings, updatePlatforms, updateButtons } = useStreamerSettings();
+  const { settings, updatePlatforms, updateButtons, updateCustomBot } = useStreamerSettings();
 
   return (
     <DashboardLayout>
@@ -40,6 +41,13 @@ export function Dashboard() {
               buttons={settings.customButtons}
               onSave={(buttons) => updateButtons.mutate(buttons)}
               isSaving={updateButtons.isPending}
+            />
+            <CustomBotEditor
+              hasCustomBot={settings.hasCustomBot}
+              customBotUsername={settings.customBotUsername}
+              onSave={(token) => updateCustomBot.mutate(token)}
+              isSaving={updateCustomBot.isPending}
+              error={updateCustomBot.error}
             />
           </div>
         </>

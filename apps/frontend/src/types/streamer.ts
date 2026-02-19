@@ -20,6 +20,8 @@ export interface StreamerSettings {
   customButtons: CustomButton[] | null;
   defaultTemplate: string | null;
   templateVariables?: TemplateVariable[];
+  customBotUsername: string | null;
+  hasCustomBot: boolean;
 }
 
 export interface StreamerSettingsResponse extends StreamerSettings {

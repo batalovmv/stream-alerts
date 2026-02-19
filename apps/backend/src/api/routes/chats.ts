@@ -1,12 +1,27 @@
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { getProvider, hasProvider } from '../../providers/registry.js';
+import { TelegramProvider } from '../../providers/telegram/TelegramProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
+import { decrypt, isEncryptionAvailable } from '../../lib/encryption.js';
 import { logger } from '../../lib/logger.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate, validateIdParam, addChatSchema, updateChatSchema } from '../middleware/validation.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
+
+/** Resolve provider, using custom bot token if available for Telegram */
+function resolveProvider(chatProvider: string, customBotToken: string | null | undefined): import('../../providers/types.js').MessengerProvider {
+  if (chatProvider === 'telegram' && customBotToken && isEncryptionAvailable()) {
+    try {
+      const token = decrypt(customBotToken);
+      return new TelegramProvider(token);
+    } catch {
+      // Fall back to global bot
+    }
+  }
+  return getProvider(chatProvider);
+}
 
 const router: RouterType = Router();
 
@@ -46,13 +61,19 @@ router.post('/', validate(addChatSchema), async (req: Request, res: Response) =>
       return;
     }
 
-    const messengerProvider = getProvider(provider);
+    // Load custom bot token to validate with the right bot
+    const dbStreamer = await prisma.streamer.findUnique({
+      where: { id: streamer.id },
+      select: { customBotToken: true },
+    });
+    const messengerProvider = resolveProvider(provider, dbStreamer?.customBotToken);
 
     const hasAccess = await messengerProvider.validateBotAccess(chatId);
     if (!hasAccess) {
-      res.status(400).json({
-        error: 'Bot does not have admin access to this chat. Please add the bot as an administrator first.',
-      });
+      const botHint = dbStreamer?.customBotToken
+        ? 'Your custom bot does not have admin access to this chat. Please add it as an administrator first.'
+        : 'Bot does not have admin access to this chat. Please add the bot as an administrator first.';
+      res.status(400).json({ error: botHint });
       return;
     }
 
@@ -214,7 +235,8 @@ router.post('/:id/test', validateIdParam, async (req: Request, res: Response) =>
     const text = renderTemplate(chat.customTemplate || dbStreamer.defaultTemplate, vars);
     const buttons = buildButtons(vars, customButtons);
 
-    const provider = getProvider(chat.provider);
+    // Use custom bot for test if configured — so streamer sees the actual bot that will send
+    const provider = resolveProvider(chat.provider, dbStreamer.customBotToken);
     const result = await provider.sendAnnouncement(chat.chatId, { text, buttons });
 
     res.json({ ok: true, messageId: result.messageId });

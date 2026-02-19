@@ -4,6 +4,14 @@ import { logger } from '../../lib/logger.js';
 
 export class TelegramProvider implements MessengerProvider {
   readonly name = 'telegram';
+  private readonly token?: string;
+
+  /**
+   * @param token — custom bot token. If omitted, uses the global bot token.
+   */
+  constructor(token?: string) {
+    this.token = token;
+  }
 
   async sendAnnouncement(chatId: string, data: AnnouncementData): Promise<SendResult> {
     if (data.photoUrl) {
@@ -13,6 +21,7 @@ export class TelegramProvider implements MessengerProvider {
         caption: data.text,
         buttons: data.buttons,
         silent: data.silent,
+        token: this.token,
       });
       return { messageId: String(msg.message_id) };
     }
@@ -22,6 +31,7 @@ export class TelegramProvider implements MessengerProvider {
       text: data.text,
       buttons: data.buttons,
       silent: data.silent,
+      token: this.token,
     });
     return { messageId: String(msg.message_id) };
   }
@@ -34,12 +44,12 @@ export class TelegramProvider implements MessengerProvider {
     }
 
     if (data.photoUrl) {
-      // Photo message — edit caption only (Telegram doesn't allow changing photo via editMessageMedia without InputMedia)
       await tg.editMessageCaption({
         chatId,
         messageId: numericId,
         caption: data.text,
         buttons: data.buttons,
+        token: this.token,
       });
     } else {
       const replyMarkup = data.buttons?.length
@@ -50,6 +60,7 @@ export class TelegramProvider implements MessengerProvider {
         messageId: numericId,
         text: data.text,
         replyMarkup,
+        token: this.token,
       });
     }
   }
@@ -60,14 +71,14 @@ export class TelegramProvider implements MessengerProvider {
       logger.warn({ chatId, messageId }, 'telegram.deleteMessage: invalid message ID');
       return;
     }
-    await tg.deleteMessageApi(chatId, numericId);
+    await tg.deleteMessageApi(chatId, numericId, this.token);
   }
 
   async getChatInfo(chatId: string): Promise<ChatInfo> {
-    const chat = await tg.getChat(chatId);
+    const chat = await tg.getChat(chatId, this.token);
     let memberCount: number | undefined;
     try {
-      memberCount = await tg.getChatMemberCount(chatId);
+      memberCount = await tg.getChatMemberCount(chatId, this.token);
     } catch {
       // member count may not be available for all chat types
     }
@@ -82,7 +93,7 @@ export class TelegramProvider implements MessengerProvider {
 
   async validateBotAccess(chatId: string): Promise<boolean> {
     try {
-      const member = await tg.getBotChatMember(chatId);
+      const member = await tg.getBotChatMember(chatId, this.token);
       return member.status === 'administrator' || member.status === 'creator';
     } catch {
       return false;

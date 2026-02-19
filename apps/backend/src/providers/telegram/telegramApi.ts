@@ -69,16 +69,27 @@ export interface TelegramUser {
 
 // ─── Helpers ──────────────────────────────────────────────
 
-function botUrl(method: string): string {
-  return `${TELEGRAM_API}/bot${config.telegramBotToken}/${method}`;
+function botUrl(method: string, token?: string): string {
+  const t = token ?? config.telegramBotToken;
+  return `${TELEGRAM_API}/bot${t}/${method}`;
 }
 
-export async function callApi<T>(method: string, body: Record<string, unknown>, timeoutMs = TIMEOUT_MS): Promise<T> {
+export interface CallApiOptions {
+  timeoutMs?: number;
+  /** Custom bot token — if provided, uses this instead of the global bot */
+  token?: string;
+}
+
+export async function callApi<T>(method: string, body: Record<string, unknown>, opts?: CallApiOptions | number): Promise<T> {
+  // Backward compat: accept raw number as timeoutMs
+  const options: CallApiOptions = typeof opts === 'number' ? { timeoutMs: opts } : (opts ?? {});
+  const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(botUrl(method), {
+    const res = await fetch(botUrl(method, options.token), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -140,10 +151,17 @@ export class TelegramApiError extends Error {
 
 let cachedBotInfo: TelegramUser | null = null;
 
+/** Get info for the global bot (cached) */
 export async function getMe(): Promise<TelegramUser> {
   if (cachedBotInfo) return cachedBotInfo;
   cachedBotInfo = await callApi<TelegramUser>('getMe', {});
   return cachedBotInfo;
+}
+
+/** Get info for a specific bot token (not cached — used for validation) */
+export async function getMeWithToken(token?: string): Promise<TelegramUser> {
+  if (!token) return getMe();
+  return callApi<TelegramUser>('getMe', {}, { token });
 }
 
 // ─── Public API ───────────────────────────────────────────
@@ -156,6 +174,7 @@ export async function sendPhoto(params: {
   parseMode?: string;
   buttons?: Array<{ label: string; url: string }>;
   silent?: boolean;
+  token?: string;
 }): Promise<TelegramMessage> {
   const inlineKeyboard = params.buttons?.length
     ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
@@ -168,7 +187,7 @@ export async function sendPhoto(params: {
     parse_mode: params.parseMode ?? 'HTML',
     reply_markup: inlineKeyboard,
     disable_notification: params.silent ?? false,
-  });
+  }, { token: params.token });
 }
 
 /** Send text message with optional inline keyboard or reply keyboard */
@@ -179,6 +198,7 @@ export async function sendMessage(params: {
   buttons?: Array<{ label: string; url: string }>;
   replyMarkup?: Record<string, unknown>;
   silent?: boolean;
+  token?: string;
 }): Promise<TelegramMessage> {
   let replyMarkup = params.replyMarkup;
 
@@ -195,7 +215,7 @@ export async function sendMessage(params: {
     disable_web_page_preview: true,
     reply_markup: replyMarkup,
     disable_notification: params.silent ?? false,
-  });
+  }, { token: params.token });
 }
 
 /** Edit text of an existing message with optional inline keyboard */
@@ -205,6 +225,7 @@ export async function editMessageText(params: {
   text: string;
   parseMode?: string;
   replyMarkup?: Record<string, unknown>;
+  token?: string;
 }): Promise<TelegramMessage | boolean> {
   return callApi<TelegramMessage | boolean>('editMessageText', {
     chat_id: params.chatId,
@@ -213,7 +234,7 @@ export async function editMessageText(params: {
     parse_mode: params.parseMode ?? 'HTML',
     disable_web_page_preview: true,
     reply_markup: params.replyMarkup,
-  });
+  }, { token: params.token });
 }
 
 /** Edit message caption (for photo announcements) */
@@ -223,6 +244,7 @@ export async function editMessageCaption(params: {
   caption: string;
   parseMode?: string;
   buttons?: Array<{ label: string; url: string }>;
+  token?: string;
 }): Promise<TelegramMessage> {
   const inlineKeyboard = params.buttons?.length
     ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
@@ -234,16 +256,16 @@ export async function editMessageCaption(params: {
     caption: params.caption,
     parse_mode: params.parseMode ?? 'HTML',
     reply_markup: inlineKeyboard,
-  });
+  }, { token: params.token });
 }
 
 /** Delete a message */
-export async function deleteMessageApi(chatId: string, messageId: number): Promise<boolean> {
+export async function deleteMessageApi(chatId: string, messageId: number, token?: string): Promise<boolean> {
   try {
     return await callApi<boolean>('deleteMessage', {
       chat_id: chatId,
       message_id: messageId,
-    });
+    }, { token });
   } catch (error) {
     // Ignore "message to delete not found" — already deleted
     if (error instanceof TelegramApiError && error.code === 400 && error.description.includes('message to delete not found')) {
@@ -268,22 +290,22 @@ export async function answerCallbackQuery(params: {
 }
 
 /** Get chat info */
-export async function getChat(chatId: string | number): Promise<TelegramChat> {
-  return callApi<TelegramChat>('getChat', { chat_id: chatId });
+export async function getChat(chatId: string | number, token?: string): Promise<TelegramChat> {
+  return callApi<TelegramChat>('getChat', { chat_id: chatId }, { token });
 }
 
 /** Get chat member count */
-export async function getChatMemberCount(chatId: string | number): Promise<number> {
-  return callApi<number>('getChatMemberCount', { chat_id: chatId });
+export async function getChatMemberCount(chatId: string | number, token?: string): Promise<number> {
+  return callApi<number>('getChatMemberCount', { chat_id: chatId }, { token });
 }
 
 /** Check if bot is admin in the chat */
-export async function getBotChatMember(chatId: string | number): Promise<{ status: string }> {
-  const botInfo = await getMe();
+export async function getBotChatMember(chatId: string | number, token?: string): Promise<{ status: string }> {
+  const botInfo = await getMeWithToken(token);
   return callApi<{ status: string }>('getChatMember', {
     chat_id: chatId,
     user_id: botInfo.id,
-  });
+  }, { token });
 }
 
 /** Set webhook URL */
@@ -308,7 +330,7 @@ export async function getUpdates(offset?: number): Promise<TelegramUpdate[]> {
     offset: offset ?? 0,
     timeout: 30,
     allowed_updates: ['message', 'callback_query', 'my_chat_member'],
-  }, 35_000);
+  }, { timeoutMs: 35_000 });
 }
 
 /** Set bot commands menu */

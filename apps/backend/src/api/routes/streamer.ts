@@ -6,6 +6,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validation.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
 import { TEMPLATE_VARIABLE_DOCS } from '../../services/templateService.js';
+import { encrypt, isEncryptionAvailable } from '../../lib/encryption.js';
+import { getMeWithToken } from '../../providers/telegram/telegramApi.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
 
 const router: RouterType = Router();
@@ -30,6 +32,7 @@ const updateSettingsSchema = z.object({
   streamPlatforms: z.array(streamPlatformSchema).max(20).optional(),
   customButtons: z.array(customButtonSchema).max(20).nullable().optional(),
   defaultTemplate: z.string().max(2000).nullable().optional(),
+  customBotToken: z.string().regex(/^\d+:[A-Za-z0-9_-]+$/, 'Invalid bot token format').nullable().optional(),
 }).refine(
   (data) => Object.values(data).some((v) => v !== undefined),
   { message: 'At least one field must be provided' },
@@ -50,6 +53,8 @@ router.get('/settings', async (req: Request, res: Response) => {
         streamPlatforms: true,
         customButtons: true,
         defaultTemplate: true,
+        customBotUsername: true,
+        customBotToken: true,
       },
     });
 
@@ -63,6 +68,8 @@ router.get('/settings', async (req: Request, res: Response) => {
       customButtons: parseCustomButtons(dbStreamer.customButtons),
       defaultTemplate: dbStreamer.defaultTemplate,
       templateVariables: TEMPLATE_VARIABLE_DOCS,
+      customBotUsername: dbStreamer.customBotUsername ?? null,
+      hasCustomBot: !!dbStreamer.customBotToken,
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
@@ -77,7 +84,7 @@ router.get('/settings', async (req: Request, res: Response) => {
 router.patch('/settings', validate(updateSettingsSchema), async (req: Request, res: Response) => {
   try {
     const { streamer } = req as AuthenticatedRequest;
-    const { streamPlatforms, customButtons, defaultTemplate } = req.body;
+    const { streamPlatforms, customButtons, defaultTemplate, customBotToken } = req.body;
 
     const data: Record<string, unknown> = {};
 
@@ -99,12 +106,45 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
       data.defaultTemplate = defaultTemplate;
     }
 
+    // Handle custom bot token
+    if (customBotToken !== undefined) {
+      if (customBotToken === null) {
+        // Remove custom bot
+        data.customBotToken = null;
+        data.customBotUsername = null;
+      } else {
+        // Validate encryption is available
+        if (!isEncryptionAvailable()) {
+          res.status(400).json({ error: 'Custom bot feature is not configured on this server' });
+          return;
+        }
+
+        // Validate the token by calling Telegram getMe
+        try {
+          const botInfo = await getMeWithToken(customBotToken);
+          data.customBotToken = encrypt(customBotToken);
+          data.customBotUsername = botInfo.username ?? botInfo.first_name;
+          logger.info(
+            { streamerId: streamer.id, botUsername: data.customBotUsername },
+            'streamer.custom_bot_validated',
+          );
+        } catch (error) {
+          const errMsg = error instanceof Error ? error.message : String(error);
+          logger.warn({ streamerId: streamer.id, error: errMsg }, 'streamer.custom_bot_invalid');
+          res.status(400).json({ error: 'Invalid bot token. Make sure the token is correct and the bot exists.' });
+          return;
+        }
+      }
+    }
+
     const updated = await prisma.streamer.update({
       where: { id: streamer.id },
       select: {
         streamPlatforms: true,
         customButtons: true,
         defaultTemplate: true,
+        customBotUsername: true,
+        customBotToken: true,
       },
       data,
     });
@@ -118,6 +158,8 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
       streamPlatforms: parseStreamPlatforms(updated.streamPlatforms),
       customButtons: parseCustomButtons(updated.customButtons),
       defaultTemplate: updated.defaultTemplate,
+      customBotUsername: updated.customBotUsername ?? null,
+      hasCustomBot: !!updated.customBotToken,
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);

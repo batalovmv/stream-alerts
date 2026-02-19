@@ -30,6 +30,12 @@ export function useStreamerSettings() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
   });
 
+  const updateCustomBot = useMutation({
+    mutationFn: (customBotToken: string | null) =>
+      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { customBotToken }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
+  });
+
   return {
     settings: settingsQuery.data ?? null,
     isLoading: settingsQuery.isLoading,
@@ -37,5 +43,6 @@ export function useStreamerSettings() {
     updatePlatforms,
     updateButtons,
     updateDefaultTemplate,
+    updateCustomBot,
   };
 }

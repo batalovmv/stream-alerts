@@ -10,9 +10,11 @@ import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
+import { TelegramProvider } from '../providers/telegram/TelegramProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from './templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../lib/streamPlatforms.js';
 import { escapeHtml } from '../lib/escapeHtml.js';
+import { decrypt, isEncryptionAvailable } from '../lib/encryption.js';
 
 /** Allowed hosts for thumbnail URLs to prevent SSRF via Telegram fetch */
 const ALLOWED_THUMBNAIL_HOSTS = new Set([
@@ -63,6 +65,22 @@ function buildStreamSessionId(channelId: string, startedAt?: string): string {
 }
 
 /**
+ * Resolve the provider for a chat — uses custom bot for Telegram if streamer has one configured.
+ */
+function resolveProvider(chatProvider: string, customBotToken: string | null | undefined): import('../providers/types.js').MessengerProvider {
+  if (chatProvider === 'telegram' && customBotToken && isEncryptionAvailable()) {
+    try {
+      const token = decrypt(customBotToken);
+      return new TelegramProvider(token);
+    } catch (err) {
+      logger.error({ error: err instanceof Error ? err.message : String(err) }, 'announce.custom_bot_decrypt_failed');
+      // Fall back to global bot
+    }
+  }
+  return getProvider(chatProvider);
+}
+
+/**
  * Process a stream event from MemeLab webhook.
  */
 export async function processStreamEvent(payload: StreamEventPayload): Promise<void> {
@@ -110,7 +128,7 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
 // ─── Stream Online ────────────────────────────────────────
 
 async function handleStreamOnline(
-  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; streamPlatforms: unknown; customButtons: unknown; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
   streamSessionId: string,
 ): Promise<void> {
@@ -149,7 +167,7 @@ async function handleStreamOnline(
     try {
       const template = chat.customTemplate || streamer.defaultTemplate;
       const text = renderTemplate(template, templateVars);
-      const provider = getProvider(chat.provider);
+      const provider = resolveProvider(chat.provider, streamer.customBotToken);
 
       // Check if already sent for this stream session (from batch query)
       const existing = existingByChat.get(chat.id);
@@ -283,6 +301,12 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
     },
   });
 
+  // Load streamer's custom bot token for deletion (messages were sent by this bot)
+  const streamer = await prisma.streamer.findUnique({
+    where: { id: streamerId },
+    select: { customBotToken: true },
+  });
+
   let failedCount = 0;
   const totalCount = chats.length;
 
@@ -311,7 +335,7 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
 
       if (!messageIdToDelete) continue;
 
-      const provider = getProvider(chat.provider);
+      const provider = resolveProvider(chat.provider, streamer?.customBotToken);
       await provider.deleteMessage(chat.chatId, messageIdToDelete);
 
       // Update announcement log
