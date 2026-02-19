@@ -7,7 +7,8 @@
 
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
-import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
+import { renderTemplate, buildButtons, buildTemplateVars, TEMPLATE_VARIABLE_DOCS } from '../../services/templateService.js';
+import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
 import type { BotContext } from '../types.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
@@ -24,22 +25,27 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: 'Сначала привяжите аккаунт.',
-      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: { inline_keyboard: [[{ text: '🔗 Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
     });
     return;
   }
 
-  const templateVars = {
-    streamer_name: streamer.displayName,
-    stream_title: 'Играем в новый инди-хоррор!',
-    game_name: 'Phasmophobia',
-    stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
-    memelab_url: `https://memelab.ru/${streamer.memelabChannelId}`,
-  };
+  const platforms = parseStreamPlatforms(streamer.streamPlatforms);
+  const customButtons = parseCustomButtons(streamer.customButtons);
+
+  const templateVars = buildTemplateVars({
+    displayName: streamer.displayName,
+    platforms,
+    channelSlug: streamer.channelSlug || streamer.memelabChannelId,
+    twitchLogin: streamer.twitchLogin,
+    streamTitle: 'Играем в новый инди-хоррор!',
+    gameName: 'Phasmophobia',
+    startedAt: new Date().toISOString(),
+  });
 
   const template = streamer.chats[0]?.customTemplate || streamer.defaultTemplate;
   const text = renderTemplate(template, templateVars);
-  const buttons = buildDefaultButtons(templateVars);
+  const buttons = buildButtons(templateVars, customButtons);
 
   // Use static placeholder — live Twitch thumbnails only work during active streams
   const photoUrl = PREVIEW_PLACEHOLDER_URL;
@@ -60,15 +66,18 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
     });
   }
 
+  const varsList = TEMPLATE_VARIABLE_DOCS
+    .map((v) => `<code>{${v.name}}</code> — ${v.description}`)
+    .join('\n');
+
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: '\u{1F441} <b>Предпросмотр</b>\n\n'
-      + '\u{1F446} Так будет выглядеть анонс.\n\n'
-      + 'Переменные: <code>{streamer_name}</code>, <code>{stream_title}</code>, <code>{game_name}</code>, '
-      + '<code>{stream_url}</code>, <code>{memelab_url}</code>',
+    text: '👁 <b>Предпросмотр</b>\n\n'
+      + '👆 Так будет выглядеть анонс.\n\n'
+      + `Переменные:\n${varsList}`,
     replyMarkup: {
       inline_keyboard: [
-        [{ text: '\u{1F4DD} Изменить шаблон', callback_data: 'menu:settings' }],
+        [{ text: '📝 Изменить шаблон', callback_data: 'menu:settings' }],
         BACK_TO_MENU_ROW,
       ],
     },

@@ -10,7 +10,8 @@ import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
-import { renderTemplate, buildDefaultButtons } from './templateService.js';
+import { renderTemplate, buildButtons, buildTemplateVars } from './templateService.js';
+import { parseStreamPlatforms, parseCustomButtons } from '../lib/streamPlatforms.js';
 import { escapeHtml } from '../lib/escapeHtml.js';
 
 /** Allowed hosts for thumbnail URLs to prevent SSRF via Telegram fetch */
@@ -109,21 +110,26 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
 // ─── Stream Online ────────────────────────────────────────
 
 async function handleStreamOnline(
-  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; streamPlatforms: unknown; customButtons: unknown; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
   streamSessionId: string,
 ): Promise<void> {
   const safePhotoUrl = sanitizeThumbnailUrl(payload.thumbnailUrl);
 
-  const templateVars = {
-    streamer_name: streamer.displayName,
-    stream_title: payload.streamTitle,
-    game_name: payload.gameName,
-    stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
-    memelab_url: `https://memelab.ru/${payload.channelSlug}`,
-  };
+  const platforms = parseStreamPlatforms(streamer.streamPlatforms);
+  const customButtons = parseCustomButtons(streamer.customButtons);
 
-  const buttons = buildDefaultButtons(templateVars);
+  const templateVars = buildTemplateVars({
+    displayName: streamer.displayName,
+    platforms,
+    channelSlug: payload.channelSlug,
+    twitchLogin: streamer.twitchLogin,
+    streamTitle: payload.streamTitle,
+    gameName: payload.gameName,
+    startedAt: payload.startedAt,
+  });
+
+  const buttons = buildButtons(templateVars, customButtons);
 
   // Batch dedup check: find all existing sent records for this session at once
   const chatIds = streamer.chats.map((c) => c.id);

@@ -10,7 +10,8 @@ import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import type { BotContext, CallbackContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
-import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
+import { renderTemplate, buildButtons, buildTemplateVars, TEMPLATE_VARIABLE_DOCS } from '../../services/templateService.js';
+import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
 const PENDING_TEMPLATE_PREFIX = 'pending:template:';
@@ -164,16 +165,15 @@ export async function handleSettingsTemplate(ctx: CallbackContext, chatDbId: str
 
   await redis.setex(PENDING_TEMPLATE_PREFIX + ctx.userId, PENDING_TEMPLATE_TTL, chatDbId);
 
+  const varsList = TEMPLATE_VARIABLE_DOCS
+    .map((v) => `<code>{${v.name}}</code> — ${v.description}`)
+    .join('\n');
+
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: '\u{1F4DD} Отправьте новый шаблон анонса.\n\n'
-      + 'Переменные:\n'
-      + '<code>{streamer_name}</code> — имя стримера\n'
-      + '<code>{stream_title}</code> — название стрима\n'
-      + '<code>{game_name}</code> — игра\n'
-      + '<code>{stream_url}</code> — ссылка на стрим\n'
-      + '<code>{memelab_url}</code> — ссылка на MemeLab\n\n'
+    text: '📝 Отправьте новый шаблон анонса.\n\n'
+      + `Переменные:\n${varsList}\n\n`
       + '<code>reset</code> — сбросить на стандартный\n'
       + '/cancel — отмена',
   });
@@ -261,15 +261,20 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   await redis.del(PENDING_TEMPLATE_PREFIX + userId);
 
   // Auto-preview the saved template
-  const previewVars = {
-    streamer_name: streamer.displayName,
-    stream_title: 'Играем в новый инди-хоррор!',
-    game_name: 'Phasmophobia',
-    stream_url: streamer.twitchLogin ? `https://twitch.tv/${streamer.twitchLogin}` : undefined,
-    memelab_url: `https://memelab.ru/${streamer.memelabChannelId}`,
-  };
+  const platforms = parseStreamPlatforms(streamer.streamPlatforms);
+  const customButtons = parseCustomButtons(streamer.customButtons);
+
+  const previewVars = buildTemplateVars({
+    displayName: streamer.displayName,
+    platforms,
+    channelSlug: streamer.channelSlug || streamer.memelabChannelId,
+    twitchLogin: streamer.twitchLogin,
+    streamTitle: 'Играем в новый инди-хоррор!',
+    gameName: 'Phasmophobia',
+    startedAt: new Date().toISOString(),
+  });
   const previewText = renderTemplate(text, previewVars);
-  const buttons = buildDefaultButtons(previewVars);
+  const buttons = buildButtons(previewVars, customButtons);
   await tg.sendMessage({
     chatId: String(chatId),
     text: `\u{2705} Шаблон обновлён!\n\n${previewText}`,

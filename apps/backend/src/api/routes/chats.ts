@@ -1,7 +1,8 @@
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import { prisma } from '../../lib/prisma.js';
 import { getProvider, hasProvider } from '../../providers/registry.js';
-import { renderTemplate, buildDefaultButtons } from '../../services/templateService.js';
+import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
+import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
 import { logger } from '../../lib/logger.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate, validateIdParam, addChatSchema, updateChatSchema } from '../middleware/validation.js';
@@ -197,18 +198,21 @@ router.post('/:id/test', validateIdParam, async (req: Request, res: Response) =>
       return;
     }
 
-    const vars = {
-      streamer_name: dbStreamer.displayName,
-      stream_title: 'Тестовый стрим',
-      game_name: 'Just Chatting',
-      stream_url: dbStreamer.twitchLogin
-        ? `https://twitch.tv/${dbStreamer.twitchLogin}`
-        : undefined,
-      memelab_url: `https://memelab.ru/${dbStreamer.channelSlug || dbStreamer.memelabChannelId}`,
-    };
+    const platforms = parseStreamPlatforms(dbStreamer.streamPlatforms);
+    const customButtons = parseCustomButtons(dbStreamer.customButtons);
+
+    const vars = buildTemplateVars({
+      displayName: dbStreamer.displayName,
+      platforms,
+      channelSlug: dbStreamer.channelSlug || dbStreamer.memelabChannelId,
+      twitchLogin: dbStreamer.twitchLogin,
+      streamTitle: 'Тестовый стрим',
+      gameName: 'Just Chatting',
+      startedAt: new Date().toISOString(),
+    });
 
     const text = renderTemplate(chat.customTemplate || dbStreamer.defaultTemplate, vars);
-    const buttons = buildDefaultButtons(vars);
+    const buttons = buildButtons(vars, customButtons);
 
     const provider = getProvider(chat.provider);
     const result = await provider.sendAnnouncement(chat.chatId, { text, buttons });

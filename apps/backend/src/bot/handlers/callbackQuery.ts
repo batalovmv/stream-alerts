@@ -249,7 +249,7 @@ async function handleCancelRemove(
 
 async function handleTestCallback(
   ctx: CallbackContext,
-  streamer: { id: string; displayName: string; twitchLogin: string | null; memelabChannelId: string; defaultTemplate: string | null; chats: Array<{ id: string; chatId: string; chatTitle: string | null; provider: string; customTemplate: string | null; enabled: boolean }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; chats: Array<{ id: string; chatId: string; chatTitle: string | null; provider: string; customTemplate: string | null; enabled: boolean }> },
   targetId: string,
 ): Promise<void> {
   // Handle cancel

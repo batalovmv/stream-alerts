@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ConnectedChat } from '../../types/chat';
 import { useChats } from '../../hooks/useChats';
+import { useStreamerSettings } from '../../hooks/useStreamerSettings';
+import { TemplateVariablesList } from '../settings/TemplateVariablesList';
 import { Badge, Button, Toggle } from '../ui';
 
 interface ChatCardProps {
@@ -9,6 +11,7 @@ interface ChatCardProps {
 
 export function ChatCard({ chat }: ChatCardProps) {
   const { updateChat, deleteChat, testChat } = useChats();
+  const { settings } = useStreamerSettings();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showTemplate, setShowTemplate] = useState(false);
   const [template, setTemplate] = useState(chat.customTemplate ?? '');
@@ -154,10 +157,13 @@ export function ChatCard({ chat }: ChatCardProps) {
           <div className="mt-3 space-y-2">
             <textarea
               className="input w-full h-24 resize-none text-sm"
-              placeholder="Свой шаблон анонса. Переменные: {streamer_name}, {stream_title}, {game_name}"
+              placeholder="Свой шаблон анонса. Например: 🔴 {streamer_name} в эфире! {stream_title}"
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
             />
+            {settings?.templateVariables && (
+              <TemplateVariablesList variables={settings.templateVariables} />
+            )}
             <div className="flex gap-2">
               <Button
                 variant="secondary"

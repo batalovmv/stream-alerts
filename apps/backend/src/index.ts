@@ -11,6 +11,7 @@ import { MaxProvider } from './providers/max/MaxProvider.js';
 import { webhooksRouter } from './api/routes/webhooks.js';
 import { chatsRouter } from './api/routes/chats.js';
 import { authRouter } from './api/routes/auth.js';
+import { streamerRouter } from './api/routes/streamer.js';
 import { setupBot, stopPolling } from './bot/setup.js';
 import { startAnnouncementWorker, closeQueue } from './workers/announcementQueue.js';
 
@@ -54,6 +55,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/chats', chatsRouter);
+app.use('/api/streamer', streamerRouter);
 
 // ─── Global Error Handler ─────────────────────────────────
 

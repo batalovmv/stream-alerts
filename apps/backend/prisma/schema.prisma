@@ -21,6 +21,14 @@ model Streamer {
   defaultTemplate  String?  @db.Text
   previewMode      String   @default("twitch") // twitch | custom | none
 
+  // Stream platforms (Twitch, YouTube, VK, Kick, etc.)
+  // JSON array: [{ platform, login, url, isManual }]
+  streamPlatforms  Json?    @db.JsonB
+
+  // Custom inline buttons for announcements (streamer-level)
+  // JSON array: [{ label, url }] — null = default buttons, [] = no buttons
+  customButtons    Json?    @db.JsonB
+
   // Telegram bot linking (for bot commands)
   telegramUserId   String?  @unique
 

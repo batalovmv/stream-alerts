@@ -3,19 +3,47 @@ import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { ChatCard } from '../components/chat/ChatCard';
 import { AddChatModal } from '../components/chat/AddChatModal';
 import { TelegramStatus } from '../components/chat/TelegramStatus';
+import { PlatformsEditor } from '../components/settings/PlatformsEditor';
+import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { Button } from '../components/ui';
 import { useChats } from '../hooks/useChats';
 import { useAuth } from '../hooks/useAuth';
+import { useStreamerSettings } from '../hooks/useStreamerSettings';
 
 export function Dashboard() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const { chats, isLoading, error } = useChats();
   const { user } = useAuth();
+  const { settings, updatePlatforms, updateButtons } = useStreamerSettings();
 
   return (
     <DashboardLayout>
       {/* Telegram link status */}
       <TelegramStatus />
+
+      {/* Announcement settings */}
+      {settings && (
+        <>
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-1">Настройки анонса</h2>
+            <p className="text-white/40 text-sm">
+              Платформы и кнопки — общие для всех каналов
+            </p>
+          </div>
+          <div className="space-y-4 mb-10">
+            <PlatformsEditor
+              platforms={settings.streamPlatforms}
+              onSave={(platforms) => updatePlatforms.mutate(platforms)}
+              isSaving={updatePlatforms.isPending}
+            />
+            <ButtonsEditor
+              buttons={settings.customButtons}
+              onSave={(buttons) => updateButtons.mutate(buttons)}
+              isSaving={updateButtons.isPending}
+            />
+          </div>
+        </>
+      )}
 
       {/* Page header */}
       <div className="flex items-center justify-between mb-8">
