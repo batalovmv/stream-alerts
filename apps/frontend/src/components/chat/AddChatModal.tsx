@@ -15,17 +15,18 @@ interface AddChatModalProps {
 export function AddChatModal({ open, onClose }: AddChatModalProps) {
   const { user } = useAuth();
   const telegramLinked = user?.telegramLinked ?? false;
-  const [provider, setProvider] = useState<'telegram' | 'max'>('telegram');
+  // MAX provider hidden — bot creation on dev.max.ru is currently unavailable.
+  // When MAX becomes available, restore provider selection (see MaxFlow below).
+  const provider = 'telegram' as const;
 
   function handleClose() {
-    setProvider('telegram');
     onClose();
   }
 
   return (
     <Modal open={open} onClose={handleClose} title="Подключить канал">
       <div className="space-y-5">
-        {/* Provider selection */}
+        {/* Provider selection — MAX hidden until bot creation is available on dev.max.ru
         <div>
           <label className="block text-sm text-white/50 mb-2">Мессенджер</label>
           <div className="flex gap-3">
@@ -47,6 +48,7 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
             </button>
           </div>
         </div>
+        */}
 
         {provider === 'telegram' ? (
           telegramLinked ? (

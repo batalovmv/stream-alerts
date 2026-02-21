@@ -37,6 +37,8 @@ if (config.telegramBotToken) {
   logger.info('Telegram provider registered');
 }
 
+// MAX provider — DISABLED until bot creation on dev.max.ru becomes available.
+// Code is complete; just set MAX_BOT_TOKEN to activate.
 if (config.maxBotToken) {
   registerProvider(new MaxProvider());
   logger.info('MAX provider registered');

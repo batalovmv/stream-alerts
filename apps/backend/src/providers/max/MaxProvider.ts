@@ -1,3 +1,18 @@
+/**
+ * MAX Messenger provider — CURRENTLY DISABLED.
+ *
+ * Bot creation on dev.max.ru is restricted, so this provider cannot be activated yet.
+ * The code is complete and tested against the MAX Bot API docs (https://dev.max.ru/docs-api).
+ *
+ * To activate:
+ * 1. Create a bot on dev.max.ru
+ * 2. Set MAX_BOT_TOKEN in .env
+ * 3. Unhide MAX option in frontend (AddChatModal.tsx)
+ *
+ * Note: unlike Telegram, MAX does NOT support custom per-streamer bots yet.
+ * Only a single global bot token is used (config.maxBotToken).
+ */
+
 import type { MessengerProvider, AnnouncementData, SendResult, ChatInfo } from '../types.js';
 import * as max from './maxApi.js';
 import { logger } from '../../lib/logger.js';

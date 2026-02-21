@@ -41,7 +41,10 @@ export const config = {
   // Encryption key for custom bot tokens (32-byte hex, optional — feature disabled if empty)
   botTokenEncryptionKey: env('BOT_TOKEN_ENCRYPTION_KEY', ''),
 
-  // MAX Bot (Phase 3 — optional until implemented)
+  // MAX Bot (Phase 3 — DISABLED)
+  // Bot creation on dev.max.ru is currently restricted.
+  // When access becomes available: create a bot, set MAX_BOT_TOKEN, and the provider will auto-register.
+  // All MAX code (provider, API client, frontend UI) is complete and ready — just needs a token.
   maxBotToken: env('MAX_BOT_TOKEN', ''),
 
   // Public URL (for webhook registration etc.)
