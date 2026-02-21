@@ -27,7 +27,7 @@ export function Landing() {
       <header className="fixed top-0 w-full z-50 glass">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl animated-gradient" />
+            <img src="/logo.png" alt="MemeLab Notify" className="w-9 h-9 rounded-xl" />
             <span className="text-lg font-bold tracking-tight">MemeLab Notify</span>
           </div>
           <nav className="flex items-center gap-8">
@@ -263,7 +263,7 @@ export function Landing() {
       <footer className="py-8 px-6 border-t border-white/5">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/25">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-lg animated-gradient" />
+            <img src="/logo.png" alt="MemeLab Notify" className="w-6 h-6 rounded-lg" />
             <span>MemeLab Notify v0.1.0</span>
           </div>
           <div className="flex items-center gap-6">

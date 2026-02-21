@@ -19,7 +19,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="fixed top-0 w-full z-50 glass">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <a href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl animated-gradient" />
+            <img src="/logo.png" alt="MemeLab Notify" className="w-9 h-9 rounded-xl" />
             <span className="text-lg font-bold tracking-tight">MemeLab Notify</span>
           </a>
 
