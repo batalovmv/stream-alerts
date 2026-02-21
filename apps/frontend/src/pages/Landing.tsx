@@ -52,7 +52,7 @@ export function Landing() {
             style={{ background: 'rgba(102, 126, 234, 0.1)', border: '1px solid rgba(102, 126, 234, 0.2)' }}
           >
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-glow" />
-            <span className="text-accent-light">Telegram & MAX</span>
+            <span className="text-accent-light">Telegram</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold leading-[1.1] mb-6 opacity-0 animate-fade-up-delayed">
@@ -83,7 +83,7 @@ export function Landing() {
           {[
             { value: '2 мин', label: 'настройка' },
             { value: '<5 сек', label: 'доставка' },
-            { value: '2+', label: 'мессенджера' },
+            { value: '1', label: 'мессенджер' },
             { value: '∞', label: 'каналов' },
           ].map((stat) => (
             <div key={stat.label} className="glass-card p-5 text-center">
@@ -125,8 +125,8 @@ export function Landing() {
               },
               {
                 icon: '📱',
-                title: 'Telegram & MAX',
-                desc: 'Поддержка двух мессенджеров. Подключайте несколько каналов одновременно.',
+                title: 'Telegram',
+                desc: 'Подключайте несколько каналов и групп одновременно.',
               },
               {
                 icon: '🤖',
@@ -173,7 +173,7 @@ export function Landing() {
               {
                 step: '2',
                 title: 'Добавь бота в канал',
-                desc: 'Добавь @MemelabNotifyBot как администратора в Telegram-канал или MAX-группу.',
+                desc: 'Добавь @MemelabNotifyBot как администратора в Telegram-канал или группу.',
               },
               {
                 step: '3',

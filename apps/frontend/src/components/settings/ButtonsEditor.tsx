@@ -62,7 +62,7 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
             🔘 Кнопки под анонсом
           </h3>
           <p className="text-sm text-white/35 mt-0.5">
-            Inline-кнопки под постом в Telegram/MAX
+            Inline-кнопки под постом в Telegram
           </p>
         </div>
       </div>
