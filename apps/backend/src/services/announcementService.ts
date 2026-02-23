@@ -10,11 +10,10 @@ import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
-import { TelegramProvider } from '../providers/telegram/TelegramProvider.js';
+import { resolveProvider } from '../lib/resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from './templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../lib/streamPlatforms.js';
 import { escapeHtml } from '../lib/escapeHtml.js';
-import { decrypt, isEncryptionAvailable } from '../lib/encryption.js';
 
 /** Allowed hosts for thumbnail URLs to prevent SSRF via Telegram fetch */
 const ALLOWED_THUMBNAIL_HOSTS = new Set([
@@ -39,52 +38,52 @@ function sanitizeThumbnailUrl(url: string | undefined): string | undefined {
   }
 }
 
-export interface StreamEventPayload {
-  event: 'stream.online' | 'stream.offline' | 'stream.update';
+interface StreamEventBase {
   channelId: string;
   channelSlug: string;
-  twitchLogin: string;
+  twitchLogin?: string;
   streamTitle?: string;
   gameName?: string;
   thumbnailUrl?: string;
-  startedAt?: string;
   viewerCount?: number;
 }
+
+interface StreamOnlinePayload extends StreamEventBase {
+  event: 'stream.online';
+  startedAt: string; // Required — used for dedup jobId and streamSessionId
+}
+
+interface StreamOfflinePayload extends StreamEventBase {
+  event: 'stream.offline';
+  startedAt?: string;
+}
+
+interface StreamUpdatePayload extends StreamEventBase {
+  event: 'stream.update';
+  startedAt?: string;
+}
+
+export type StreamEventPayload = StreamOnlinePayload | StreamOfflinePayload | StreamUpdatePayload;
 
 /**
  * Build a deterministic stream session ID.
  *
- * Uses channelId + startedAt when available.
- * Falls back to channelId-only (stable across retries, unlike Date-based fallbacks).
+ * For stream.online: startedAt is always provided (enforced by Zod schema).
+ * For stream.offline/update: uses Redis-stored session from the online event.
+ * The fallback exists only for edge cases (e.g., Redis restart during offline).
  */
 function buildStreamSessionId(channelId: string, startedAt?: string): string {
   if (startedAt) {
     return `${channelId}:${startedAt}`;
   }
-  // Deterministic fallback — same across BullMQ retries for the same job
+  logger.warn({ channelId }, 'announce.build_session_no_started_at');
   return `${channelId}:no-start`;
-}
-
-/**
- * Resolve the provider for a chat — uses custom bot for Telegram if streamer has one configured.
- */
-function resolveProvider(chatProvider: string, customBotToken: string | null | undefined): import('../providers/types.js').MessengerProvider {
-  if (chatProvider === 'telegram' && customBotToken && isEncryptionAvailable()) {
-    try {
-      const token = decrypt(customBotToken);
-      return new TelegramProvider(token);
-    } catch (err) {
-      logger.error({ error: err instanceof Error ? err.message : String(err) }, 'announce.custom_bot_decrypt_failed');
-      // Fall back to global bot
-    }
-  }
-  return getProvider(chatProvider);
 }
 
 /**
  * Process a stream event from MemeLab webhook.
  */
-export async function processStreamEvent(payload: StreamEventPayload): Promise<void> {
+export async function processStreamEvent(payload: StreamEventPayload, jobId?: string): Promise<void> {
   const { event } = payload;
 
   // Find streamer by MemeLab channel ID
@@ -114,7 +113,7 @@ export async function processStreamEvent(payload: StreamEventPayload): Promise<v
       logger.info({ streamerId: streamer.id }, 'announce.no_chats');
       return;
     }
-    await handleStreamOnline(streamer, payload, streamSessionId);
+    await handleStreamOnline(streamer, payload, streamSessionId, jobId);
   } else if (event === 'stream.update') {
     // Retrieve the active session ID — must match online announcement
     const sessionKey = `announce:session:${payload.channelId}`;
@@ -144,6 +143,7 @@ async function handleStreamOnline(
   streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
   streamSessionId: string,
+  jobId?: string,
 ): Promise<void> {
   const safePhotoUrl = sanitizeThumbnailUrl(payload.thumbnailUrl);
 
@@ -207,11 +207,42 @@ async function handleStreamOnline(
         continue;
       }
 
-      // Atomic dedup lock: prevent concurrent workers from sending to the same chat+session
+      // Atomic dedup lock: prevent concurrent workers from sending to the same chat+session.
+      // Lock value = jobId for re-entrant retries. TTL covers full BullMQ retry window
+      // (3 attempts, exponential backoff 5s base → max ~15s delay + 30s processing + buffer).
       const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
-      const acquired = await redis.set(lockKey, '1', 'EX', 60, 'NX');
+      const lockValue = jobId ?? `fallback:${Date.now()}`;
+      const LOCK_TTL_SECONDS = 120;
+
+      const acquired = await redis.set(lockKey, lockValue, 'EX', LOCK_TTL_SECONDS, 'NX');
       if (!acquired) {
-        logger.info({ chatId: chat.chatId, streamSessionId }, 'announce.dedup_locked');
+        // Lock exists — check if it belongs to the same job (re-entrant retry)
+        const currentHolder = await redis.get(lockKey);
+        if (currentHolder !== lockValue) {
+          logger.info({ chatId: chat.chatId, streamSessionId, holder: currentHolder }, 'announce.dedup_locked');
+          continue;
+        }
+        // Same job retrying — allow re-entry, refresh TTL
+        await redis.expire(lockKey, LOCK_TTL_SECONDS);
+      }
+
+      // Post-lock DB re-check: covers "send succeeded but DB write failed" phantom scenario
+      const postLockCheck = await prisma.announcementLog.findFirst({
+        where: { chatId: chat.id, streamSessionId, status: 'sent', providerMsgId: { not: null } },
+      });
+
+      if (postLockCheck?.providerMsgId) {
+        try {
+          await provider.editAnnouncement(chat.chatId, postLockCheck.providerMsgId, {
+            text, photoUrl: safePhotoUrl, buttons,
+          });
+          logger.info({ chatId: chat.chatId, streamSessionId, messageId: postLockCheck.providerMsgId }, 'announce.updated_post_lock');
+        } catch (editError) {
+          const isPermanent = editError instanceof Error && 'permanent' in editError && (editError as { permanent: boolean }).permanent;
+          if (!isPermanent) throw editError;
+          logger.info({ chatId: chat.chatId, messageId: postLockCheck.providerMsgId }, 'announce.edit_skipped_message_gone');
+        }
+        results.push({ chatTitle: title, ok: true });
         continue;
       }
 
@@ -261,12 +292,9 @@ async function handleStreamOnline(
           data: { enabled: false },
         });
         logger.warn({ chatId: chat.chatId, provider: chat.provider }, 'announce.chat_disabled_permanent_error');
-        // Keep dedup lock — chat is disabled, no point retrying
-      } else {
-        // Release dedup lock so BullMQ retry can re-attempt this chat
-        const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
-        await redis.del(lockKey).catch(() => {});
       }
+      // NEVER release dedup lock on transient failure — let TTL expire naturally.
+      // Same job's retry re-enters via jobId match; different jobs are blocked.
 
       await prisma.announcementLog.create({
         data: {
@@ -282,14 +310,17 @@ async function handleStreamOnline(
     }
   }
 
-  // Notify streamer about delivery results BEFORE potentially throwing
-  if (streamer.telegramUserId && results.length > 0 && hasProvider('telegram')) {
+  // Notify streamer about delivery results — only on first successful attempt (skip on BullMQ retries)
+  const notifyKey = `announce:notified:${streamer.id}:${streamSessionId}`;
+  const alreadyNotified = await redis.get(notifyKey);
+  if (streamer.telegramUserId && results.length > 0 && hasProvider('telegram') && !alreadyNotified) {
     try {
       const tgProvider = getProvider('telegram');
       const lines = results.map((r) => `${r.ok ? '\u2705' : '\u274C'} ${r.chatTitle}`);
       await tgProvider.sendAnnouncement(streamer.telegramUserId, {
         text: `\uD83D\uDCE2 Анонс стрима:\n\n${lines.join('\n')}`,
       });
+      await redis.set(notifyKey, '1', 'EX', 48 * 60 * 60);
     } catch {
       // Don't fail the whole flow if notification to streamer fails
     }
@@ -392,30 +423,39 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
     select: { customBotToken: true },
   });
 
+  // Pre-fetch all session logs and recent logs in batch to avoid N+1 queries
+  const chatIds = chats.map((c) => c.id);
+
+  const [sessionLogs, recentLogs] = await Promise.all([
+    prisma.announcementLog.findMany({
+      where: { chatId: { in: chatIds }, streamSessionId, status: 'sent' },
+    }),
+    prisma.announcementLog.findMany({
+      where: { chatId: { in: chatIds }, status: 'sent', sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+      orderBy: { sentAt: 'desc' },
+    }),
+  ]);
+
+  const sessionLogByChat = new Map(sessionLogs.map((l) => [l.chatId, l]));
+  const recentLogByChat = new Map<string, typeof recentLogs[0]>();
+  for (const log of recentLogs) {
+    if (!recentLogByChat.has(log.chatId)) recentLogByChat.set(log.chatId, log);
+  }
+
   let failedCount = 0;
   const totalCount = chats.length;
 
   for (const chat of chats) {
     try {
-      // Prefer finding the exact announcement for this stream session
-      let messageIdToDelete: string | null = null;
-
-      const sessionLog = await prisma.announcementLog.findFirst({
-        where: { chatId: chat.id, streamSessionId, status: 'sent' },
-      });
-      messageIdToDelete = sessionLog?.providerMsgId ?? null;
+      // Prefer finding the exact announcement for this stream session (from batch query)
+      let messageIdToDelete: string | null = sessionLogByChat.get(chat.id)?.providerMsgId ?? null;
 
       // Fall back to lastMessageId or recent log entry
       if (!messageIdToDelete) {
         messageIdToDelete = chat.lastMessageId;
       }
       if (!messageIdToDelete) {
-        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const logEntry = await prisma.announcementLog.findFirst({
-          where: { chatId: chat.id, status: 'sent', sentAt: { gte: cutoff } },
-          orderBy: { sentAt: 'desc' },
-        });
-        messageIdToDelete = logEntry?.providerMsgId ?? null;
+        messageIdToDelete = recentLogByChat.get(chat.id)?.providerMsgId ?? null;
       }
 
       if (!messageIdToDelete) continue;

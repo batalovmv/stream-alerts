@@ -12,7 +12,7 @@ import { redis } from '../../lib/redis.js';
 import { logger } from '../../lib/logger.js';
 import type { BotContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
-import { sendMainMenu, getMainMenuKeyboard, buildMainMenuText } from '../ui.js';
+import { sendMainMenu, getMainMenuKeyboard } from '../ui.js';
 
 const LINK_TOKEN_PREFIX = 'link:token:';
 

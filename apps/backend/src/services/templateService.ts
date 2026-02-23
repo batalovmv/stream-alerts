@@ -66,7 +66,7 @@ export const TEMPLATE_VARIABLE_DOCS: Array<{ name: string; description: string }
 export function renderTemplate(template: string | null | undefined, vars: TemplateVariables): string {
   const tpl = template?.trim() || DEFAULT_ONLINE_TEMPLATE;
 
-  return tpl.replace(/\{(\w+)\}/g, (match, key: string) => {
+  return tpl.replace(/\{(\w+)\}/g, (_match, key: string) => {
     const value = vars[key as keyof TemplateVariables];
     return value ? escapeHtml(value) : '';
   });
@@ -186,7 +186,7 @@ export function buildTemplateVars(opts: {
 
 /** Replace {variable} placeholders in a string (no HTML escaping — for URLs and button labels). */
 function resolveVariables(str: string, vars: TemplateVariables): string {
-  return str.replace(/\{(\w+)\}/g, (match, key: string) => {
+  return str.replace(/\{(\w+)\}/g, (_match, key: string) => {
     const value = vars[key as keyof TemplateVariables];
     return value ?? '';
   });

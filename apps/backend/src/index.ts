@@ -62,40 +62,28 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// ─── Rate Limiting ───────────────────────────────────────────
+// ─── Rate Limiting (Redis-backed, works across multiple processes) ───
 
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function rateLimit(windowMs: number, max: number) {
-  return (req: Request, res: Response, next: NextFunction) => {
+function rateLimit(name: string, windowMs: number, max: number) {
+  return async (req: Request, res: Response, next: NextFunction) => {
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-    const now = Date.now();
-    const entry = rateLimitStore.get(ip);
-
-    if (!entry || now > entry.resetAt) {
-      rateLimitStore.set(ip, { count: 1, resetAt: now + windowMs });
-      return next();
+    const windowKey = `rl:${name}:${ip}:${Math.floor(Date.now() / windowMs)}`;
+    try {
+      const count = await redis.incr(windowKey);
+      if (count === 1) await redis.pexpire(windowKey, windowMs);
+      if (count > max) {
+        res.status(429).json({ error: 'Too many requests' });
+        return;
+      }
+      next();
+    } catch {
+      next(); // fail-open: allow request if Redis is unavailable
     }
-
-    if (entry.count >= max) {
-      res.status(429).json({ error: 'Too many requests' });
-      return;
-    }
-
-    entry.count++;
-    next();
   };
 }
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of rateLimitStore) {
-    if (now > entry.resetAt) rateLimitStore.delete(ip);
-  }
-}, 300_000);
-
-app.use('/api/', rateLimit(60_000, 120));
-app.use('/api/auth/', rateLimit(60_000, 20));
+app.use('/api/', rateLimit('api', 60_000, 120));
+app.use('/api/auth/', rateLimit('auth', 60_000, 20));
 
 // ─── Register Providers ───────────────────────────────────
 
@@ -117,8 +105,16 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', version, bot: botReady });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await Promise.all([
+      prisma.$queryRaw`SELECT 1`,
+      redis.ping(),
+    ]);
+    res.json({ status: 'ok', version, bot: botReady });
+  } catch {
+    res.status(503).json({ status: 'degraded', version, bot: botReady });
+  }
 });
 
 app.use('/api/auth', authRouter);

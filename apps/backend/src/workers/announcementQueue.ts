@@ -48,9 +48,10 @@ export const announcementQueue = new Queue<StreamEventPayload>(QUEUE_NAME, {
 /** Enqueue a stream event for async processing */
 export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<void> {
   // Online events: deterministic jobId for dedup (same stream shouldn't be announced twice)
+  // startedAt is guaranteed for stream.online by Zod schema validation
   // Offline/Update events: unique jobId so BullMQ processes each update
   const jobId = payload.event === 'stream.online'
-    ? `${payload.event}:${payload.channelId}:${payload.startedAt ?? 'no-start'}`
+    ? `${payload.event}:${payload.channelId}:${payload.startedAt}`
     : `${payload.event}:${payload.channelId}:${Date.now()}`;
 
   await announcementQueue.add(payload.event, payload, {
@@ -75,7 +76,7 @@ export function startAnnouncementWorker(): Worker<StreamEventPayload> {
         { jobId: job.id, event: job.data.event, attempt: job.attemptsMade + 1 },
         'queue.processing',
       );
-      await processStreamEvent(job.data);
+      await processStreamEvent(job.data, job.id);
     },
     {
       connection,

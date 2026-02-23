@@ -207,8 +207,8 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
   });
 }
 
-export async function handleTemplateTextInput(chatId: number, userId: number, text: string): Promise<void> {
-  const chatDbId = await redis.get(PENDING_TEMPLATE_PREFIX + userId);
+export async function handleTemplateTextInput(chatId: number, userId: number, text: string, pendingChatDbId?: string): Promise<void> {
+  const chatDbId = pendingChatDbId ?? await redis.get(PENDING_TEMPLATE_PREFIX + userId);
   if (!chatDbId) {
     await tg.sendMessage({
       chatId: String(chatId),

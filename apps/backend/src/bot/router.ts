@@ -76,7 +76,9 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
     }
 
     // Check for pending template edit (text input for /settings)
-    if (!text.startsWith('/') && msg.from?.id && await getPendingTemplateEdit(msg.from.id)) {
+    // Pass fetched chatDbId to avoid TOCTOU — key is read once, not twice
+    const pendingChatId = (!text.startsWith('/') && msg.from?.id) ? await getPendingTemplateEdit(msg.from.id) : undefined;
+    if (pendingChatId) {
       // Ignore non-text messages (stickers, photos, voice etc.) — they produce empty text
       if (!msg.text || msg.text.trim() === '') {
         const { sendMessage } = await import('../providers/telegram/telegramApi.js');
@@ -86,7 +88,7 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
         });
         return;
       }
-      await handleTemplateTextInput(msg.chat.id, msg.from.id, text);
+      await handleTemplateTextInput(msg.chat.id, msg.from!.id, text, pendingChatId);
       return;
     }
 

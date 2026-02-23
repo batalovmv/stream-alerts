@@ -5,17 +5,21 @@ import { validate } from '../middleware/validation.js';
 import { enqueueStreamEvent } from '../../workers/announcementQueue.js';
 import { logger } from '../../lib/logger.js';
 
-const streamEventSchema = z.object({
-  event: z.enum(['stream.online', 'stream.offline', 'stream.update']),
+const streamEventBase = {
   channelId: z.string().min(1).max(100),
   channelSlug: z.string().min(1).max(100).regex(/^[\w-]+$/, 'channelSlug must be alphanumeric'),
-  twitchLogin: z.string().min(1).max(100).regex(/^[\w]+$/, 'twitchLogin must be alphanumeric'),
+  twitchLogin: z.string().min(1).max(100).regex(/^[\w]+$/, 'twitchLogin must be alphanumeric').optional(),
   streamTitle: z.string().max(512).optional(),
   gameName: z.string().max(200).optional(),
   thumbnailUrl: z.string().url().optional(),
-  startedAt: z.string().datetime({ offset: true }).optional(),
   viewerCount: z.number().int().nonnegative().optional(),
-});
+};
+
+const streamEventSchema = z.discriminatedUnion('event', [
+  z.object({ event: z.literal('stream.online'), ...streamEventBase, startedAt: z.string().datetime({ offset: true }) }),
+  z.object({ event: z.literal('stream.offline'), ...streamEventBase, startedAt: z.string().datetime({ offset: true }).optional() }),
+  z.object({ event: z.literal('stream.update'), ...streamEventBase, startedAt: z.string().datetime({ offset: true }).optional() }),
+]);
 
 const router: RouterType = Router();
 

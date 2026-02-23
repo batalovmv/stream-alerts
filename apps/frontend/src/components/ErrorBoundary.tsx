@@ -3,6 +3,10 @@ import { Card, Button } from '@memelabui/ui';
 
 interface Props {
   children: ReactNode;
+  /** Custom fallback UI. Receives reset callback to retry rendering. */
+  fallback?: (reset: () => void) => ReactNode;
+  /** When this value changes, the boundary resets automatically. */
+  resetKey?: string | number;
 }
 
 interface State {
@@ -16,12 +20,26 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo.componentStack);
   }
 
+  private reset = () => {
+    this.setState({ hasError: false });
+  };
+
   render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback(this.reset);
+      }
+
       return (
         <div className="min-h-screen flex items-center justify-center bg-surface">
           <Card variant="glass" className="p-8 max-w-md text-center">

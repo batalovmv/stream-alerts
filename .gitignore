@@ -8,4 +8,3 @@ coverage/
 .turbo/
 *.tsbuildinfo
 .claude/
-nul

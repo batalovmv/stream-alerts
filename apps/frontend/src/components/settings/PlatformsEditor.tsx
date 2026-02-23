@@ -20,12 +20,22 @@ function getPlatformInfo(platform: string) {
   return PLATFORM_OPTIONS.find((p) => p.value === platform) ?? PLATFORM_OPTIONS[4];
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditorProps) {
   const [items, setItems] = useState<StreamPlatform[]>(platforms);
   const [showAdd, setShowAdd] = useState(false);
   const [newPlatform, setNewPlatform] = useState<StreamPlatform['platform']>('twitch');
   const [newLogin, setNewLogin] = useState('');
   const [newUrl, setNewUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
 
   const isDirty = JSON.stringify(items) !== JSON.stringify(platforms);
 
@@ -33,21 +43,34 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
     if (!newLogin.trim()) return;
 
     const info = getPlatformInfo(newPlatform);
-    const url = newPlatform === 'other'
-      ? newUrl.trim()
-      : `${info.urlPrefix}${newLogin.trim()}`;
+    const trimmedLogin = newLogin.trim();
+    let url = '';
+
+    if (newPlatform === 'other') {
+      const trimmedUrl = newUrl.trim();
+      if (!trimmedUrl) return;
+      if (!isHttpUrl(trimmedUrl)) {
+        setUrlError('Укажите корректный URL с протоколом http:// или https://');
+        return;
+      }
+      setUrlError('');
+      url = trimmedUrl;
+    } else {
+      url = `${info.urlPrefix}${trimmedLogin}`;
+    }
 
     if (!url) return;
 
     setItems([...items, {
       platform: newPlatform,
-      login: newLogin.trim(),
+      login: trimmedLogin,
       url,
       isManual: true,
     }]);
 
     setNewLogin('');
     setNewUrl('');
+    setUrlError('');
     setShowAdd(false);
   }
 
@@ -70,6 +93,7 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
         <div className="space-y-2 mb-4">
           {items.map((p, i) => {
             const info = getPlatformInfo(p.platform);
+            const safeHref = isHttpUrl(p.url) ? p.url : undefined;
             return (
               <div key={i} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -82,9 +106,9 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
                       )}
                     </div>
                     <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={safeHref}
+                      target={safeHref ? '_blank' : undefined}
+                      rel={safeHref ? 'noopener noreferrer' : undefined}
                       className="text-xs text-white/40 hover:text-white/60 transition-colors"
                     >
                       {p.url}
@@ -113,6 +137,7 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
               onChange={(e) => {
                 setNewPlatform(e.target.value as StreamPlatform['platform']);
                 setNewUrl('');
+                setUrlError('');
               }}
               className="!w-auto"
             >
@@ -125,16 +150,29 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
             <Input
               placeholder={newPlatform === 'other' ? 'Название' : 'Логин / ID канала'}
               value={newLogin}
-              onChange={(e) => setNewLogin(e.target.value)}
+              onChange={(e) => {
+                setNewLogin(e.target.value);
+                setUrlError('');
+              }}
               className="flex-1"
             />
           </div>
           {newPlatform === 'other' && (
-            <Input
-              placeholder="Полная ссылка (https://...)"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-            />
+            <>
+              <Input
+                placeholder="Полная ссылка (https://...)"
+                value={newUrl}
+                onChange={(e) => {
+                  setNewUrl(e.target.value);
+                  setUrlError('');
+                }}
+              />
+              {urlError && (
+                <p className="text-xs text-red-400">
+                  {urlError}
+                </p>
+              )}
+            </>
           )}
           {newPlatform !== 'other' && newLogin && (
             <p className="text-xs text-white/30">

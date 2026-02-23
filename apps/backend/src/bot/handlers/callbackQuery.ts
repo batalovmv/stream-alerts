@@ -14,9 +14,8 @@
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
 import { logger } from '../../lib/logger.js';
-import { sendChannelsList, buildChannelsListContent } from '../commands/channels.js';
+import { buildChannelsListContent, handleChannels } from '../commands/channels.js';
 import { handleConnect } from '../commands/connect.js';
-import { handleChannels } from '../commands/channels.js';
 import { handleSettings } from '../commands/settings.js';
 import { handleTest } from '../commands/test.js';
 import { handlePreview } from '../commands/preview.js';
@@ -34,7 +33,7 @@ import { escapeHtml } from '../../lib/escapeHtml.js';
 import { editToMainMenu, BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
-  const { data, userId, callbackQueryId, chatId, messageId } = ctx;
+  const { data, userId, callbackQueryId } = ctx;
 
   const colonIdx = data.indexOf(':');
   const action = colonIdx === -1 ? data : data.slice(0, colonIdx);
@@ -249,7 +248,7 @@ async function handleCancelRemove(
 
 async function handleTestCallback(
   ctx: CallbackContext,
-  streamer: { id: string; displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; chats: Array<{ id: string; chatId: string; chatTitle: string | null; provider: string; customTemplate: string | null; enabled: boolean }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; chats: Array<{ id: string; chatId: string; chatTitle: string | null; provider: string; customTemplate: string | null; enabled: boolean }> },
   targetId: string,
 ): Promise<void> {
   // Handle cancel

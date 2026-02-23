@@ -1,27 +1,13 @@
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { getProvider, hasProvider } from '../../providers/registry.js';
-import { TelegramProvider } from '../../providers/telegram/TelegramProvider.js';
+import { hasProvider } from '../../providers/registry.js';
+import { resolveProvider } from '../../lib/resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
-import { decrypt, isEncryptionAvailable } from '../../lib/encryption.js';
 import { logger } from '../../lib/logger.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate, validateIdParam, addChatSchema, updateChatSchema } from '../middleware/validation.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
-
-/** Resolve provider, using custom bot token if available for Telegram */
-function resolveProvider(chatProvider: string, customBotToken: string | null | undefined): import('../../providers/types.js').MessengerProvider {
-  if (chatProvider === 'telegram' && customBotToken && isEncryptionAvailable()) {
-    try {
-      const token = decrypt(customBotToken);
-      return new TelegramProvider(token);
-    } catch {
-      // Fall back to global bot
-    }
-  }
-  return getProvider(chatProvider);
-}
 
 const router: RouterType = Router();
 

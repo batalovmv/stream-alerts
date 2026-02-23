@@ -19,7 +19,6 @@ model Streamer {
 
   // Default announcement settings
   defaultTemplate  String?  @db.Text
-  previewMode      String   @default("twitch") // twitch | custom | none
 
   // Stream platforms (Twitch, YouTube, VK, Kick, etc.)
   // JSON array: [{ platform, login, url, isManual }]
@@ -74,9 +73,8 @@ model ConnectedChat {
   announcements  AnnouncementLog[]
 
   @@unique([streamerId, provider, chatId])
-  @@index([streamerId])
+  @@index([streamerId, enabled])
   @@index([provider, chatId])
-  @@index([enabled])
 }
 
 enum AnnouncementStatus {

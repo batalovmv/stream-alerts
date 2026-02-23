@@ -15,7 +15,6 @@
 
 import type { MessengerProvider, AnnouncementData, SendResult, ChatInfo } from '../types.js';
 import * as max from './maxApi.js';
-import { logger } from '../../lib/logger.js';
 
 export class MaxProvider implements MessengerProvider {
   readonly name = 'max';

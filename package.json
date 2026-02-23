@@ -10,7 +10,8 @@
     "build": "pnpm --filter @memelab-notify/backend build && pnpm --filter @memelab-notify/frontend build",
     "build:backend": "pnpm --filter @memelab-notify/backend build",
     "build:frontend": "pnpm --filter @memelab-notify/frontend build",
-    "test": "pnpm --filter @memelab-notify/backend test"
+    "test": "pnpm --filter @memelab-notify/backend test",
+    "postinstall": "cd apps/backend && npx prisma generate"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -6,7 +6,8 @@ import { TelegramStatus } from '../components/chat/TelegramStatus';
 import { PlatformsEditor } from '../components/settings/PlatformsEditor';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { CustomBotEditor } from '../components/settings/CustomBotEditor';
-import { Button, Skeleton, EmptyState, Alert } from '@memelabui/ui';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { Button, Skeleton, EmptyState, Alert, Card } from '@memelabui/ui';
 import { useChats } from '../hooks/useChats';
 import { useAuth } from '../hooks/useAuth';
 import { useStreamerSettings } from '../hooks/useStreamerSettings';
@@ -87,7 +88,17 @@ export function Dashboard() {
       ) : (
         <div className="space-y-4">
           {chats.map((chat) => (
-            <ChatCard key={chat.id} chat={chat} />
+            <ErrorBoundary
+              key={chat.id}
+              fallback={(reset) => (
+                <ChatCardErrorFallback
+                  title={chat.chatTitle || chat.chatId}
+                  onRetry={reset}
+                />
+              )}
+            >
+              <ChatCard chat={chat} />
+            </ErrorBoundary>
           ))}
         </div>
       )}
@@ -111,6 +122,27 @@ function ErrorState() {
   );
 }
 
+function ChatCardErrorFallback({ title, onRetry }: { title: string; onRetry: () => void }) {
+  return (
+    <Card variant="glass" className="p-5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="feature-icon !w-12 !h-12 !rounded-xl !text-xl">
+            &#x26A0;&#xFE0F;
+          </div>
+          <div>
+            <h3 className="font-semibold">{title}</h3>
+            <p className="text-sm text-white/35">Ошибка отображения карточки</p>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onClick={onRetry}>
+          Повторить
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function EmptyStateView({ telegramLinked, onAdd }: { telegramLinked: boolean; onAdd: () => void }) {
   return (
     <EmptyState
@@ -128,7 +160,7 @@ function EmptyStateView({ telegramLinked, onAdd }: { telegramLinked: boolean; on
           variant="secondary"
           size="sm"
           className="mt-2"
-          onClick={() => window.open('https://t.me/MemelabNotifyBot', '_blank')}
+          onClick={() => window.open('https://t.me/MemelabNotifyBot', '_blank', 'noopener,noreferrer')}
         >
           Открыть бота
         </Button>

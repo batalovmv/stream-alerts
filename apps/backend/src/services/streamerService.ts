@@ -72,6 +72,11 @@ export async function upsertStreamerFromProfile(
   const twitchAccount = profile.externalAccounts.find(
     (acc) => acc.provider === 'twitch',
   );
+  const channelSlug = profile.channel.slug;
+
+  if (channelSlug.length > 100 || !/^[\w-]+$/.test(channelSlug)) {
+    throw new Error('Invalid channel slug');
+  }
 
   // Load existing streamer to preserve manual platforms
   const existingStreamer = await prisma.streamer.findUnique({
@@ -84,7 +89,7 @@ export async function upsertStreamerFromProfile(
 
   const data = {
     memelabChannelId: profile.channel.id,
-    channelSlug: profile.channel.slug,
+    channelSlug,
     twitchLogin: twitchAccount?.login ?? null,
     displayName: profile.displayName,
     avatarUrl: profile.profileImageUrl ?? twitchAccount?.avatarUrl ?? null,

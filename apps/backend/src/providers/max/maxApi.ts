@@ -11,14 +11,6 @@ import { logger } from '../../lib/logger.js';
 const MAX_API = 'https://platform-api.max.ru';
 const TIMEOUT_MS = 15_000;
 
-interface MaxMessage {
-  body: {
-    mid: string;
-    seq: number;
-    text?: string;
-  };
-}
-
 interface MaxChat {
   chat_id: number;
   type: string;

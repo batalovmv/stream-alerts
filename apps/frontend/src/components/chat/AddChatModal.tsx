@@ -1,10 +1,7 @@
-import { useState } from 'react';
-import { Modal, Button, IconButton, Input, Card, CopyField, Alert, Stepper } from '@memelabui/ui';
+import { Modal, Button, IconButton, Card, CopyField, Alert, Stepper } from '@memelabui/ui';
 import { useAuth } from '../../hooks/useAuth';
-import { useChats } from '../../hooks/useChats';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 import { isSafeDeepLink } from '../../lib/safeLink';
-import { ApiError } from '../../api/client';
 
 interface AddChatModalProps {
   open: boolean;
@@ -14,9 +11,6 @@ interface AddChatModalProps {
 export function AddChatModal({ open, onClose }: AddChatModalProps) {
   const { user } = useAuth();
   const telegramLinked = user?.telegramLinked ?? false;
-  // MAX provider hidden — bot creation on dev.max.ru is currently unavailable.
-  // When MAX becomes available, restore provider selection (see MaxFlow below).
-  const provider = 'telegram' as const;
 
   function handleClose() {
     onClose();
@@ -36,38 +30,10 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
           />
         </div>
 
-        {/* Provider selection — MAX hidden until bot creation is available on dev.max.ru
-        <div>
-          <label className="block text-sm text-white/50 mb-2">Мессенджер</label>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              className={`flex-1 glass-card p-4 text-center transition-all ${provider === 'telegram' ? '!border-accent/50 shadow-glow' : 'opacity-60 hover:opacity-80'}`}
-              onClick={() => setProvider('telegram')}
-            >
-              <div className="text-2xl mb-1">{'\u2708\uFE0F'}</div>
-              <div className="text-sm font-medium">Telegram</div>
-            </button>
-            <button
-              type="button"
-              className={`flex-1 glass-card p-4 text-center transition-all ${provider === 'max' ? '!border-accent/50 shadow-glow' : 'opacity-60 hover:opacity-80'}`}
-              onClick={() => setProvider('max')}
-            >
-              <div className="text-2xl mb-1">{'\uD83D\uDCAC'}</div>
-              <div className="text-sm font-medium">MAX</div>
-            </button>
-          </div>
-        </div>
-        */}
-
-        {provider === 'telegram' ? (
-          telegramLinked ? (
-            <LinkedFlow onClose={handleClose} />
-          ) : (
-            <LinkAccountFlow />
-          )
+        {telegramLinked ? (
+          <LinkedFlow onClose={handleClose} />
         ) : (
-          <MaxFlow onClose={handleClose} />
+          <LinkAccountFlow />
         )}
       </div>
     </Modal>
@@ -155,61 +121,3 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Flow for adding a MAX chat — enter chat ID manually */
-function MaxFlow({ onClose }: { onClose: () => void }) {
-  const [chatId, setChatId] = useState('');
-  const { addChat } = useChats();
-  const [error, setError] = useState('');
-
-  async function handleAdd() {
-    if (!chatId.trim()) {
-      setError('Введите ID чата');
-      return;
-    }
-    setError('');
-    addChat.mutate(
-      { provider: 'max', chatId: chatId.trim() },
-      {
-        onSuccess: () => onClose(),
-        onError: (err) => {
-          if (err instanceof ApiError && err.data && typeof err.data === 'object' && 'error' in err.data) {
-            setError(String((err.data as { error: string }).error));
-          } else {
-            setError('Ошибка при добавлении');
-          }
-        },
-      },
-    );
-  }
-
-  return (
-    <>
-      <Card variant="glass" className="p-4 text-sm text-white/50 space-y-3">
-        <p>
-          Добавьте бота <span className="text-accent-light">@MemelabNotifyBot</span> как администратора в MAX-группу, затем введите ID чата:
-        </p>
-        <Input
-          placeholder="ID чата в MAX"
-          value={chatId}
-          onChange={(e) => setChatId(e.target.value)}
-          error={error}
-        />
-      </Card>
-
-      <div className="flex gap-3">
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleAdd}
-          loading={addChat.isPending}
-          className="flex-1"
-        >
-          Подключить
-        </Button>
-        <Button variant="secondary" size="md" onClick={onClose}>
-          Закрыть
-        </Button>
-      </div>
-    </>
-  );
-}

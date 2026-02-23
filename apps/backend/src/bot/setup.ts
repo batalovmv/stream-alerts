@@ -122,9 +122,16 @@ export async function setupBot(app: Express): Promise<void> {
     return;
   }
 
-  const me = await tg.getMe();
-  if (me.username) botUsername = me.username;
-  logger.info({ botId: me.id, botUsername }, 'bot.connected');
+  try {
+    const me = await tg.getMe();
+    if (me.username) botUsername = me.username;
+    logger.info({ botId: me.id, botUsername }, 'bot.connected');
+  } catch (error) {
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error), botUsername },
+      'bot.username_fallback — using hardcoded username',
+    );
+  }
 
   await registerCommands();
 

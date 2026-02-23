@@ -121,7 +121,12 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
 
         // Validate the token by calling Telegram getMe
         try {
-          const botInfo = await getMeWithToken(customBotToken);
+          const botInfo = await Promise.race([
+            getMeWithToken(customBotToken),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Bot token validation timed out')), 5000),
+            ),
+          ]);
           data.customBotToken = encrypt(customBotToken);
           data.customBotUsername = botInfo.username ?? botInfo.first_name;
           logger.info(

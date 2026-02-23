@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Input, Badge, SectionCard, ConfirmDialog, Alert, Stepper } from '@memelabui/ui';
 import { ApiError } from '../../api/client';
 
@@ -19,11 +19,17 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
     ? (error.data as { error?: string })?.error
     : error?.message;
 
+  // Auto-close form when custom bot is successfully connected
+  useEffect(() => {
+    if (hasCustomBot) {
+      setShowForm(false);
+      setToken('');
+    }
+  }, [hasCustomBot]);
+
   function handleSubmit() {
     if (!token.trim()) return;
     onSave(token.trim());
-    setToken('');
-    setShowForm(false);
   }
 
   function handleRemove() {

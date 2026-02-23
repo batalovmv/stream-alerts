@@ -7,7 +7,7 @@
 
 import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
-import { getProvider } from '../../providers/registry.js';
+import { resolveProvider } from '../../lib/resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
 import { logger } from '../../lib/logger.js';
@@ -82,7 +82,7 @@ export async function handleTest(ctx: BotContext): Promise<void> {
 }
 
 export async function sendTestAnnouncement(
-  streamer: { displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown },
+  streamer: { displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null },
   chat: { chatId: string; provider: string; customTemplate: string | null },
 ): Promise<{ success: boolean; error?: string }> {
   const platforms = parseStreamPlatforms(streamer.streamPlatforms);
@@ -102,7 +102,7 @@ export async function sendTestAnnouncement(
   const buttons = buildButtons(vars, customButtons);
 
   try {
-    const provider = getProvider(chat.provider);
+    const provider = resolveProvider(chat.provider, streamer.customBotToken);
     await provider.sendAnnouncement(chat.chatId, { text, buttons });
     return { success: true };
   } catch (error) {
