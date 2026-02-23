@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Input, Badge, Select, SectionCard, Divider } from '@memelabui/ui';
+import { Button, IconButton, Input, Badge, Select, SectionCard, Divider } from '@memelabui/ui';
 import type { StreamPlatform } from '../../types/streamer';
 
 interface PlatformsEditorProps {
@@ -91,13 +91,13 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
                     </a>
                   </div>
                 </div>
-                <button
+                <IconButton
+                  icon={<span>✕</span>}
+                  aria-label="Удалить"
                   onClick={() => handleRemove(i)}
-                  className="text-white/30 hover:text-red-400 transition-colors text-sm"
-                  title="Удалить"
-                >
-                  ✕
-                </button>
+                  variant="ghost"
+                  size="sm"
+                />
               </div>
             );
           })}

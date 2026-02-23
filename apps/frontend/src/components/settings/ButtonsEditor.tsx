@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Input, SectionCard, Tabs, TabList, Tab, TabPanel, Divider } from '@memelabui/ui';
+import { Button, IconButton, Input, SectionCard, Tabs, TabList, Tab, TabPanel, Divider } from '@memelabui/ui';
 import type { CustomButton } from '../../types/streamer';
 
 interface ButtonsEditorProps {
@@ -95,29 +95,29 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
                       <div className="text-xs text-white/30 truncate">{btn.url}</div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
+                      <IconButton
+                        icon={<span>▲</span>}
+                        aria-label="Вверх"
                         onClick={() => handleMoveUp(i)}
                         disabled={i === 0}
-                        className="text-white/30 hover:text-white/60 disabled:opacity-20 transition-colors text-xs px-1"
-                        title="Вверх"
-                      >
-                        ▲
-                      </button>
-                      <button
+                        variant="ghost"
+                        size="sm"
+                      />
+                      <IconButton
+                        icon={<span>▼</span>}
+                        aria-label="Вниз"
                         onClick={() => handleMoveDown(i)}
                         disabled={i === items.length - 1}
-                        className="text-white/30 hover:text-white/60 disabled:opacity-20 transition-colors text-xs px-1"
-                        title="Вниз"
-                      >
-                        ▼
-                      </button>
-                      <button
+                        variant="ghost"
+                        size="sm"
+                      />
+                      <IconButton
+                        icon={<span>✕</span>}
+                        aria-label="Удалить"
                         onClick={() => handleRemove(i)}
-                        className="text-white/30 hover:text-red-400 transition-colors text-sm ml-1"
-                        title="Удалить"
-                      >
-                        ✕
-                      </button>
+                        variant="ghost"
+                        size="sm"
+                      />
                     </div>
                   </div>
                 ))}

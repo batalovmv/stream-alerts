@@ -1,4 +1,5 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react';
+import { Card, Button } from '@memelabui/ui';
 
 interface Props {
   children: ReactNode;
@@ -22,19 +23,19 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-surface-900">
-          <div className="glass-card p-8 max-w-md text-center">
+        <div className="min-h-screen flex items-center justify-center bg-surface">
+          <Card variant="glass" className="p-8 max-w-md text-center">
             <h2 className="text-xl font-semibold mb-2">Что-то пошло не так</h2>
             <p className="text-white/50 mb-4">Произошла неожиданная ошибка.</p>
-            <button
-              className="btn-glow px-4 py-2 rounded-lg"
+            <Button
+              variant="primary"
               onClick={() => {
                 window.location.href = '/';
               }}
             >
               На главную
-            </button>
-          </div>
+            </Button>
+          </Card>
         </div>
       );
     }

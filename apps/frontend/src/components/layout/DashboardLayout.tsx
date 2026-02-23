@@ -1,5 +1,5 @@
 import { useAuth } from '../../hooks/useAuth';
-import { Navbar, Avatar } from '@memelabui/ui';
+import { Navbar, Avatar, Button } from '@memelabui/ui';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -36,12 +36,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {user.displayName}
               </span>
             </div>
-            <button
-              onClick={logout}
-              className="text-sm text-white/40 hover:text-white transition"
-            >
+            <Button variant="ghost" size="sm" onClick={logout}>
               Выйти
-            </button>
+            </Button>
           </div>
         )}
       </Navbar>

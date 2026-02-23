@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Button, Input, Card, CopyField, Alert, Stepper } from '@memelabui/ui';
+import { Modal, Button, IconButton, Input, Card, CopyField, Alert, Stepper } from '@memelabui/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useChats } from '../../hooks/useChats';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
@@ -27,13 +27,13 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
       <div className="space-y-5">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">Подключить канал</h2>
-          <button
-            onClick={handleClose}
+          <IconButton
+            icon={<span>&#x2715;</span>}
             aria-label="Закрыть"
-            className="text-white/40 hover:text-white transition"
-          >
-            &#x2715;
-          </button>
+            onClick={handleClose}
+            variant="ghost"
+            size="sm"
+          />
         </div>
 
         {/* Provider selection — MAX hidden until bot creation is available on dev.max.ru
