@@ -123,8 +123,8 @@ jobs:
           echo "Checking for failed migrations..."
           MIGRATE_STATUS=$(pnpm --filter backend exec prisma migrate status 2>&1 || true)
           echo "$MIGRATE_STATUS"
-          # Extract failed migration names: look for lines with "failed" and extract timestamps-prefixed names
-          FAILED_MIGRATIONS=$(echo "$MIGRATE_STATUS" | grep -i 'failed' | grep -oE '[0-9]{14}_[a-z0-9_]+' || true)
+          # Extract failed migration names: "have failed:" header is followed by migration names on next lines
+          FAILED_MIGRATIONS=$(echo "$MIGRATE_STATUS" | grep -i -A 10 'have failed' | grep -oE '[0-9]{14}_[a-zA-Z0-9_]+' || true)
           if [ -n "$FAILED_MIGRATIONS" ]; then
             for migration in $FAILED_MIGRATIONS; do
               echo "Resolving failed migration: $migration"
