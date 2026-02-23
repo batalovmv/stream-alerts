@@ -119,6 +119,16 @@ jobs:
             . "$BACKEND_DIR/.env"
             set +a
           fi
+          # Resolve any previously failed migrations before deploying new ones
+          echo "Checking for failed migrations..."
+          FAILED_MIGRATIONS=$(pnpm --filter backend exec prisma migrate status 2>&1 | grep -oP '`\K[^`]+(?=`.*failed)' || true)
+          if [ -n "$FAILED_MIGRATIONS" ]; then
+            for migration in $FAILED_MIGRATIONS; do
+              echo "Resolving failed migration: $migration"
+              pnpm --filter backend exec prisma migrate resolve --rolled-back "$migration"
+            done
+          fi
+
           echo "Applying database migrations..."
           if ! pnpm --filter backend exec prisma migrate deploy 2>&1; then
             echo "Database migration failed!"
