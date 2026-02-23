@@ -1,6 +1,7 @@
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
@@ -21,14 +22,80 @@ let announcementWorker: Worker | null = null;
 let botReady = false;
 
 const app = express();
+app.set('trust proxy', 1);
+
+// ─── Security Headers ────────────────────────────────────
+app.use(helmet());
 
 // ─── Middleware ────────────────────────────────────────────
 
+const allowedOrigins = config.isDev ? ['http://localhost:5173'] : ['https://notify.memelab.ru'];
+
 app.use(cors({
-  origin: config.isDev ? 'http://localhost:5173' : ['https://notify.memelab.ru'],
+  origin: allowedOrigins,
   credentials: true,
 }));
 app.use(express.json({ limit: '100kb' }));
+
+// ─── CSRF Protection ─────────────────────────────────────
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) return next();
+  if (req.path.startsWith('/api/webhooks')) return next();
+  if (req.path.startsWith('/api/auth/twitch')) return next();
+
+  const origin = req.headers.origin || (() => {
+    try { return req.headers.referer ? new URL(req.headers.referer).origin : null; } catch { return null; }
+  })();
+
+  if (!origin) {
+    if (!config.isDev) {
+      return res.status(403).json({ error: 'CSRF: missing Origin header' });
+    }
+    return next();
+  }
+
+  if (!allowedOrigins.includes(origin)) {
+    logger.warn({ origin, path: req.path }, 'csrf_blocked');
+    return res.status(403).json({ error: 'CSRF: origin not allowed' });
+  }
+
+  next();
+});
+
+// ─── Rate Limiting ───────────────────────────────────────────
+
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimit(windowMs: number, max: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    const now = Date.now();
+    const entry = rateLimitStore.get(ip);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitStore.set(ip, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    if (entry.count >= max) {
+      res.status(429).json({ error: 'Too many requests' });
+      return;
+    }
+
+    entry.count++;
+    next();
+  };
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitStore) {
+    if (now > entry.resetAt) rateLimitStore.delete(ip);
+  }
+}, 300_000);
+
+app.use('/api/', rateLimit(60_000, 120));
+app.use('/api/auth/', rateLimit(60_000, 20));
 
 // ─── Register Providers ───────────────────────────────────
 
