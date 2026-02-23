@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Button } from './ui';
+import { Button, Card, Spinner } from '@memelabui/ui';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -12,7 +12,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full animated-gradient animate-spin" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -21,7 +21,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (isError) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center p-6">
-        <div className="glass-card p-12 text-center max-w-md">
+        <Card variant="glass" className="p-12 text-center max-w-md">
           <div className="text-4xl mb-4">&#x26A0;&#xFE0F;</div>
           <h2 className="text-xl font-semibold mb-2">Ошибка соединения</h2>
           <p className="text-white/40 mb-6">
@@ -30,7 +30,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           <Button variant="primary" onClick={() => window.location.reload()}>
             Повторить
           </Button>
-        </div>
+        </Card>
       </div>
     );
   }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 import { isSafeDeepLink } from '../../lib/safeLink';
-import { Button } from '../ui';
+import { Button, Alert, ConfirmDialog } from '@memelabui/ui';
 
 export function TelegramStatus() {
   const { user } = useAuth();
@@ -13,80 +13,81 @@ export function TelegramStatus() {
 
   if (user.telegramLinked) {
     return (
-      <div className="glass-card p-4 mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-sm text-white/70">
-            Telegram привязан — управляйте каналами через{' '}
-            <a
-              href="https://t.me/MemelabNotifyBot"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-accent-light hover:underline"
-            >
-              @MemelabNotifyBot
-            </a>
-          </span>
-        </div>
-        {confirmUnlink ? (
-          <div className="flex items-center gap-2">
+      <div className="mb-6">
+        <Alert variant="success">
+          <div className="flex items-center justify-between w-full">
+            <span className="text-sm">
+              Telegram привязан — управляйте каналами через{' '}
+              <a
+                href="https://t.me/MemelabNotifyBot"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent-light hover:underline"
+              >
+                @MemelabNotifyBot
+              </a>
+            </span>
             <Button
-              variant="danger"
+              variant="ghost"
               size="sm"
-              onClick={() => {
-                unlink({
-                  onSuccess: () => setConfirmUnlink(false),
-                  onError: () => setConfirmUnlink(false),
-                });
-              }}
-              loading={isUnlinking}
+              onClick={() => setConfirmUnlink(true)}
             >
-              Подтвердить
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setConfirmUnlink(false)}>
-              Отмена
+              Отвязать
             </Button>
           </div>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirmUnlink(true)}
-          >
-            Отвязать
-          </Button>
-        )}
+        </Alert>
+
+        <ConfirmDialog
+          isOpen={confirmUnlink}
+          onClose={() => setConfirmUnlink(false)}
+          onConfirm={() => {
+            unlink({
+              onSuccess: () => setConfirmUnlink(false),
+              onError: () => setConfirmUnlink(false),
+            });
+          }}
+          title="Отвязать Telegram"
+          message="Вы уверены? Управление каналами через бота станет недоступным."
+          confirmText="Отвязать"
+          cancelText="Отмена"
+          variant="danger"
+          isLoading={isUnlinking}
+        />
       </div>
     );
   }
 
   return (
-    <div className="glass-card p-4 mb-6 flex items-center justify-between border-amber-500/20">
-      <div className="flex items-center gap-3">
-        <div className="w-2 h-2 rounded-full bg-amber-400" />
-        <span className="text-sm text-white/70">
-          Привяжите Telegram, чтобы управлять каналами через бота
-        </span>
-      </div>
-      {deepLink ? (
-        <a
-          href={deepLink && isSafeDeepLink(deepLink) ? deepLink : '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-glow !px-3 !py-1.5 text-sm"
-        >
-          Открыть бота
-        </a>
-      ) : (
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={generate}
-          loading={isLoading}
-        >
-          Привязать
-        </Button>
-      )}
+    <div className="mb-6">
+      <Alert variant="warning">
+        <div className="flex items-center justify-between w-full">
+          <span className="text-sm">
+            Привяжите Telegram, чтобы управлять каналами через бота
+          </span>
+          {deepLink ? (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                if (deepLink && isSafeDeepLink(deepLink)) {
+                  window.open(deepLink, '_blank', 'noopener,noreferrer');
+                }
+              }}
+            >
+              Открыть бота
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={generate}
+              loading={isLoading}
+            >
+              Привязать
+            </Button>
+          )}
+        </div>
+      </Alert>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Input, Badge } from '../ui';
+import { Button, Input, Badge, Select, SectionCard, Divider } from '@memelabui/ui';
 import type { StreamPlatform } from '../../types/streamer';
 
 interface PlatformsEditorProps {
@@ -60,17 +60,10 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
   }
 
   return (
-    <div className="glass-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="font-semibold flex items-center gap-2">
-            📡 Стриминговые платформы
-          </h3>
-          <p className="text-sm text-white/35 mt-0.5">
-            Ваши каналы на Twitch, YouTube, VK и других платформах
-          </p>
-        </div>
-      </div>
+    <SectionCard
+      title="📡 Стриминговые платформы"
+      description="Ваши каналы на Twitch, YouTube, VK и других платформах"
+    >
 
       {/* Platform list */}
       {items.length > 0 && (
@@ -115,20 +108,20 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
       {showAdd ? (
         <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-3">
           <div className="flex gap-2">
-            <select
+            <Select
               value={newPlatform}
               onChange={(e) => {
                 setNewPlatform(e.target.value as StreamPlatform['platform']);
                 setNewUrl('');
               }}
-              className="input !w-auto"
+              className="!w-auto"
             >
               {PLATFORM_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.icon} {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
             <Input
               placeholder={newPlatform === 'other' ? 'Название' : 'Логин / ID канала'}
               value={newLogin}
@@ -170,24 +163,27 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
 
       {/* Save */}
       {isDirty && (
-        <div className="flex gap-2 pt-3 border-t border-white/5">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleSave}
-            loading={isSaving}
-          >
-            Сохранить
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setItems(platforms)}
-          >
-            Отменить
-          </Button>
-        </div>
+        <>
+          <Divider className="my-3" />
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSave}
+              loading={isSaving}
+            >
+              Сохранить
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setItems(platforms)}
+            >
+              Отменить
+            </Button>
+          </div>
+        </>
       )}
-    </div>
+    </SectionCard>
   );
 }

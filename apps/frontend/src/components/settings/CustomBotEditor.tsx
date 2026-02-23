@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Input, Badge } from '../ui';
+import { Button, Input, Badge, SectionCard, ConfirmDialog, Alert, Stepper } from '@memelabui/ui';
 import { ApiError } from '../../api/client';
 
 interface CustomBotEditorProps {
@@ -32,18 +32,10 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
   }
 
   return (
-    <div className="glass-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="font-semibold flex items-center gap-2">
-            {'\uD83E\uDD16'} Свой бот для анонсов
-          </h3>
-          <p className="text-sm text-white/35 mt-0.5">
-            Используйте своего Telegram-бота вместо @MemelabNotifyBot
-          </p>
-        </div>
-      </div>
-
+    <SectionCard
+      title={`${'\uD83E\uDD16'} Свой бот для анонсов`}
+      description="Используйте своего Telegram-бота вместо @MemelabNotifyBot"
+    >
       {hasCustomBot ? (
         <>
           {/* Connected bot info */}
@@ -55,7 +47,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
                   <span className="font-medium text-sm">
                     @{customBotUsername}
                   </span>
-                  <Badge variant="green">Подключён</Badge>
+                  <Badge variant="success">Подключён</Badge>
                 </div>
                 <p className="text-xs text-white/30 mt-0.5">
                   Анонсы отправляются от имени этого бота
@@ -63,42 +55,44 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
               </div>
             </div>
 
-            {confirmRemove ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={handleRemove}
-                  loading={isSaving}
-                >
-                  Удалить
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmRemove(false)}
-                >
-                  Отмена
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setConfirmRemove(true)}
-              >
-                Отключить
-              </Button>
-            )}
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setConfirmRemove(true)}
+            >
+              Отключить
+            </Button>
           </div>
+
+          {apiErrorMessage && (
+            <Alert variant="error" className="mt-2">
+              {apiErrorMessage}
+            </Alert>
+          )}
+
+          <ConfirmDialog
+            isOpen={confirmRemove}
+            onClose={() => setConfirmRemove(false)}
+            onConfirm={handleRemove}
+            title="Отключить бота"
+            message="Анонсы будут отправляться от стандартного @MemelabNotifyBot."
+            confirmText="Отключить"
+            cancelText="Отмена"
+            variant="danger"
+            isLoading={isSaving}
+          />
         </>
       ) : showForm ? (
         <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-3">
-          <div className="text-xs text-white/40 space-y-1">
-            <p>1. Создайте бота через <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-accent/80 hover:text-accent">@BotFather</a></p>
-            <p>2. Добавьте бота администратором в каналы/группы</p>
-            <p>3. Вставьте токен бота сюда</p>
-          </div>
+          <Stepper
+            steps={[
+              { label: 'Создайте бота', description: 'Через @BotFather в Telegram' },
+              { label: 'Добавьте в каналы', description: 'Как администратора' },
+              { label: 'Вставьте токен', description: 'Сюда' },
+            ]}
+            activeStep={2}
+            className="mb-3"
+          />
 
           <Input
             type="password"
@@ -136,10 +130,6 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
           + Подключить своего бота
         </Button>
       )}
-
-      {apiErrorMessage && hasCustomBot && (
-        <p className="text-red-400 text-xs mt-2">{apiErrorMessage}</p>
-      )}
-    </div>
+    </SectionCard>
   );
 }

@@ -32,6 +32,9 @@ importers:
       express-session:
         specifier: ^1.18.1
         version: 1.19.0
+      helmet:
+        specifier: ^8.0.0
+        version: 8.1.0
       ioredis:
         specifier: ^5.6.0
         version: 5.9.3
@@ -72,6 +75,9 @@ importers:
 
   apps/frontend:
     dependencies:
+      '@memelabui/ui':
+        specifier: 0.5.0
+        version: 0.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@3.4.19(tsx@4.21.0))
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.90.21(react@19.2.4)
@@ -529,6 +535,13 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@memelabui/ui@0.5.0':
+    resolution: {integrity: sha512-zdxMyWzL4kA8AvwtuMXevMnAaba5jHtn4tQfMgsdEETIlQyR8RN/wmQmUp3OIqADWOtHYV29ic1N+vdTUCeMIA==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+      tailwindcss: ^3.4.0
 
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
     resolution: {integrity: sha512-QZHtlVgbAdy2zAqNA9Gu1UpIuI8Xvsd1v8ic6B2pZmeFnFcMWiPLfWXh7TVw4eGEZ/C9TH281KwhVoeQUKbyjw==}
@@ -1283,6 +1296,10 @@ packages:
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
+
+  helmet@8.1.0:
+    resolution: {integrity: sha512-jOiHyAZsmnr8LqoPGmCjYAaiuWwjAPLgY8ZX2XrmHawt99/u1y6RgrZMTeoPfpUbV96HOalYgz1qzkRbw54Pmg==}
+    engines: {node: '>=18.0.0'}
 
   help-me@5.0.0:
     resolution: {integrity: sha512-7xgomUX6ADmcYzFik0HzAxh/73YlKR9bmFzf51CZwR+b6YtzU2m0u49hQCqV6SvlqIqsaxovfwdvbnsw3b/zpg==}
@@ -2357,6 +2374,12 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@memelabui/ui@0.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@3.4.19(tsx@4.21.0))':
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      tailwindcss: 3.4.19(tsx@4.21.0)
+
   '@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.3':
     optional: true
 
@@ -3155,6 +3178,8 @@ snapshots:
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
+
+  helmet@8.1.0: {}
 
   help-me@5.0.0: {}
 

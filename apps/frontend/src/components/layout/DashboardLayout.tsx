@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { Navbar, Avatar } from '@memelabui/ui';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -7,7 +7,6 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
-  const [avatarError, setAvatarError] = useState(false);
 
   return (
     <div className="min-h-screen bg-surface relative overflow-hidden">
@@ -16,40 +15,36 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="orb orb-blue w-[300px] h-[300px] top-[60%] -right-[100px] fixed opacity-10" />
 
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 glass">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <Navbar
+        glass
+        logo={
           <a href="/" className="flex items-center gap-3">
             <img src="/logo.png" alt="MemeLab Notify" className="w-9 h-9 rounded-xl" />
             <span className="text-lg font-bold tracking-tight">MemeLab Notify</span>
           </a>
-
-          {user && (
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                {user.avatarUrl && !avatarError ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.displayName}
-                    className="w-8 h-8 rounded-full"
-                    onError={() => setAvatarError(true)}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full animated-gradient" />
-                )}
-                <span className="text-sm font-medium hidden sm:block">
-                  {user.displayName}
-                </span>
-              </div>
-              <button
-                onClick={logout}
-                className="text-sm text-white/40 hover:text-white transition"
-              >
-                Выйти
-              </button>
+        }
+      >
+        {user && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Avatar
+                src={user.avatarUrl ?? undefined}
+                name={user.displayName}
+                size="sm"
+              />
+              <span className="text-sm font-medium hidden sm:block">
+                {user.displayName}
+              </span>
             </div>
-          )}
-        </div>
-      </header>
+            <button
+              onClick={logout}
+              className="text-sm text-white/40 hover:text-white transition"
+            >
+              Выйти
+            </button>
+          </div>
+        )}
+      </Navbar>
 
       {/* Content */}
       <main className="pt-24 pb-12 px-6">

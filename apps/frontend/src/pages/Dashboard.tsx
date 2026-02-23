@@ -6,7 +6,7 @@ import { TelegramStatus } from '../components/chat/TelegramStatus';
 import { PlatformsEditor } from '../components/settings/PlatformsEditor';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { CustomBotEditor } from '../components/settings/CustomBotEditor';
-import { Button } from '../components/ui';
+import { Button, Skeleton, EmptyState, Alert } from '@memelabui/ui';
 import { useChats } from '../hooks/useChats';
 import { useAuth } from '../hooks/useAuth';
 import { useStreamerSettings } from '../hooks/useStreamerSettings';
@@ -74,13 +74,13 @@ export function Dashboard() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card p-6 animate-pulse h-24" />
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       ) : error ? (
         <ErrorState />
       ) : chats.length === 0 ? (
-        <EmptyState
+        <EmptyStateView
           telegramLinked={user?.telegramLinked ?? false}
           onAdd={() => setAddModalOpen(true)}
         />
@@ -102,44 +102,37 @@ export function Dashboard() {
 
 function ErrorState() {
   return (
-    <div className="glass-card p-12 text-center">
-      <div className="feature-icon mx-auto mb-5">&#x26A0;&#xFE0F;</div>
-      <h2 className="text-xl font-semibold mb-2">Не удалось загрузить каналы</h2>
-      <p className="text-white/40 mb-6 max-w-sm mx-auto">
-        Произошла ошибка при загрузке данных. Попробуйте обновить страницу.
-      </p>
-      <Button variant="primary" onClick={() => window.location.reload()}>
+    <Alert variant="error" title="Не удалось загрузить каналы">
+      <p className="mb-4">Произошла ошибка при загрузке данных. Попробуйте обновить страницу.</p>
+      <Button variant="primary" size="sm" onClick={() => window.location.reload()}>
         Обновить страницу
       </Button>
-    </div>
+    </Alert>
   );
 }
 
-function EmptyState({ telegramLinked, onAdd }: { telegramLinked: boolean; onAdd: () => void }) {
+function EmptyStateView({ telegramLinked, onAdd }: { telegramLinked: boolean; onAdd: () => void }) {
   return (
-    <div className="glass-card p-12 text-center">
-      <div className="feature-icon mx-auto mb-5">{'\uD83D\uDCE1'}</div>
-      <h2 className="text-xl font-semibold mb-2">Нет подключённых каналов</h2>
-      <p className="text-white/40 mb-6 max-w-sm mx-auto">
-        {telegramLinked
+    <EmptyState
+      title="Нет подключённых каналов"
+      description={
+        telegramLinked
           ? 'Отправьте /connect боту @MemelabNotifyBot в Telegram, чтобы выбрать канал или группу'
-          : 'Привяжите Telegram и добавьте канал через бота — никаких ID вводить не нужно'}
-      </p>
-      <div className="flex justify-center gap-3">
-        <Button variant="primary" onClick={onAdd}>
-          + Добавить канал
+          : 'Привяжите Telegram и добавьте канал через бота — никаких ID вводить не нужно'
+      }
+      actionLabel="+ Добавить канал"
+      onAction={onAdd}
+    >
+      {telegramLinked && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-2"
+          onClick={() => window.open('https://t.me/MemelabNotifyBot', '_blank')}
+        >
+          Открыть бота
         </Button>
-        {telegramLinked && (
-          <a
-            href="https://t.me/MemelabNotifyBot"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary !px-5 !py-2.5 text-sm"
-          >
-            Открыть бота
-          </a>
-        )}
-      </div>
-    </div>
+      )}
+    </EmptyState>
   );
 }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Modal } from '../ui/Modal';
-import { Button, Input } from '../ui';
+import { Modal, Button, Input, Card, CopyField, Alert, Stepper } from '@memelabui/ui';
 import { useAuth } from '../../hooks/useAuth';
 import { useChats } from '../../hooks/useChats';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
@@ -24,8 +23,19 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Подключить канал">
+    <Modal isOpen={open} onClose={handleClose} ariaLabel="Подключить канал">
       <div className="space-y-5">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Подключить канал</h2>
+          <button
+            onClick={handleClose}
+            aria-label="Закрыть"
+            className="text-white/40 hover:text-white transition"
+          >
+            &#x2715;
+          </button>
+        </div>
+
         {/* Provider selection — MAX hidden until bot creation is available on dev.max.ru
         <div>
           <label className="block text-sm text-white/50 mb-2">Мессенджер</label>
@@ -70,36 +80,28 @@ function LinkAccountFlow() {
 
   return (
     <>
-      <div className="glass-card p-4 text-sm text-white/50 space-y-3">
-        <div className="flex items-start gap-3">
-          <div className="step-number shrink-0">1</div>
-          <div>
-            <p className="font-medium text-white/70">Привяжите Telegram</p>
-            <p className="mt-1">
-              Нажмите кнопку ниже — откроется бот в Telegram. Это нужно сделать один раз.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <div className="step-number shrink-0">2</div>
-          <div>
-            <p className="font-medium text-white/70">Добавьте канал через бота</p>
-            <p className="mt-1">
-              Напишите <span className="text-accent-light">/connect</span> боту — он покажет нативный список ваших каналов и групп. Выбирайте нужный — бот добавится автоматически.
-            </p>
-          </div>
-        </div>
-      </div>
+      <Stepper
+        steps={[
+          { label: 'Привяжите Telegram', description: 'Нажмите кнопку ниже — откроется бот в Telegram. Это нужно сделать один раз.' },
+          { label: 'Добавьте канал через бота', description: 'Напишите /connect боту — он покажет нативный список ваших каналов и групп.' },
+        ]}
+        activeStep={0}
+        className="mb-4"
+      />
 
       {deepLink ? (
-        <a
-          href={deepLink && isSafeDeepLink(deepLink) ? deepLink : '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-glow !px-5 !py-2.5 text-sm w-full text-center block"
+        <Button
+          variant="primary"
+          size="md"
+          className="w-full"
+          onClick={() => {
+            if (deepLink && isSafeDeepLink(deepLink)) {
+              window.open(deepLink, '_blank', 'noopener,noreferrer');
+            }
+          }}
         >
           Открыть @MemelabNotifyBot
-        </a>
+        </Button>
       ) : (
         <Button
           variant="primary"
@@ -117,52 +119,34 @@ function LinkAccountFlow() {
 
 /** Flow when Telegram IS linked — direct them to the bot */
 function LinkedFlow({ onClose }: { onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-
-  function handleCopy() {
-    navigator.clipboard.writeText('/connect').catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
   return (
     <>
-      <div className="glass-card p-4 text-sm text-white/50 space-y-3">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full bg-green-400" />
-          <span className="text-green-400 font-medium text-xs">Telegram привязан</span>
-        </div>
+      <Alert variant="success" className="mb-3">
+        Telegram привязан
+      </Alert>
 
+      <Card variant="glass" className="p-4 text-sm text-white/50 space-y-3">
         <p>
           Откройте <span className="text-accent-light">@MemelabNotifyBot</span> в Telegram и отправьте команду:
         </p>
 
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="w-full glass-card p-3 text-left font-mono text-accent-light hover:bg-white/5 transition-all cursor-pointer group"
-        >
-          <span className="text-white/30 group-hover:text-white/50">/</span>connect
-          <span className="float-right text-xs text-white/30 group-hover:text-white/50">
-            {copied ? 'Скопировано!' : 'Копировать'}
-          </span>
-        </button>
+        <CopyField value="/connect" label="Команда" />
 
         <p>
           Бот покажет нативный список ваших каналов и групп.
           Выберите нужный — бот добавится туда автоматически с нужными правами.
         </p>
-      </div>
+      </Card>
 
       <div className="flex gap-3">
-        <a
-          href="https://t.me/MemelabNotifyBot"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-glow !px-5 !py-2.5 text-sm flex-1 text-center block"
+        <Button
+          variant="primary"
+          size="md"
+          className="flex-1"
+          onClick={() => window.open('https://t.me/MemelabNotifyBot', '_blank', 'noopener,noreferrer')}
         >
           Открыть бота
-        </a>
+        </Button>
         <Button variant="secondary" size="md" onClick={onClose}>
           Закрыть
         </Button>
@@ -200,7 +184,7 @@ function MaxFlow({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="glass-card p-4 text-sm text-white/50 space-y-3">
+      <Card variant="glass" className="p-4 text-sm text-white/50 space-y-3">
         <p>
           Добавьте бота <span className="text-accent-light">@MemelabNotifyBot</span> как администратора в MAX-группу, затем введите ID чата:
         </p>
@@ -210,7 +194,7 @@ function MaxFlow({ onClose }: { onClose: () => void }) {
           onChange={(e) => setChatId(e.target.value)}
           error={error}
         />
-      </div>
+      </Card>
 
       <div className="flex gap-3">
         <Button

@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Button, Card, Navbar, Spinner, StatCard, Stepper, Divider } from '@memelabui/ui';
 
 export function Landing() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -7,7 +8,7 @@ export function Landing() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full animated-gradient animate-spin" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -24,25 +25,27 @@ export function Landing() {
       <div className="orb orb-pink w-[400px] h-[400px] bottom-[10%] left-[20%] fixed opacity-20" />
 
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 glass">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <Navbar
+        glass
+        logo={
+          <a href="/" className="flex items-center gap-3">
             <img src="/logo.png" alt="MemeLab Notify" className="w-9 h-9 rounded-xl" />
             <span className="text-lg font-bold tracking-tight">MemeLab Notify</span>
-          </div>
-          <nav className="flex items-center gap-8">
-            <a href="#features" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
-              Возможности
-            </a>
-            <a href="#how-it-works" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
-              Как это работает
-            </a>
-            <button onClick={login} className="btn-glow text-sm !px-5 !py-2.5 !shadow-glow">
-              Войти через MemeLab
-            </button>
-          </nav>
-        </div>
-      </header>
+          </a>
+        }
+      >
+        <nav className="flex items-center gap-8">
+          <a href="#features" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
+            Возможности
+          </a>
+          <a href="#how-it-works" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
+            Как это работает
+          </a>
+          <Button variant="primary" size="sm" onClick={login}>
+            Войти через MemeLab
+          </Button>
+        </nav>
+      </Navbar>
 
       {/* Hero */}
       <section className="pt-36 pb-24 px-6 relative">
@@ -67,12 +70,12 @@ export function Landing() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6 opacity-0 animate-fade-up-delayed-2">
-            <button onClick={login} className="btn-glow text-lg">
+            <Button variant="primary" size="lg" onClick={login}>
               Начать бесплатно
-            </button>
-            <a href="#how-it-works" className="btn-secondary text-lg text-center">
+            </Button>
+            <Button variant="secondary" size="lg" onClick={() => { document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' }); }}>
               Как это работает?
-            </a>
+            </Button>
           </div>
 
           <p className="text-white/25 text-sm">Бесплатно. Настройка за 2 минуты.</p>
@@ -86,10 +89,7 @@ export function Landing() {
             { value: '1', label: 'мессенджер' },
             { value: '∞', label: 'каналов' },
           ].map((stat) => (
-            <div key={stat.label} className="glass-card p-5 text-center">
-              <div className="text-2xl md:text-3xl font-bold text-gradient stat-glow">{stat.value}</div>
-              <div className="text-sm text-white/35 mt-1">{stat.label}</div>
-            </div>
+            <StatCard key={stat.label} value={stat.value} label={stat.label} />
           ))}
         </div>
       </section>
@@ -139,13 +139,13 @@ export function Landing() {
                 desc: 'Меньше 5 секунд от начала стрима до анонса. Дедупликация и обновление при смене игры.',
               },
             ].map((feature) => (
-              <div key={feature.title} className="glass-card p-6 group">
+              <Card key={feature.title} variant="glass" hoverable className="p-6 group">
                 <div className="feature-icon mb-5">
                   {feature.icon}
                 </div>
                 <h3 className="text-lg font-semibold mb-2 group-hover:text-accent-light transition-colors">{feature.title}</h3>
                 <p className="text-sm text-white/40 leading-relaxed">{feature.desc}</p>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -163,33 +163,16 @@ export function Landing() {
             </p>
           </div>
 
-          <div className="space-y-6">
-            {[
-              {
-                step: '1',
-                title: 'Войди через MemeLab',
-                desc: 'Один клик — и аккаунт привязан. Твой канал и настройки подтянутся автоматически.',
-              },
-              {
-                step: '2',
-                title: 'Добавь бота в канал',
-                desc: 'Добавь @MemelabNotifyBot как администратора в Telegram-канал или группу.',
-              },
-              {
-                step: '3',
-                title: 'Готово!',
-                desc: 'Теперь при каждом начале стрима бот автоматически отправит красивый анонс с превью.',
-              },
-            ].map((item) => (
-              <div key={item.step} className="glass-card p-6 flex items-start gap-5">
-                <div className="step-number">{item.step}</div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-1">{item.title}</h3>
-                  <p className="text-white/40 leading-relaxed">{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Card variant="glass" className="p-8">
+            <Stepper
+              steps={[
+                { label: 'Войди через MemeLab', description: 'Один клик — и аккаунт привязан. Твой канал и настройки подтянутся автоматически.' },
+                { label: 'Добавь бота в канал', description: 'Добавь @MemelabNotifyBot как администратора в Telegram-канал или группу.' },
+                { label: 'Готово!', description: 'Теперь при каждом начале стрима бот автоматически отправит красивый анонс с превью.' },
+              ]}
+              activeStep={3}
+            />
+          </Card>
         </div>
       </section>
 
@@ -206,7 +189,7 @@ export function Landing() {
           </div>
 
           <div className="max-w-sm mx-auto">
-            <div className="glass-card p-0 overflow-hidden hover:!border-accent/30">
+            <Card variant="glass" className="p-0 overflow-hidden hover:!border-accent/30">
               {/* Fake stream preview */}
               <div className="h-48 relative animated-gradient opacity-80">
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -237,7 +220,7 @@ export function Landing() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -245,22 +228,23 @@ export function Landing() {
       {/* CTA */}
       <section className="py-24 px-6 relative">
         <div className="max-w-2xl mx-auto text-center">
-          <div className="glass-card p-12">
+          <Card variant="glass" className="p-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Готовы <span className="text-gradient">автоматизировать</span>?
             </h2>
             <p className="text-white/40 mb-8 max-w-md mx-auto">
               Бесплатно. Настройка за 2 минуты. Работает с Twitch и VK Video.
             </p>
-            <button onClick={login} className="btn-glow text-lg">
+            <Button variant="primary" size="lg" onClick={login}>
               Начать бесплатно
-            </button>
-          </div>
+            </Button>
+          </Card>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-white/5">
+      <Divider />
+      <footer className="py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/25">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="MemeLab Notify" className="w-6 h-6 rounded-lg" />

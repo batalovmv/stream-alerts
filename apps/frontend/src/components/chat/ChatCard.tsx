@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { ConnectedChat } from '../../types/chat';
 import { useChats } from '../../hooks/useChats';
 import { useStreamerSettings } from '../../hooks/useStreamerSettings';
 import { TemplateVariablesList } from '../settings/TemplateVariablesList';
-import { Badge, Button, Toggle } from '../ui';
+import {
+  Badge, Button, Toggle, Card, Textarea, CollapsibleSection,
+  ConfirmDialog, Divider, useToast,
+} from '@memelabui/ui';
 
 interface ChatCardProps {
   chat: ConnectedChat;
@@ -12,23 +15,14 @@ interface ChatCardProps {
 export function ChatCard({ chat }: ChatCardProps) {
   const { updateChat, deleteChat, testChat } = useChats();
   const { settings } = useStreamerSettings();
+  const { toast } = useToast();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showTemplate, setShowTemplate] = useState(false);
   const [template, setTemplate] = useState(chat.customTemplate ?? '');
-  const [testStatus, setTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Sync template when chat.customTemplate changes externally (#11)
   useEffect(() => {
     setTemplate(chat.customTemplate ?? '');
   }, [chat.customTemplate]);
-
-  // Ref for test status reset timer to prevent leaks (#39)
-  const testTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  // Cleanup timer on unmount (#39)
-  useEffect(() => {
-    return () => clearTimeout(testTimerRef.current);
-  }, []);
 
   const providerLabel = chat.provider === 'telegram' ? 'Telegram' : 'MAX';
   const providerEmoji = chat.provider === 'telegram' ? '\u2708\uFE0F' : '\uD83D\uDCAC';
@@ -52,23 +46,18 @@ export function ChatCard({ chat }: ChatCardProps) {
   }
 
   function handleTest() {
-    setTestStatus('idle');
     testChat.mutate(chat.id, {
       onSuccess: () => {
-        setTestStatus('success');
-        clearTimeout(testTimerRef.current);
-        testTimerRef.current = setTimeout(() => setTestStatus('idle'), 3000);
+        toast({ variant: 'success', title: 'Тестовый анонс отправлен' });
       },
       onError: () => {
-        setTestStatus('error');
-        clearTimeout(testTimerRef.current);
-        testTimerRef.current = setTimeout(() => setTestStatus('idle'), 3000);
+        toast({ variant: 'error', title: 'Не удалось отправить тест' });
       },
     });
   }
 
   return (
-    <div className="glass-card p-5">
+    <Card variant="glass" className="p-5">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="feature-icon !w-12 !h-12 !rounded-xl !text-xl">
@@ -77,7 +66,7 @@ export function ChatCard({ chat }: ChatCardProps) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold">{chat.chatTitle || chat.chatId}</h3>
-              <Badge variant={chat.enabled ? 'green' : 'gray'}>
+              <Badge variant={chat.enabled ? 'success' : 'neutral'}>
                 {chat.enabled ? 'Активен' : 'Отключён'}
               </Badge>
               <Badge variant="accent">{providerLabel}</Badge>
@@ -89,17 +78,18 @@ export function ChatCard({ chat }: ChatCardProps) {
           </div>
         </div>
 
-        <Toggle checked={chat.enabled} onChange={handleToggleEnabled} disabled={isBusy} />
+        <Toggle checked={chat.enabled} onChange={handleToggleEnabled} busy={isBusy} />
       </div>
 
       {/* Settings row */}
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+      <Divider className="my-4" />
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Toggle
             checked={chat.deleteAfterEnd}
             onChange={handleToggleDelete}
             label="Удалять после стрима"
-            disabled={isBusy}
+            busy={isBusy}
           />
         </div>
 
@@ -111,88 +101,60 @@ export function ChatCard({ chat }: ChatCardProps) {
             loading={testChat.isPending}
             disabled={isBusy}
           >
-            {testStatus === 'success' ? 'Отправлено!' : testStatus === 'error' ? 'Ошибка' : 'Тест'}
+            Тест
           </Button>
-          {confirmDelete ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleDelete}
-                loading={deleteChat.isPending}
-                disabled={isBusy}
-              >
-                Удалить
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setConfirmDelete(false)}
-              >
-                Отмена
-              </Button>
-            </div>
-          ) : (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setConfirmDelete(true)}
-              disabled={isBusy}
-            >
-              Удалить
-            </Button>
-          )}
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setConfirmDelete(true)}
+            disabled={isBusy}
+          >
+            Удалить
+          </Button>
         </div>
       </div>
 
       {/* Custom template */}
-      <div className="mt-4 pt-4 border-t border-white/5">
-        <button
-          className="text-sm text-white/40 hover:text-white/60 transition-colors"
-          onClick={() => setShowTemplate(!showTemplate)}
-        >
-          {showTemplate ? 'Скрыть шаблон' : 'Свой шаблон'}
-        </button>
-        {showTemplate && (
-          <div className="mt-3 space-y-2">
-            <textarea
-              className="input w-full h-24 resize-none text-sm"
-              placeholder="Свой шаблон анонса. Например: 🔴 {streamer_name} в эфире! {stream_title}"
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-            />
-            {settings?.templateVariables && (
-              <TemplateVariablesList variables={settings.templateVariables} />
-            )}
-            <div className="flex gap-2">
+      <Divider className="my-4" />
+      <CollapsibleSection title="Свой шаблон" defaultOpen={false}>
+        <div className="space-y-2">
+          <Textarea
+            className="h-24 resize-none text-sm"
+            placeholder="Свой шаблон анонса. Например: 🔴 {streamer_name} в эфире! {stream_title}"
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+          />
+          {settings?.templateVariables && (
+            <TemplateVariablesList variables={settings.templateVariables} />
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isBusy}
+              onClick={() => {
+                updateChat.mutate({ id: chat.id, customTemplate: template || null });
+              }}
+              loading={updateChat.isPending}
+            >
+              Сохранить
+            </Button>
+            {template && (
               <Button
-                variant="secondary"
+                variant="ghost"
                 size="sm"
                 disabled={isBusy}
                 onClick={() => {
-                  updateChat.mutate({ id: chat.id, customTemplate: template || null });
+                  setTemplate('');
+                  updateChat.mutate({ id: chat.id, customTemplate: null });
                 }}
-                loading={updateChat.isPending}
               >
-                Сохранить
+                Сбросить
               </Button>
-              {template && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={isBusy}
-                  onClick={() => {
-                    setTemplate('');
-                    updateChat.mutate({ id: chat.id, customTemplate: null });
-                  }}
-                >
-                  Сбросить
-                </Button>
-              )}
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </CollapsibleSection>
 
       {/* Last announced */}
       {chat.lastAnnouncedAt && (
@@ -201,6 +163,19 @@ export function ChatCard({ chat }: ChatCardProps) {
           {new Date(chat.lastAnnouncedAt).toLocaleString('ru-RU')}
         </p>
       )}
-    </div>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Удалить канал"
+        message="Вы уверены, что хотите удалить этот канал? Анонсы больше не будут отправляться."
+        confirmText="Удалить"
+        cancelText="Отмена"
+        variant="danger"
+        isLoading={deleteChat.isPending}
+      />
+    </Card>
   );
 }
