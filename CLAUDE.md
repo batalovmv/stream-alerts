@@ -74,6 +74,20 @@ pnpm test
 
 ---
 
+## Database Migrations
+
+**CRITICAL: Always review migration SQL before committing.**
+
+When running `prisma migrate dev`, Prisma may generate a full-schema migration (CREATE TABLE/ENUM for everything) instead of an incremental one if the local environment lacks migration history. This **will break production** where tables already exist.
+
+Before committing any migration:
+1. Read the generated `.sql` file — it must contain only `ALTER TABLE`, `CREATE INDEX`, `DROP` statements for the specific change
+2. If you see `CREATE TABLE` or `CREATE TYPE` for existing models — **delete the migration** and write the SQL manually
+3. Use `IF NOT EXISTS` / `IF EXISTS` guards for safety
+4. Test with `pnpm build` to verify Prisma client generates correctly
+
+---
+
 ## Key Files
 
 | File | Purpose |
