@@ -51,8 +51,7 @@ export function Landing() {
       <section className="pt-36 pb-24 px-6 relative">
         <div className="max-w-4xl mx-auto text-center">
           <div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-8 opacity-0 animate-fade-up"
-            style={{ background: 'rgba(102, 126, 234, 0.1)', border: '1px solid rgba(102, 126, 234, 0.2)' }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-8 opacity-0 animate-fade-up bg-accent/10 border border-accent/20"
           >
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-glow" />
             <span className="text-accent-light">Telegram</span>
@@ -212,10 +211,10 @@ export function Landing() {
                   🎮 Just Chatting
                 </p>
                 <div className="flex gap-2 mt-4">
-                  <div className="flex-1 text-center py-2 rounded-lg text-sm font-medium" style={{ background: 'rgba(102, 126, 234, 0.2)', color: '#8b9cf7' }}>
+                  <div className="flex-1 text-center py-2 rounded-lg text-sm font-medium bg-accent/20 text-accent-light">
                     🔗 Смотреть стрим
                   </div>
-                  <div className="flex-1 text-center py-2 rounded-lg text-sm font-medium" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255,255,255,0.5)' }}>
+                  <div className="flex-1 text-center py-2 rounded-lg text-sm font-medium bg-white/5 text-white/50">
                     📋 MemeLab
                   </div>
                 </div>

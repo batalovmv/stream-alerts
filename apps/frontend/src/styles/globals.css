@@ -14,14 +14,6 @@
   }
 }
 
-/* Gradient text — neiro-api exact gradient */
-.text-gradient {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 /* Stat glow text */
 .stat-glow {
   text-shadow: 0 0 20px rgba(124, 58, 237, 0.6);

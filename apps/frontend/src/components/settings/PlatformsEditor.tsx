@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, IconButton, Input, Badge, Select, SectionCard, Divider } from '@memelabui/ui';
+import { Button, IconButton, Input, Badge, Select, SectionCard, Divider, useDisclosure } from '@memelabui/ui';
 import type { StreamPlatform } from '../../types/streamer';
 
 interface PlatformsEditorProps {
@@ -31,7 +31,7 @@ function isHttpUrl(value: string): boolean {
 
 export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditorProps) {
   const [items, setItems] = useState<StreamPlatform[]>(platforms);
-  const [showAdd, setShowAdd] = useState(false);
+  const addForm = useDisclosure();
   const [newPlatform, setNewPlatform] = useState<StreamPlatform['platform']>('twitch');
   const [newLogin, setNewLogin] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -71,7 +71,7 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
     setNewLogin('');
     setNewUrl('');
     setUrlError('');
-    setShowAdd(false);
+    addForm.close();
   }
 
   function handleRemove(index: number) {
@@ -129,7 +129,7 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
       )}
 
       {/* Add form */}
-      {showAdd ? (
+      {addForm.isOpen ? (
         <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-3">
           <div className="flex gap-2">
             <Select
@@ -183,7 +183,7 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
             <Button variant="secondary" size="sm" onClick={handleAdd}>
               Добавить
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>
+            <Button variant="ghost" size="sm" onClick={addForm.close}>
               Отмена
             </Button>
           </div>
@@ -192,7 +192,7 @@ export function PlatformsEditor({ platforms, onSave, isSaving }: PlatformsEditor
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setShowAdd(true)}
+          onClick={addForm.open}
           className="mb-4"
         >
           + Добавить платформу

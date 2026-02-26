@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { ChatCard } from '../components/chat/ChatCard';
 import { AddChatModal } from '../components/chat/AddChatModal';
@@ -7,13 +6,13 @@ import { PlatformsEditor } from '../components/settings/PlatformsEditor';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { CustomBotEditor } from '../components/settings/CustomBotEditor';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Button, Skeleton, EmptyState, Alert, Card } from '@memelabui/ui';
+import { Button, Skeleton, EmptyState, Alert, Card, useDisclosure } from '@memelabui/ui';
 import { useChats } from '../hooks/useChats';
 import { useAuth } from '../hooks/useAuth';
 import { useStreamerSettings } from '../hooks/useStreamerSettings';
 
 export function Dashboard() {
-  const [addModalOpen, setAddModalOpen] = useState(false);
+  const addModal = useDisclosure();
   const { chats, isLoading, error } = useChats();
   const { user } = useAuth();
   const { settings, updatePlatforms, updateButtons, updateCustomBot } = useStreamerSettings();
@@ -65,7 +64,7 @@ export function Dashboard() {
         <Button
           variant="primary"
           size="md"
-          onClick={() => setAddModalOpen(true)}
+          onClick={addModal.open}
         >
           + Добавить канал
         </Button>
@@ -83,7 +82,7 @@ export function Dashboard() {
       ) : chats.length === 0 ? (
         <EmptyStateView
           telegramLinked={user?.telegramLinked ?? false}
-          onAdd={() => setAddModalOpen(true)}
+          onAdd={addModal.open}
         />
       ) : (
         <div className="space-y-4">
@@ -104,8 +103,8 @@ export function Dashboard() {
       )}
 
       <AddChatModal
-        open={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
+        open={addModal.isOpen}
+        onClose={addModal.close}
       />
     </DashboardLayout>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Button, Input, Badge, SectionCard, ConfirmDialog, Alert, Stepper } from '@memelabui/ui';
+import { Button, Input, Badge, SectionCard, ConfirmDialog, Alert, Stepper, useDisclosure } from '@memelabui/ui';
 import { ApiError } from '../../api/client';
 
 interface CustomBotEditorProps {
@@ -11,9 +11,9 @@ interface CustomBotEditorProps {
 }
 
 export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSaving, error }: CustomBotEditorProps) {
-  const [showForm, setShowForm] = useState(false);
+  const showForm = useDisclosure();
   const [token, setToken] = useState('');
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  const removeDialog = useDisclosure();
 
   const apiErrorMessage = error instanceof ApiError
     ? (error.data as { error?: string })?.error
@@ -22,10 +22,10 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
   // Auto-close form when custom bot is successfully connected
   useEffect(() => {
     if (hasCustomBot) {
-      setShowForm(false);
+      showForm.close();
       setToken('');
     }
-  }, [hasCustomBot]);
+  }, [hasCustomBot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSubmit() {
     if (!token.trim()) return;
@@ -34,7 +34,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
 
   function handleRemove() {
     onSave(null);
-    setConfirmRemove(false);
+    removeDialog.close();
   }
 
   return (
@@ -64,7 +64,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
             <Button
               variant="danger"
               size="sm"
-              onClick={() => setConfirmRemove(true)}
+              onClick={removeDialog.open}
             >
               Отключить
             </Button>
@@ -77,8 +77,8 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
           )}
 
           <ConfirmDialog
-            isOpen={confirmRemove}
-            onClose={() => setConfirmRemove(false)}
+            isOpen={removeDialog.isOpen}
+            onClose={removeDialog.close}
             onConfirm={handleRemove}
             title="Отключить бота"
             message="Анонсы будут отправляться от стандартного @MemelabNotifyBot."
@@ -88,7 +88,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
             isLoading={isSaving}
           />
         </>
-      ) : showForm ? (
+      ) : showForm.isOpen ? (
         <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-3">
           <Stepper
             steps={[
@@ -121,7 +121,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setShowForm(false); setToken(''); }}
+              onClick={() => { showForm.close(); setToken(''); }}
             >
               Отмена
             </Button>
@@ -131,7 +131,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setShowForm(true)}
+          onClick={showForm.open}
         >
           + Подключить своего бота
         </Button>

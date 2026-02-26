@@ -5,7 +5,7 @@ import { useStreamerSettings } from '../../hooks/useStreamerSettings';
 import { TemplateVariablesList } from '../settings/TemplateVariablesList';
 import {
   Badge, Button, Toggle, Card, Textarea, CollapsibleSection,
-  ConfirmDialog, Divider, useToast,
+  ConfirmDialog, Divider, useToast, useDisclosure,
 } from '@memelabui/ui';
 
 interface ChatCardProps {
@@ -16,7 +16,7 @@ export function ChatCard({ chat }: ChatCardProps) {
   const { updateChat, deleteChat, testChat } = useChats();
   const { settings } = useStreamerSettings();
   const { toast } = useToast();
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteDialog = useDisclosure();
   const [template, setTemplate] = useState(chat.customTemplate ?? '');
 
   // Sync template when chat.customTemplate changes externally (#11)
@@ -40,8 +40,8 @@ export function ChatCard({ chat }: ChatCardProps) {
 
   function handleDelete() {
     deleteChat.mutate(chat.id, {
-      onSuccess: () => setConfirmDelete(false),
-      onError: () => setConfirmDelete(false),
+      onSuccess: () => deleteDialog.close(),
+      onError: () => deleteDialog.close(),
     });
   }
 
@@ -106,7 +106,7 @@ export function ChatCard({ chat }: ChatCardProps) {
           <Button
             variant="danger"
             size="sm"
-            onClick={() => setConfirmDelete(true)}
+            onClick={deleteDialog.open}
             disabled={isBusy}
           >
             Удалить
@@ -166,8 +166,8 @@ export function ChatCard({ chat }: ChatCardProps) {
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
-        isOpen={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
+        isOpen={deleteDialog.isOpen}
+        onClose={deleteDialog.close}
         onConfirm={handleDelete}
         title="Удалить канал"
         message="Вы уверены, что хотите удалить этот канал? Анонсы больше не будут отправляться."

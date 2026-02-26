@@ -76,8 +76,8 @@ importers:
   apps/frontend:
     dependencies:
       '@memelabui/ui':
-        specifier: 0.6.0
-        version: 0.6.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@3.4.19(tsx@4.21.0))
+        specifier: ^0.7.0
+        version: 0.7.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@3.4.19(tsx@4.21.0))
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.90.21(react@19.2.4)
@@ -536,8 +536,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@memelabui/ui@0.6.0':
-    resolution: {integrity: sha512-jnn2AnVa5AM78TFIWMpVYTlL/2Yv3ogt4ykRIKUcv/GhtQB+JpPbk7gadY79qlgxwLdksDF+2SlShA9uL0H3/w==}
+  '@memelabui/ui@0.7.0':
+    resolution: {integrity: sha512-A0tLERYLjzzatSLHy8Ld6K67gIOkNBILLjUxAIpn+dDHB/IzNKmCLJ66vl4G9l0RxcitzMZbvxBGEY7Co1fp3Q==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -2374,7 +2374,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@memelabui/ui@0.6.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@3.4.19(tsx@4.21.0))':
+  '@memelabui/ui@0.7.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@3.4.19(tsx@4.21.0))':
     dependencies:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)

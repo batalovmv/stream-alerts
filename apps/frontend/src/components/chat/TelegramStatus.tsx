@@ -1,13 +1,12 @@
-import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 import { isSafeDeepLink } from '../../lib/safeLink';
-import { Button, Alert, ConfirmDialog } from '@memelabui/ui';
+import { Button, Alert, ConfirmDialog, useDisclosure } from '@memelabui/ui';
 
 export function TelegramStatus() {
   const { user } = useAuth();
   const { deepLink, isLoading, generate, unlink, isUnlinking } = useTelegramLink();
-  const [confirmUnlink, setConfirmUnlink] = useState(false);
+  const unlinkDialog = useDisclosure();
 
   if (!user) return null;
 
@@ -30,7 +29,7 @@ export function TelegramStatus() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setConfirmUnlink(true)}
+              onClick={unlinkDialog.open}
             >
               Отвязать
             </Button>
@@ -38,12 +37,12 @@ export function TelegramStatus() {
         </Alert>
 
         <ConfirmDialog
-          isOpen={confirmUnlink}
-          onClose={() => setConfirmUnlink(false)}
+          isOpen={unlinkDialog.isOpen}
+          onClose={unlinkDialog.close}
           onConfirm={() => {
             unlink({
-              onSuccess: () => setConfirmUnlink(false),
-              onError: () => setConfirmUnlink(false),
+              onSuccess: () => unlinkDialog.close(),
+              onError: () => unlinkDialog.close(),
             });
           }}
           title="Отвязать Telegram"

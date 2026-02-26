@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, IconButton, Input, SectionCard, Tabs, TabList, Tab, TabPanel, Divider } from '@memelabui/ui';
+import { Button, IconButton, Input, SectionCard, Tabs, TabList, Tab, TabPanel, Divider, useDisclosure } from '@memelabui/ui';
 import type { CustomButton } from '../../types/streamer';
 
 interface ButtonsEditorProps {
@@ -12,7 +12,7 @@ interface ButtonsEditorProps {
 export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps) {
   const [useCustom, setUseCustom] = useState(buttons !== null);
   const [items, setItems] = useState<CustomButton[]>(buttons ?? []);
-  const [showAdd, setShowAdd] = useState(false);
+  const addForm = useDisclosure();
   const [newLabel, setNewLabel] = useState('');
   const [newUrl, setNewUrl] = useState('');
 
@@ -24,7 +24,7 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
     setItems([...items, { label: newLabel.trim(), url: newUrl.trim() }]);
     setNewLabel('');
     setNewUrl('');
-    setShowAdd(false);
+    addForm.close();
   }
 
   function handleRemove(index: number) {
@@ -124,14 +124,14 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
               </div>
             )}
 
-            {items.length === 0 && !showAdd && (
+            {items.length === 0 && !addForm.isOpen && (
               <p className="text-sm text-white/30 mb-4">
                 Нет кнопок. Анонс будет отправлен без кнопок.
               </p>
             )}
 
             {/* Add form */}
-            {showAdd ? (
+            {addForm.isOpen ? (
               <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-3">
                 <Input
                   placeholder="Текст кнопки"
@@ -147,7 +147,7 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
                   <Button variant="secondary" size="sm" onClick={handleAdd}>
                     Добавить
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>
+                  <Button variant="ghost" size="sm" onClick={addForm.close}>
                     Отмена
                   </Button>
                 </div>
@@ -156,7 +156,7 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowAdd(true)}
+                onClick={addForm.open}
                 className="mb-4"
               >
                 + Добавить кнопку
