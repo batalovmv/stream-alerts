@@ -142,13 +142,13 @@ jobs:
           pnpm --filter backend build
           pnpm --filter frontend build
 
-          # Restart backend via PM2
-          if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
-            pm2 restart "$PM2_NAME" --update-env
+          # Restart backend via PM2 (must use sudo — PM2 process runs under root)
+          if sudo pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
+            sudo pm2 restart "$PM2_NAME" --update-env
           else
-            pm2 start "$APP_DIR/ecosystem.config.cjs" --update-env
+            sudo pm2 start "$APP_DIR/ecosystem.config.cjs" --update-env
           fi
-          pm2 save
+          sudo pm2 save
 
           # Healthcheck
           echo "Waiting for healthcheck on :${HEALTH_PORT} ..."
@@ -163,7 +163,7 @@ jobs:
 
           if [ "$HEALTH_OK" != "1" ]; then
             echo "Healthcheck failed! Recent logs:"
-            pm2 logs "$PM2_NAME" --lines 30 --nostream || true
+            sudo pm2 logs "$PM2_NAME" --lines 30 --nostream || true
 
             # Attempt rollback
             if [ -n "$PREV_SHA" ]; then
@@ -175,8 +175,8 @@ jobs:
               # if the failed deploy included destructive schema changes
               pnpm --filter backend build
               pnpm --filter frontend build
-              pm2 restart "$PM2_NAME" --update-env
-              pm2 save
+              sudo pm2 restart "$PM2_NAME" --update-env
+              sudo pm2 save
               sudo nginx -t && sudo systemctl reload nginx || true
             fi
             exit 1
