@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@memelabui/ui';
 import { api } from '../api/client';
 import type { TelegramLinkResponse } from '../types/auth';
 
 export function useTelegramLink() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [deepLink, setDeepLink] = useState<string | null>(null);
   const expiryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -27,7 +29,9 @@ export function useTelegramLink() {
         expiryTimerRef.current = setTimeout(() => setDeepLink(null), ttl);
       }
     },
-    onError: (error) => { console.error('Failed to generate Telegram link:', error); },
+    onError: (error) => {
+      toast({ variant: 'error', title: 'Не удалось привязать Telegram', description: error.message || 'Попробуйте ещё раз' });
+    },
   });
 
   const unlinkMutation = useMutation({
@@ -37,7 +41,9 @@ export function useTelegramLink() {
       clearTimeout(expiryTimerRef.current);
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },
-    onError: (error) => { console.error('Failed to unlink Telegram:', error); },
+    onError: (error) => {
+      toast({ variant: 'error', title: 'Не удалось отвязать Telegram', description: error.message || 'Попробуйте ещё раз' });
+    },
   });
 
   return {

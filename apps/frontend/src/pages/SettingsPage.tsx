@@ -3,13 +3,13 @@ import { PlatformsDisplay } from '../components/settings/PlatformsDisplay';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { CustomBotEditor } from '../components/settings/CustomBotEditor';
 import { PhotoTypeSelector } from '../components/settings/PhotoTypeSelector';
-import { Skeleton } from '@memelabui/ui';
+import { Skeleton, Alert, Button } from '@memelabui/ui';
 import { useStreamerSettings } from '../hooks/useStreamerSettings';
 
 export function SettingsPage() {
-  const { settings, updatePlatforms, updateButtons, updateCustomBot, updatePhotoType } = useStreamerSettings();
+  const { settings, isLoading, error, updatePlatforms, updateButtons, updateCustomBot, updatePhotoType } = useStreamerSettings();
 
-  if (!settings) {
+  if (isLoading) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
@@ -17,6 +17,21 @@ export function SettingsPage() {
             <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error || !settings) {
+    return (
+      <DashboardLayout>
+        <Alert variant="error">
+          <div className="flex items-center justify-between w-full">
+            <span>Не удалось загрузить настройки</span>
+            <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+              Попробовать снова
+            </Button>
+          </div>
+        </Alert>
       </DashboardLayout>
     );
   }

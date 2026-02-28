@@ -65,13 +65,28 @@ export class TelegramProvider implements MessengerProvider {
       const replyMarkup = data.buttons?.length
         ? { inline_keyboard: [data.buttons.map((b) => ({ text: b.label, url: b.url }))] }
         : { inline_keyboard: [] };
-      await tg.editMessageText({
-        chatId,
-        messageId: numericId,
-        text: data.text,
-        replyMarkup,
-        token: this.token,
-      });
+      try {
+        await tg.editMessageText({
+          chatId,
+          messageId: numericId,
+          text: data.text,
+          replyMarkup,
+          token: this.token,
+        });
+      } catch (error) {
+        // Original message was a photo — editMessageText fails, fall back to editMessageCaption
+        if (error instanceof TelegramApiError && error.code === 400 && error.description?.includes('no text in the message')) {
+          await tg.editMessageCaption({
+            chatId,
+            messageId: numericId,
+            caption: data.text,
+            buttons: data.buttons,
+            token: this.token,
+          });
+        } else {
+          throw error;
+        }
+      }
     }
   }
 

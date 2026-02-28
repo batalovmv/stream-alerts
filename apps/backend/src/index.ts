@@ -41,7 +41,6 @@ app.use(express.json({ limit: '100kb' }));
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) return next();
   if (req.path.startsWith('/api/webhooks')) return next();
-  if (req.path.startsWith('/api/auth/twitch')) return next();
 
   const origin = req.headers.origin || (() => {
     try { return req.headers.referer ? new URL(req.headers.referer).origin : null; } catch { return null; }

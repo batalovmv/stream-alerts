@@ -42,7 +42,6 @@ export function TelegramStatus() {
           onConfirm={() => {
             unlink({
               onSuccess: () => unlinkDialog.close(),
-              onError: () => unlinkDialog.close(),
             });
           }}
           title="Отвязать Telegram"

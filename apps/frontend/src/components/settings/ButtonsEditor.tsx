@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, IconButton, Input, SectionCard, Tabs, TabList, Tab, TabPanel, Divider, useDisclosure } from '@memelabui/ui';
 import type { CustomButton } from '../../types/streamer';
 
@@ -16,11 +16,27 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
   const [newLabel, setNewLabel] = useState('');
   const [newUrl, setNewUrl] = useState('');
 
+  // Sync local state when server-refreshed props change
+  useEffect(() => {
+    setUseCustom(buttons !== null);
+    setItems(buttons ?? []);
+  }, [buttons]);
+
   const currentValue = useCustom ? items : null;
   const isDirty = JSON.stringify(currentValue) !== JSON.stringify(buttons);
 
+  function isHttpUrl(value: string): boolean {
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
   function handleAdd() {
     if (!newLabel.trim() || !newUrl.trim()) return;
+    if (!isHttpUrl(newUrl.trim())) return;
     setItems([...items, { label: newLabel.trim(), url: newUrl.trim() }]);
     setNewLabel('');
     setNewUrl('');
