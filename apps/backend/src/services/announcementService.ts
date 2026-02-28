@@ -288,24 +288,31 @@ async function handleStreamOnline(
         buttons,
       });
 
-      await prisma.announcementLog.create({
-        data: {
-          chatId: chat.id,
-          streamSessionId,
-          provider: chat.provider as MessengerProvider,
-          providerMsgId: result.messageId,
-          status: 'sent',
-          sentAt: new Date(),
-        },
-      });
-
-      await prisma.connectedChat.update({
-        where: { id: chat.id },
-        data: {
-          lastMessageId: result.messageId,
-          lastAnnouncedAt: new Date(),
-        },
-      });
+      // Send succeeded — DB writes must not trigger a re-send on failure
+      try {
+        await prisma.$transaction([
+          prisma.announcementLog.create({
+            data: {
+              chatId: chat.id,
+              streamSessionId,
+              provider: chat.provider as MessengerProvider,
+              providerMsgId: result.messageId,
+              status: 'sent',
+              sentAt: new Date(),
+            },
+          }),
+          prisma.connectedChat.update({
+            where: { id: chat.id },
+            data: {
+              lastMessageId: result.messageId,
+              lastAnnouncedAt: new Date(),
+            },
+          }),
+        ]);
+      } catch (dbError) {
+        // DB write failed AFTER successful send — log but don't retry the send
+        logger.error({ chatId: chat.chatId, messageId: result.messageId, error: dbError instanceof Error ? dbError.message : String(dbError) }, 'announce.db_write_failed_after_send');
+      }
 
       logger.info({ chatId: chat.chatId, provider: chat.provider as MessengerProvider, messageId: result.messageId }, 'announce.sent');
       results.push({ chatTitle: title, ok: true });
@@ -404,6 +411,7 @@ async function handleStreamUpdate(
   }
 
   const logByChat = new Map(sentLogs.map((log) => [log.chatId, log]));
+  let transientFailures = 0;
 
   for (const chat of streamer.chats) {
     const log = logByChat.get(chat.id);
@@ -430,8 +438,13 @@ async function handleStreamUpdate(
         logger.info({ chatId: chat.chatId, messageId: log.providerMsgId }, 'announce.update_skipped_message_gone');
       } else {
         logger.error({ chatId: chat.chatId, error: errMsg }, 'announce.update_failed');
+        transientFailures++;
       }
     }
+  }
+
+  if (transientFailures > 0) {
+    throw new Error(`${transientFailures} stream update edits failed (retryable)`);
   }
 }
 
@@ -446,6 +459,8 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
       deleteAfterEnd: true,
     },
   });
+
+  if (chats.length === 0) return;
 
   // Load streamer's custom bot token for deletion (messages were sent by this bot)
   const streamer = await prisma.streamer.findUnique({

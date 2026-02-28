@@ -36,13 +36,6 @@ export function useStreamerSettings() {
     onError: handleUpdateError,
   });
 
-  const updateDefaultTemplate = useMutation({
-    mutationFn: (defaultTemplate: string | null) =>
-      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { defaultTemplate }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
-    onError: handleUpdateError,
-  });
-
   const updateCustomBot = useMutation({
     mutationFn: (customBotToken: string | null) =>
       api.patch<StreamerSettingsResponse>('/api/streamer/settings', { customBotToken }),
@@ -63,7 +56,6 @@ export function useStreamerSettings() {
     error: settingsQuery.error,
     updatePlatforms,
     updateButtons,
-    updateDefaultTemplate,
     updateCustomBot,
     updatePhotoType,
   };

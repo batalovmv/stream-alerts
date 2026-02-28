@@ -1,5 +1,9 @@
 export const API_BASE = import.meta.env.VITE_API_URL || '';
 
+/** Callback invoked on any 401 response — set by the auth provider to trigger re-auth */
+let onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorized(cb: () => void) { onUnauthorized = cb; }
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -27,6 +31,10 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    // Global 401 handler — trigger re-auth check for expired sessions
+    if (res.status === 401 && !path.includes('/api/auth/me') && onUnauthorized) {
+      onUnauthorized();
+    }
     let data: unknown;
     try {
       data = await res.json();

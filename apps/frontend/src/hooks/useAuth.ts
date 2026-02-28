@@ -1,11 +1,19 @@
+import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, ApiError, API_BASE } from '../api/client';
+import { api, ApiError, API_BASE, setOnUnauthorized } from '../api/client';
 import type { AuthMeResponse, User } from '../types/auth';
 
 const AUTH_QUERY_KEY = ['auth', 'me'] as const;
 
 export function useAuth() {
   const queryClient = useQueryClient();
+
+  // Wire up global 401 handler — invalidate auth cache so ProtectedRoute redirects
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
+    });
+  }, [queryClient]);
 
   const { data, isLoading, error } = useQuery<AuthMeResponse>({
     queryKey: AUTH_QUERY_KEY,

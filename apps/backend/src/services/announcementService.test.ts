@@ -1064,7 +1064,7 @@ describe('handleStreamUpdate', () => {
     await processStreamEvent(updatePayload());
   });
 
-  it('does NOT throw for transient edit errors during update (logged only)', async () => {
+  it('throws for transient edit errors during update (for BullMQ retry)', async () => {
     const sentLog = {
       id: 'log-1',
       chatId: 'chat-1',
@@ -1075,8 +1075,8 @@ describe('handleStreamUpdate', () => {
     (prisma.announcementLog.findMany as Mock).mockResolvedValue([sentLog]);
     mockProvider.editAnnouncement.mockRejectedValue(transientError('timeout'));
 
-    // handleStreamUpdate catches and logs errors per-chat, doesn't re-throw
-    await processStreamEvent(updatePayload());
+    // handleStreamUpdate accumulates transient failures and re-throws for BullMQ retry
+    await expect(processStreamEvent(updatePayload())).rejects.toThrow('1 stream update edits failed (retryable)');
   });
 
   it('edits multiple chats independently', async () => {
@@ -1120,7 +1120,8 @@ describe('handleStreamUpdate', () => {
       .mockRejectedValueOnce(transientError('timeout'))  // chat-1 fails
       .mockResolvedValueOnce(undefined);                  // chat-2 succeeds
 
-    await processStreamEvent(updatePayload());
+    // Should throw because of 1 transient failure, but both chats were attempted
+    await expect(processStreamEvent(updatePayload())).rejects.toThrow('1 stream update edits failed (retryable)');
 
     // Both were attempted
     expect(mockProvider.editAnnouncement).toHaveBeenCalledTimes(2);

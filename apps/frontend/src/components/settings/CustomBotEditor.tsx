@@ -19,11 +19,13 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
     ? (error.data as { error?: string })?.error
     : error?.message;
 
-  // Auto-close form when custom bot is successfully connected
+  // Auto-close form/dialog when hasCustomBot changes (connect/disconnect succeeded)
   useEffect(() => {
     if (hasCustomBot) {
       showForm.close();
       setToken('');
+    } else {
+      removeDialog.close();
     }
   }, [hasCustomBot]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -34,7 +36,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
 
   function handleRemove() {
     onSave(null);
-    removeDialog.close();
+    // Dialog stays open — closes via useEffect when hasCustomBot changes to false
   }
 
   return (
