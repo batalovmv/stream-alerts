@@ -8,7 +8,7 @@ import { redis } from '../../lib/redis.js';
 import { prisma } from '../../lib/prisma.js';
 import { upsertStreamerFromProfile } from '../../services/streamerService.js';
 
-const AUTH_CACHE_PREFIX = 'auth:profile:';
+export const AUTH_CACHE_PREFIX = 'auth:profile:';
 const AUTH_CACHE_TTL = 300; // 5 minutes
 
 /**
@@ -106,7 +106,7 @@ export function extractToken(req: Request): string | null {
   return null;
 }
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -151,7 +151,7 @@ const memelabProfileSchema = z.object({
 
 type FetchResult = { profile: MemelabUserProfile; error?: undefined } | { profile: null; error: 'rejected' | 'network' };
 
-async function fetchMemelabProfile(token: string): Promise<FetchResult> {
+export async function fetchMemelabProfile(token: string): Promise<FetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
 

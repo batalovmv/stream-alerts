@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Landing } from './pages/Landing';
-import { Dashboard } from './pages/Dashboard';
+import { ChannelsPage } from './pages/ChannelsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Card, Button } from '@memelabui/ui';
@@ -31,11 +32,20 @@ export function App() {
     >
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/dashboard" element={<Navigate to="/dashboard/channels" replace />} />
         <Route
-          path="/dashboard"
+          path="/dashboard/channels"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <ChannelsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
             </ProtectedRoute>
           }
         />

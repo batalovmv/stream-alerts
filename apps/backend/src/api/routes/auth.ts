@@ -1,11 +1,13 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
-import { requireAuth, extractToken } from '../middleware/auth.js';
+import { requireAuth, extractToken, hashToken, AUTH_CACHE_PREFIX, fetchMemelabProfile } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
 import { config } from '../../lib/config.js';
+import { logger } from '../../lib/logger.js';
 import { redis } from '../../lib/redis.js';
 import { prisma } from '../../lib/prisma.js';
 import { getBotUsername } from '../../bot/setup.js';
+import { upsertStreamerFromProfile } from '../../services/streamerService.js';
 
 const router: RouterType = Router();
 
@@ -136,6 +138,40 @@ router.post('/telegram-unlink', requireAuth, async (req: Request, res: Response)
     res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/sync — Force-refresh streamer profile from MemeLab.
+ * Busts Redis auth cache and re-syncs platforms from memelab.ru.
+ */
+router.post('/sync', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const token = extractToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    // Bust cache
+    await redis.del(AUTH_CACHE_PREFIX + hashToken(token));
+
+    // Re-fetch and upsert
+    const fetchResult = await fetchMemelabProfile(token);
+    if (!fetchResult.profile || !fetchResult.profile.channel) {
+      res.status(502).json({ error: 'Could not fetch profile from MemeLab' });
+      return;
+    }
+
+    type ProfileWithChannel = typeof fetchResult.profile & {
+      channel: NonNullable<typeof fetchResult.profile.channel>;
+    };
+    await upsertStreamerFromProfile(fetchResult.profile as ProfileWithChannel);
+
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'auth.sync_failed');
+    res.status(500).json({ error: 'Sync failed' });
   }
 });
 
