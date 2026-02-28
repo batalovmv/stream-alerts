@@ -250,10 +250,10 @@ export function Landing() {
             <span>MemeLab Notify v0.1.0</span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="https://github.com/batalovmv/stream-alerts" className="hover:text-white/50 transition">
+            <a href="https://github.com/batalovmv/stream-alerts" target="_blank" rel="noopener noreferrer" className="hover:text-white/50 transition">
               GitHub
             </a>
-            <a href="https://memelab.ru" className="hover:text-white/50 transition">
+            <a href="https://memelab.ru" target="_blank" rel="noopener noreferrer" className="hover:text-white/50 transition">
               memelab.ru
             </a>
           </div>

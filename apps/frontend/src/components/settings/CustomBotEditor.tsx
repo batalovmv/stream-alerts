@@ -8,9 +8,10 @@ interface CustomBotEditorProps {
   onSave: (token: string | null) => void;
   isSaving: boolean;
   error: Error | null;
+  onResetError?: () => void;
 }
 
-export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSaving, error }: CustomBotEditorProps) {
+export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSaving, error, onResetError }: CustomBotEditorProps) {
   const showForm = useDisclosure();
   const [token, setToken] = useState('');
   const removeDialog = useDisclosure();
@@ -66,7 +67,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
             <Button
               variant="danger"
               size="sm"
-              onClick={removeDialog.open}
+              onClick={() => { onResetError?.(); removeDialog.open(); }}
             >
               Отключить
             </Button>
@@ -133,7 +134,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
         <Button
           variant="ghost"
           size="sm"
-          onClick={showForm.open}
+          onClick={() => { onResetError?.(); showForm.open(); }}
         >
           + Подключить своего бота
         </Button>

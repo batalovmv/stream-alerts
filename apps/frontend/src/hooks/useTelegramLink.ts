@@ -53,5 +53,6 @@ export function useTelegramLink() {
     unlink: (callbacks?: { onSuccess?: () => void; onError?: () => void }) =>
       unlinkMutation.mutate(undefined, callbacks),
     isUnlinking: unlinkMutation.isPending,
+    reset: () => { setDeepLink(null); clearTimeout(expiryTimerRef.current); },
   };
 }

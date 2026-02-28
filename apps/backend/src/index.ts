@@ -68,14 +68,15 @@ function rateLimit(name: string, windowMs: number, max: number) {
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
     const windowKey = `rl:${name}:${ip}:${Math.floor(Date.now() / windowMs)}`;
     try {
-      const count = await redis.incr(windowKey);
-      if (count === 1) await redis.pexpire(windowKey, windowMs);
+      const results = await redis.multi().incr(windowKey).pexpire(windowKey, windowMs).exec();
+      const count = (results?.[0]?.[1] as number) ?? 0;
       if (count > max) {
         res.status(429).json({ error: 'Too many requests' });
         return;
       }
       next();
-    } catch {
+    } catch (err) {
+      logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'rateLimit.redis_error_fail_open');
       next(); // fail-open: allow request if Redis is unavailable
     }
   };

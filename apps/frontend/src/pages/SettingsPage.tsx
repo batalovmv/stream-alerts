@@ -66,6 +66,7 @@ export function SettingsPage() {
           onSave={(token) => updateCustomBot.mutate(token)}
           isSaving={updateCustomBot.isPending}
           error={updateCustomBot.error}
+          onResetError={() => updateCustomBot.reset()}
         />
       </div>
     </DashboardLayout>

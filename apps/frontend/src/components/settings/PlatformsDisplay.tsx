@@ -180,6 +180,8 @@ export function PlatformsDisplay({ platforms, onUpdate, isUpdating }: PlatformsD
 
               {availableQuery.isLoading ? (
                 <p className="text-xs text-white/40 py-2">Загрузка...</p>
+              ) : availableQuery.isError ? (
+                <p className="text-xs text-red-400 py-2">Не удалось загрузить аккаунты. Попробуйте обновить страницу.</p>
               ) : availableToAdd.length === 0 ? (
                 <p className="text-xs text-white/40 py-2">
                   Все привязанные аккаунты уже добавлены.{' '}

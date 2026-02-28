@@ -12,9 +12,11 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 
+const HEX_64_RE = /^[0-9a-fA-F]{64}$/;
+
 function getKey(): Buffer {
   const hex = config.botTokenEncryptionKey;
-  if (!hex || hex.length !== 64) {
+  if (!hex || !HEX_64_RE.test(hex)) {
     throw new Error('BOT_TOKEN_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)');
   }
   return Buffer.from(hex, 'hex');
@@ -22,7 +24,7 @@ function getKey(): Buffer {
 
 /** Check if encryption is available (key configured) */
 export function isEncryptionAvailable(): boolean {
-  return config.botTokenEncryptionKey.length === 64;
+  return HEX_64_RE.test(config.botTokenEncryptionKey);
 }
 
 /** Encrypt plaintext → base64 string */

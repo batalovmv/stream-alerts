@@ -18,6 +18,9 @@ export function useChats() {
     mutationFn: (data: { provider: string; chatId: string }) =>
       api.post<ChatResponse>('/api/chats', data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CHATS_QUERY_KEY }),
+    onError: (error) => {
+      toast({ variant: 'error', title: 'Не удалось добавить канал', description: error.message || 'Попробуйте ещё раз' });
+    },
   });
 
   const updateChat = useMutation({

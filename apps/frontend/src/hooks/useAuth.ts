@@ -13,6 +13,7 @@ export function useAuth() {
     setOnUnauthorized(() => {
       queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
     });
+    return () => setOnUnauthorized(() => {});
   }, [queryClient]);
 
   const { data, isLoading, error } = useQuery<AuthMeResponse>({

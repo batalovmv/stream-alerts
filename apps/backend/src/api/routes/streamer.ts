@@ -116,9 +116,13 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
     // Handle custom bot token
     if (customBotToken !== undefined) {
       if (customBotToken === null) {
-        // Remove custom bot
+        // Remove custom bot — clear lastMessageId since global bot cannot delete messages sent by the custom bot
         data.customBotToken = null;
         data.customBotUsername = null;
+        await prisma.connectedChat.updateMany({
+          where: { streamerId: streamer.id },
+          data: { lastMessageId: null },
+        });
       } else {
         // Validate encryption is available
         if (!isEncryptionAvailable()) {

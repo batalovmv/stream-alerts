@@ -15,6 +15,7 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
   const addForm = useDisclosure();
   const [newLabel, setNewLabel] = useState('');
   const [newUrl, setNewUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
 
   // Sync local state when server-refreshed props change
   useEffect(() => {
@@ -25,7 +26,9 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
   const currentValue = useCustom ? items : null;
   const isDirty = JSON.stringify(currentValue) !== JSON.stringify(buttons);
 
-  function isHttpUrl(value: string): boolean {
+  function isValidButtonUrl(value: string): boolean {
+    // Allow template variables like {twitch_url} — will be resolved at send time
+    if (/\{[a-z_]+\}/.test(value)) return true;
     try {
       const parsed = new URL(value);
       return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -36,7 +39,11 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
 
   function handleAdd() {
     if (!newLabel.trim() || !newUrl.trim()) return;
-    if (!isHttpUrl(newUrl.trim())) return;
+    if (!isValidButtonUrl(newUrl.trim())) {
+      setUrlError('Введите корректный HTTP/HTTPS URL или шаблон вида {twitch_url}');
+      return;
+    }
+    setUrlError('');
     setItems([...items, { label: newLabel.trim(), url: newUrl.trim() }]);
     setNewLabel('');
     setNewUrl('');
@@ -157,7 +164,8 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
                 <Input
                   placeholder="URL (можно использовать {twitch_url}, {youtube_url} и т.д.)"
                   value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
+                  onChange={(e) => { setNewUrl(e.target.value); setUrlError(''); }}
+                  error={urlError || undefined}
                 />
                 <div className="flex gap-2">
                   <Button variant="secondary" size="sm" onClick={handleAdd}>

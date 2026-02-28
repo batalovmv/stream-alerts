@@ -11,8 +11,10 @@ interface AddChatModalProps {
 export function AddChatModal({ open, onClose }: AddChatModalProps) {
   const { user } = useAuth();
   const telegramLinked = user?.telegramLinked ?? false;
+  const telegramLink = useTelegramLink();
 
   function handleClose() {
+    telegramLink.reset();
     onClose();
   }
 
@@ -33,7 +35,7 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
         {telegramLinked ? (
           <LinkedFlow onClose={handleClose} />
         ) : (
-          <LinkAccountFlow />
+          <LinkAccountFlow telegramLink={telegramLink} />
         )}
       </div>
     </Modal>
@@ -41,8 +43,8 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
 }
 
 /** Flow when Telegram is NOT yet linked — show link button */
-function LinkAccountFlow() {
-  const { deepLink, isLoading, generate } = useTelegramLink();
+function LinkAccountFlow({ telegramLink }: { telegramLink: ReturnType<typeof useTelegramLink> }) {
+  const { deepLink, isLoading, generate } = telegramLink;
 
   return (
     <>
