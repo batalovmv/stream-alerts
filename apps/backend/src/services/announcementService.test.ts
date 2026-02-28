@@ -1147,7 +1147,7 @@ describe('thumbnailUrl sanitization', () => {
     expect(mockProvider.sendAnnouncement).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        photoUrl: 'https://static-cdn.jtvnw.net/previews-ttv/live_user_test-{width}x{height}.jpg',
+        photoUrl: 'https://static-cdn.jtvnw.net/previews-ttv/live_user_test-1280x720.jpg',
       }),
     );
   });

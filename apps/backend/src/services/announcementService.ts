@@ -26,13 +26,15 @@ const ALLOWED_THUMBNAIL_HOSTS = new Set([
 function sanitizeThumbnailUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
-    const parsed = new URL(url);
+    // Replace Twitch thumbnail placeholders with actual dimensions
+    const resolved = url.replace('{width}', '1280').replace('{height}', '720');
+    const parsed = new URL(resolved);
     if (parsed.protocol !== 'https:') return undefined;
     if (!ALLOWED_THUMBNAIL_HOSTS.has(parsed.hostname)) {
-      logger.warn({ thumbnailUrl: url, host: parsed.hostname }, 'announce.thumbnail_blocked');
+      logger.warn({ thumbnailUrl: resolved, host: parsed.hostname }, 'announce.thumbnail_blocked');
       return undefined;
     }
-    return url;
+    return resolved;
   } catch {
     return undefined;
   }
