@@ -5,7 +5,7 @@
  * Handles stream.offline → delete previous announcements (including disabled chats).
  */
 
-import type { MessengerProvider } from '@prisma/client';
+import type { MessengerProvider, PhotoType } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { logger } from '../lib/logger.js';
 import { redis } from '../lib/redis.js';
@@ -35,6 +35,27 @@ function sanitizeThumbnailUrl(url: string | undefined): string | undefined {
     return url;
   } catch {
     return undefined;
+  }
+}
+
+/** Resolve the photo URL based on streamer's photoType preference */
+function resolvePhotoUrl(
+  photoType: PhotoType,
+  thumbnailUrl: string | undefined,
+  gameName: string | undefined,
+): string | undefined {
+  switch (photoType) {
+    case 'stream_preview':
+      return sanitizeThumbnailUrl(thumbnailUrl);
+    case 'game_box_art': {
+      if (!gameName) return sanitizeThumbnailUrl(thumbnailUrl); // fallback to stream preview
+      const boxArtUrl = `https://static-cdn.jtvnw.net/ttv-boxart/${encodeURIComponent(gameName)}-285x380.jpg`;
+      return sanitizeThumbnailUrl(boxArtUrl);
+    }
+    case 'none':
+      return undefined;
+    default:
+      return sanitizeThumbnailUrl(thumbnailUrl);
   }
 }
 
@@ -89,9 +110,16 @@ export async function processStreamEvent(payload: StreamEventPayload, jobId?: st
   // Find streamer by MemeLab channel ID
   const streamer = await prisma.streamer.findUnique({
     where: { memelabChannelId: payload.channelId },
-    include: {
-      // For online: only enabled chats
-      // For offline: we re-query to include all chats with deleteAfterEnd
+    select: {
+      id: true,
+      displayName: true,
+      twitchLogin: true,
+      defaultTemplate: true,
+      telegramUserId: true,
+      streamPlatforms: true,
+      customButtons: true,
+      customBotToken: true,
+      photoType: true,
       chats: { where: { enabled: true } },
     },
   });
@@ -140,12 +168,12 @@ export async function processStreamEvent(payload: StreamEventPayload, jobId?: st
 // ─── Stream Online ────────────────────────────────────────
 
 async function handleStreamOnline(
-  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; telegramUserId: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; photoType: PhotoType; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
   streamSessionId: string,
   jobId?: string,
 ): Promise<void> {
-  const safePhotoUrl = sanitizeThumbnailUrl(payload.thumbnailUrl);
+  const safePhotoUrl = resolvePhotoUrl(streamer.photoType, payload.thumbnailUrl, payload.gameName);
 
   const platforms = parseStreamPlatforms(streamer.streamPlatforms);
   const customButtons = parseCustomButtons(streamer.customButtons);
@@ -336,11 +364,11 @@ async function handleStreamOnline(
 // ─── Stream Update ────────────────────────────────────────
 
 async function handleStreamUpdate(
-  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
+  streamer: { id: string; displayName: string; twitchLogin: string | null; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; photoType: PhotoType; chats: Array<{ id: string; provider: string; chatId: string; chatTitle: string | null; customTemplate: string | null }> },
   payload: StreamEventPayload,
   streamSessionId: string,
 ): Promise<void> {
-  const safePhotoUrl = sanitizeThumbnailUrl(payload.thumbnailUrl);
+  const safePhotoUrl = resolvePhotoUrl(streamer.photoType, payload.thumbnailUrl, payload.gameName);
 
   const platforms = parseStreamPlatforms(streamer.streamPlatforms);
   const customButtons = parseCustomButtons(streamer.customButtons);

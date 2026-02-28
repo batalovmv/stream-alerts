@@ -5,6 +5,7 @@ import { TelegramStatus } from '../components/chat/TelegramStatus';
 import { PlatformsEditor } from '../components/settings/PlatformsEditor';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { CustomBotEditor } from '../components/settings/CustomBotEditor';
+import { PhotoTypeSelector } from '../components/settings/PhotoTypeSelector';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Button, Skeleton, EmptyState, Alert, Card, useDisclosure } from '@memelabui/ui';
 import { useChats } from '../hooks/useChats';
@@ -15,7 +16,7 @@ export function Dashboard() {
   const addModal = useDisclosure();
   const { chats, isLoading, error } = useChats();
   const { user } = useAuth();
-  const { settings, updatePlatforms, updateButtons, updateCustomBot } = useStreamerSettings();
+  const { settings, updatePlatforms, updateButtons, updateCustomBot, updatePhotoType } = useStreamerSettings();
 
   return (
     <DashboardLayout>
@@ -41,6 +42,11 @@ export function Dashboard() {
               buttons={settings.customButtons}
               onSave={(buttons) => updateButtons.mutate(buttons)}
               isSaving={updateButtons.isPending}
+            />
+            <PhotoTypeSelector
+              value={settings.photoType}
+              onSave={(photoType) => updatePhotoType.mutate(photoType)}
+              isSaving={updatePhotoType.isPending}
             />
             <CustomBotEditor
               hasCustomBot={settings.hasCustomBot}

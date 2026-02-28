@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@memelabui/ui';
 import { api } from '../api/client';
-import type { StreamerSettingsResponse, StreamPlatform, CustomButton } from '../types/streamer';
+import type { StreamerSettingsResponse, StreamPlatform, CustomButton, PhotoType } from '../types/streamer';
 
 const SETTINGS_QUERY_KEY = ['streamer', 'settings'] as const;
 
@@ -50,6 +50,13 @@ export function useStreamerSettings() {
     onError: handleUpdateError,
   });
 
+  const updatePhotoType = useMutation({
+    mutationFn: (photoType: PhotoType) =>
+      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { photoType }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
+    onError: handleUpdateError,
+  });
+
   return {
     settings: settingsQuery.data ?? null,
     isLoading: settingsQuery.isLoading,
@@ -58,5 +65,6 @@ export function useStreamerSettings() {
     updateButtons,
     updateDefaultTemplate,
     updateCustomBot,
+    updatePhotoType,
   };
 }

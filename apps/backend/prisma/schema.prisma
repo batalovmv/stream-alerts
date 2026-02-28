@@ -28,6 +28,9 @@ model Streamer {
   // JSON array: [{ label, url }] — null = default buttons, [] = no buttons
   customButtons    Json?    @db.JsonB
 
+  // Photo type for announcements
+  photoType        PhotoType @default(stream_preview)
+
   // Custom Telegram bot for announcements (optional)
   customBotToken    String?  @db.Text    // Encrypted bot token (AES-256-GCM)
   customBotUsername String?              // @username of the custom bot (for display)
@@ -41,6 +44,12 @@ model Streamer {
   chats            ConnectedChat[]
 
   @@index([twitchLogin])
+}
+
+enum PhotoType {
+  stream_preview
+  game_box_art
+  none
 }
 
 enum MessengerProvider {

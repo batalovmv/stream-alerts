@@ -15,6 +15,8 @@ export interface TemplateVariable {
   description: string;
 }
 
+export type PhotoType = 'stream_preview' | 'game_box_art' | 'none';
+
 export interface StreamerSettings {
   streamPlatforms: StreamPlatform[];
   customButtons: CustomButton[] | null;
@@ -22,6 +24,7 @@ export interface StreamerSettings {
   templateVariables?: TemplateVariable[];
   customBotUsername: string | null;
   hasCustomBot: boolean;
+  photoType: PhotoType;
 }
 
 export interface StreamerSettingsResponse extends StreamerSettings {

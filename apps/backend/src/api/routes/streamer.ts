@@ -33,6 +33,7 @@ const updateSettingsSchema = z.object({
   customButtons: z.array(customButtonSchema).max(20).nullable().optional(),
   defaultTemplate: z.string().max(2000).nullable().optional(),
   customBotToken: z.string().regex(/^\d+:[A-Za-z0-9_-]+$/, 'Invalid bot token format').nullable().optional(),
+  photoType: z.enum(['stream_preview', 'game_box_art', 'none']).optional(),
 }).refine(
   (data) => Object.values(data).some((v) => v !== undefined),
   { message: 'At least one field must be provided' },
@@ -55,6 +56,7 @@ router.get('/settings', async (req: Request, res: Response) => {
         defaultTemplate: true,
         customBotUsername: true,
         customBotToken: true,
+        photoType: true,
       },
     });
 
@@ -70,6 +72,7 @@ router.get('/settings', async (req: Request, res: Response) => {
       templateVariables: TEMPLATE_VARIABLE_DOCS,
       customBotUsername: dbStreamer.customBotUsername ?? null,
       hasCustomBot: !!dbStreamer.customBotToken,
+      photoType: dbStreamer.photoType,
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
@@ -84,7 +87,7 @@ router.get('/settings', async (req: Request, res: Response) => {
 router.patch('/settings', validate(updateSettingsSchema), async (req: Request, res: Response) => {
   try {
     const { streamer } = req as AuthenticatedRequest;
-    const { streamPlatforms, customButtons, defaultTemplate, customBotToken } = req.body;
+    const { streamPlatforms, customButtons, defaultTemplate, customBotToken, photoType } = req.body;
 
     const data: Record<string, unknown> = {};
 
@@ -104,6 +107,10 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
 
     if (defaultTemplate !== undefined) {
       data.defaultTemplate = defaultTemplate;
+    }
+
+    if (photoType !== undefined) {
+      data.photoType = photoType;
     }
 
     // Handle custom bot token
@@ -150,6 +157,7 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
         defaultTemplate: true,
         customBotUsername: true,
         customBotToken: true,
+        photoType: true,
       },
       data,
     });
@@ -165,6 +173,7 @@ router.patch('/settings', validate(updateSettingsSchema), async (req: Request, r
       defaultTemplate: updated.defaultTemplate,
       customBotUsername: updated.customBotUsername ?? null,
       hasCustomBot: !!updated.customBotToken,
+      photoType: updated.photoType,
     });
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);

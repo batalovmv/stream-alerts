@@ -1,5 +1,6 @@
 import type { MessengerProvider, AnnouncementData, SendResult, ChatInfo } from '../types.js';
 import * as tg from './telegramApi.js';
+import { TelegramApiError } from './telegramApi.js';
 import { logger } from '../../lib/logger.js';
 
 export class TelegramProvider implements MessengerProvider {
@@ -15,15 +16,24 @@ export class TelegramProvider implements MessengerProvider {
 
   async sendAnnouncement(chatId: string, data: AnnouncementData): Promise<SendResult> {
     if (data.photoUrl) {
-      const msg = await tg.sendPhoto({
-        chatId,
-        photoUrl: data.photoUrl,
-        caption: data.text,
-        buttons: data.buttons,
-        silent: data.silent,
-        token: this.token,
-      });
-      return { messageId: String(msg.message_id) };
+      try {
+        const msg = await tg.sendPhoto({
+          chatId,
+          photoUrl: data.photoUrl,
+          caption: data.text,
+          buttons: data.buttons,
+          silent: data.silent,
+          token: this.token,
+        });
+        return { messageId: String(msg.message_id) };
+      } catch (error) {
+        // On image-related 400 errors, fallback to text-only instead of failing
+        if (error instanceof TelegramApiError && error.code === 400) {
+          logger.warn({ chatId, photoUrl: data.photoUrl, error: error.description }, 'telegram.sendPhoto_fallback_to_text');
+        } else {
+          throw error;
+        }
+      }
     }
 
     const msg = await tg.sendMessage({
