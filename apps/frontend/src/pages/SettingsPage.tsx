@@ -7,7 +7,7 @@ import { Skeleton } from '@memelabui/ui';
 import { useStreamerSettings } from '../hooks/useStreamerSettings';
 
 export function SettingsPage() {
-  const { settings, updateButtons, updateCustomBot, updatePhotoType } = useStreamerSettings();
+  const { settings, updatePlatforms, updateButtons, updateCustomBot, updatePhotoType } = useStreamerSettings();
 
   if (!settings) {
     return (
@@ -30,7 +30,11 @@ export function SettingsPage() {
         </p>
       </div>
       <div className="space-y-4">
-        <PlatformsDisplay platforms={settings.streamPlatforms} />
+        <PlatformsDisplay
+          platforms={settings.streamPlatforms}
+          onUpdate={(platforms) => updatePlatforms.mutate(platforms)}
+          isUpdating={updatePlatforms.isPending}
+        />
         <ButtonsEditor
           buttons={settings.customButtons}
           onSave={(buttons) => updateButtons.mutate(buttons)}

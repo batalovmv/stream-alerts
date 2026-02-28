@@ -17,7 +17,7 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
   }
 
   return (
-    <Modal isOpen={open} onClose={handleClose} ariaLabel="Подключить канал">
+    <Modal isOpen={open} onClose={handleClose} ariaLabel="Подключить канал" contentClassName="max-w-md p-5">
       <div className="space-y-5">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">Подключить канал</h2>

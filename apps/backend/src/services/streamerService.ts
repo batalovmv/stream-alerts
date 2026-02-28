@@ -5,7 +5,7 @@ import type { StreamPlatform } from '../lib/streamPlatforms.js';
 import type { MemelabUserProfile, AuthStreamer } from '../api/middleware/types.js';
 
 /** Map MemeLab OAuth provider names to our platform identifiers */
-const PROVIDER_TO_PLATFORM: Record<string, StreamPlatform['platform']> = {
+export const PROVIDER_TO_PLATFORM: Record<string, StreamPlatform['platform']> = {
   twitch: 'twitch',
   youtube: 'youtube',
   google: 'youtube', // MemeLab might use 'google' for YouTube OAuth
@@ -14,18 +14,17 @@ const PROVIDER_TO_PLATFORM: Record<string, StreamPlatform['platform']> = {
 };
 
 /**
- * Merge OAuth-synced platforms with existing manual platforms.
+ * Merge OAuth-synced platforms with existing platforms.
  *
- * - OAuth platforms are updated/added (isManual: false)
- * - Manual platforms (isManual: true) are preserved as-is
- * - OAuth platforms that no longer exist in the profile are removed
+ * First-time setup (existing is empty): all OAuth accounts are added automatically.
+ * Subsequent syncs: only update URL/login data for OAuth platforms already in the list.
+ * Manual platforms (isManual: true) are always preserved as-is.
+ * New OAuth accounts are NOT auto-added — user must explicitly add them via the UI.
  */
 function mergeStreamPlatforms(
   existing: StreamPlatform[],
   oauthAccounts: MemelabUserProfile['externalAccounts'],
 ): StreamPlatform[] {
-  const manualPlatforms = existing.filter((p) => p.isManual);
-
   const oauthPlatforms: StreamPlatform[] = oauthAccounts
     .filter((acc) => acc.login && PROVIDER_TO_PLATFORM[acc.provider])
     .map((acc) => {
@@ -39,27 +38,34 @@ function mergeStreamPlatforms(
       };
     });
 
-  // Combine: OAuth platforms first, then manual ones (skip duplicates by platform+login)
-  const seen = new Set<string>();
-  const merged: StreamPlatform[] = [];
+  // First-time setup: add all OAuth platforms
+  if (existing.length === 0) {
+    const seen = new Set<string>();
+    const merged: StreamPlatform[] = [];
+    for (const p of oauthPlatforms) {
+      const key = `${p.platform}:${p.login}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(p);
+      }
+    }
+    return merged;
+  }
 
+  // Subsequent syncs: only update existing OAuth entries, don't add new ones
+  const oauthMap = new Map<string, StreamPlatform>();
   for (const p of oauthPlatforms) {
-    const key = `${p.platform}:${p.login}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      merged.push(p);
-    }
+    oauthMap.set(`${p.platform}:${p.login}`, p);
   }
 
-  for (const p of manualPlatforms) {
-    const key = `${p.platform}:${p.login}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      merged.push(p);
-    }
-  }
-
-  return merged;
+  return existing.map((p) => {
+    if (p.isManual) return p;
+    // Update URL if OAuth data is still available
+    const fresh = oauthMap.get(`${p.platform}:${p.login}`);
+    if (fresh) return { ...p, url: fresh.url };
+    // OAuth account removed from profile — keep platform as user chose it
+    return p;
+  });
 }
 
 /**

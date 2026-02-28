@@ -30,3 +30,18 @@ export interface StreamerSettings {
 export interface StreamerSettingsResponse extends StreamerSettings {
   templateVariables: TemplateVariable[];
 }
+
+export interface AvailableAccount {
+  platform: StreamPlatform['platform'];
+  login: string;
+  displayName: string;
+}
+
+export interface AvailablePlatformsResponse {
+  availableAccounts: AvailableAccount[];
+}
+
+export interface SyncResponse {
+  ok: boolean;
+  availableAccounts: AvailableAccount[];
+}

@@ -7,7 +7,8 @@ import { logger } from '../../lib/logger.js';
 import { redis } from '../../lib/redis.js';
 import { prisma } from '../../lib/prisma.js';
 import { getBotUsername } from '../../bot/setup.js';
-import { upsertStreamerFromProfile } from '../../services/streamerService.js';
+import { upsertStreamerFromProfile, PROVIDER_TO_PLATFORM } from '../../services/streamerService.js';
+import type { MemelabUserProfile } from '../middleware/types.js';
 
 const router: RouterType = Router();
 
@@ -144,6 +145,7 @@ router.post('/telegram-unlink', requireAuth, async (req: Request, res: Response)
 /**
  * POST /api/auth/sync — Force-refresh streamer profile from MemeLab.
  * Busts Redis auth cache and re-syncs platforms from memelab.ru.
+ * Returns available external accounts for the platform picker.
  */
 router.post('/sync', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -168,10 +170,54 @@ router.post('/sync', requireAuth, async (req: Request, res: Response) => {
     };
     await upsertStreamerFromProfile(fetchResult.profile as ProfileWithChannel);
 
-    res.json({ ok: true });
+    // Return available accounts for platform picker
+    const availableAccounts = fetchResult.profile.externalAccounts
+      .filter((acc) => acc.login && PROVIDER_TO_PLATFORM[acc.provider])
+      .map((acc) => ({
+        platform: PROVIDER_TO_PLATFORM[acc.provider]!,
+        login: acc.login!,
+        displayName: acc.displayName ?? acc.login!,
+      }));
+
+    res.json({ ok: true, availableAccounts });
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.message : String(error) }, 'auth.sync_failed');
     res.status(500).json({ error: 'Sync failed' });
+  }
+});
+
+/**
+ * GET /api/auth/available-platforms — List external accounts from MemeLab profile.
+ * Returns accounts that can be added as stream platforms.
+ */
+router.get('/available-platforms', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const token = extractToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    // Read cached profile (requireAuth already populated it)
+    const cached = await redis.get(AUTH_CACHE_PREFIX + hashToken(token));
+    if (!cached) {
+      res.status(502).json({ error: 'Profile not available' });
+      return;
+    }
+
+    const profile = JSON.parse(cached) as MemelabUserProfile;
+    const availableAccounts = profile.externalAccounts
+      .filter((acc) => acc.login && PROVIDER_TO_PLATFORM[acc.provider])
+      .map((acc) => ({
+        platform: PROVIDER_TO_PLATFORM[acc.provider]!,
+        login: acc.login!,
+        displayName: acc.displayName ?? acc.login!,
+      }));
+
+    res.json({ availableAccounts });
+  } catch (error) {
+    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'auth.available_platforms_failed');
+    res.status(500).json({ error: 'Failed to load available platforms' });
   }
 });
 
