@@ -188,7 +188,15 @@ async function handleConfirmRemove(
     return;
   }
 
-  await prisma.connectedChat.delete({ where: { id: chatDbId, streamerId: streamer.id } });
+  try {
+    await prisma.connectedChat.delete({ where: { id: chatDbId, streamerId: streamer.id } });
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2025') {
+      await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал уже удалён', showAlert: true });
+      return;
+    }
+    throw error;
+  }
 
   logger.info({ chatId: chat.chatId, streamerId: streamer.id }, 'bot.chat_removed');
 

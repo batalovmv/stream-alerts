@@ -112,6 +112,7 @@ model AnnouncementLog {
   chat            ConnectedChat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId, status])
+  @@index([chatId, streamSessionId, status])
   @@index([streamSessionId])
   @@index([status, queuedAt])
 }

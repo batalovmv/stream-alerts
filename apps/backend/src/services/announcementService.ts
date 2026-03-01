@@ -207,6 +207,7 @@ async function handleStreamOnline(
 
   for (const chat of streamer.chats) {
     const title = escapeHtml(chat.chatTitle ?? chat.chatId);
+    const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
     try {
       const template = chat.customTemplate || streamer.defaultTemplate;
       const text = renderTemplate(template, templateVars);
@@ -240,7 +241,6 @@ async function handleStreamOnline(
       // Atomic dedup lock: prevent concurrent workers from sending to the same chat+session.
       // Lock value = jobId for re-entrant retries. TTL covers full BullMQ retry window
       // (3 attempts, exponential backoff 5s base → max ~15s delay + 30s processing + buffer).
-      const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
       const lockValue = jobId ?? `fallback:${Date.now()}`;
       const LOCK_TTL_SECONDS = 120;
 
@@ -328,6 +328,8 @@ async function handleStreamOnline(
           where: { id: chat.id },
           data: { enabled: false },
         });
+        // Release dedup lock — this chat is permanently done, no retry needed
+        await redis.del(lockKey);
         logger.warn({ chatId: chat.chatId, provider: chat.provider }, 'announce.chat_disabled_permanent_error');
       }
       // NEVER release dedup lock on transient failure — let TTL expire naturally.

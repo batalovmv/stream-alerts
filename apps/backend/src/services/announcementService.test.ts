@@ -17,8 +17,9 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 // Prisma mock
 vi.mock('../lib/prisma.js', () => ({
   prisma: {
+    $transaction: vi.fn((args: unknown[]) => Promise.all(args)),
     streamer: { findUnique: vi.fn() },
-    connectedChat: { findMany: vi.fn(), update: vi.fn() },
+    connectedChat: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     announcementLog: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
