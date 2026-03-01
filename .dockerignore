@@ -1,0 +1,36 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (built fresh in Docker)
+node_modules
+apps/*/node_modules
+
+# Build artifacts
+apps/backend/dist
+apps/frontend/dist
+
+# Documentation and AI context
+docs
+.claude
+CLAUDE.md
+README.md
+
+# Test and dev files
+**/*.test.ts
+**/*.spec.ts
+vitest.config.ts
+coverage
+
+# Local env files
+.env
+.env.*
+apps/backend/.env
+apps/frontend/.env
+
+# CI/CD
+.github
+
+# OS artifacts
+.DS_Store
+Thumbs.db

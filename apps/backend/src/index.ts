@@ -99,6 +99,11 @@ if (config.maxBotToken) {
   logger.info('MAX provider registered');
 }
 
+// Warn if custom bot feature is unavailable
+if (!config.botTokenEncryptionKey) {
+  logger.warn('BOT_TOKEN_ENCRYPTION_KEY is not set — custom bot token feature is disabled');
+}
+
 // ─── Routes ───────────────────────────────────────────────
 
 import { createRequire } from 'node:module';

@@ -25,7 +25,7 @@ const streamPlatformSchema = z.object({
 
 const customButtonSchema = z.object({
   label: z.string().min(1).max(100),
-  url: z.string().min(1).max(500),
+  url: z.string().url().max(500),
 });
 
 const updateSettingsSchema = z.object({

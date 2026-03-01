@@ -112,7 +112,7 @@ export function ButtonsEditor({ buttons, onSave, isSaving }: ButtonsEditorProps)
             {items.length > 0 && (
               <div className="space-y-2 mb-4">
                 {items.map((btn, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3">
+                  <div key={`${btn.label}-${btn.url}-${i}`} className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">{btn.label}</div>
                       <div className="text-xs text-white/30 truncate">{btn.url}</div>

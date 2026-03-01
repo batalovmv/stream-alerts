@@ -19,7 +19,7 @@ vi.mock('../lib/prisma.js', () => ({
   prisma: {
     $transaction: vi.fn((args: unknown[]) => Promise.all(args)),
     streamer: { findUnique: vi.fn() },
-    connectedChat: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    connectedChat: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     announcementLog: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -37,6 +37,7 @@ vi.mock('../lib/redis.js', () => ({
     get: vi.fn(),
     del: vi.fn(),
     expire: vi.fn(),
+    eval: vi.fn(),
   },
 }));
 
@@ -191,11 +192,12 @@ function transientError(msg = 'Request timeout'): Error {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Default: Redis set succeeds (lock acquired), get returns null
+  // Default: Redis set succeeds (lock acquired), eval returns 'OK' (Lua lock script)
   (redis.set as Mock).mockResolvedValue('OK');
   (redis.get as Mock).mockResolvedValue(null);
   (redis.del as Mock).mockResolvedValue(1);
   (redis.expire as Mock).mockResolvedValue(1);
+  (redis.eval as Mock).mockResolvedValue('OK');
 
   // Default: no existing announcement logs
   (prisma.announcementLog.findMany as Mock).mockResolvedValue([]);
@@ -385,55 +387,32 @@ describe('handleStreamOnline dedup logic', () => {
 
   // --- Lock acquisition ---
 
-  it('acquires Redis lock with NX and sends announcement', async () => {
+  it('acquires Redis lock via Lua script and sends announcement', async () => {
     await processStreamEvent(onlinePayload(), 'job-42');
 
-    // Lock acquired
-    expect(redis.set).toHaveBeenCalledWith(
+    // Lock acquired via atomic Lua script
+    expect(redis.eval).toHaveBeenCalledWith(
+      expect.any(String), // Lua script
+      1, // numkeys
       expect.stringMatching(/^announce:lock:chat-1:/),
       'job-42',
-      'EX',
-      120,
-      'NX',
+      '120',
     );
     expect(mockProvider.sendAnnouncement).toHaveBeenCalled();
   });
 
-  it('allows re-entrant retry when lock holder matches jobId', async () => {
-    // First set NX fails (lock already held)
-    (redis.set as Mock).mockImplementation((...args: unknown[]) => {
-      const key = args[0] as string;
-      if (key.startsWith('announce:lock:')) return Promise.resolve(null); // NX fail
-      return Promise.resolve('OK'); // session key etc.
-    });
-    // Lock value matches our jobId — re-entrant
-    (redis.get as Mock).mockImplementation((...args: unknown[]) => {
-      const key = args[0] as string;
-      if (key.startsWith('announce:lock:')) return Promise.resolve('job-42');
-      if (key.startsWith('announce:notified:')) return Promise.resolve(null);
-      return Promise.resolve(null);
-    });
-
+  it('allows re-entrant retry when Lua script returns OK for same jobId', async () => {
+    // Lua script returns 'OK' for re-entrant case (same job, TTL refreshed internally)
+    // Default mock already returns 'OK', so this just validates the flow works
     await processStreamEvent(onlinePayload(), 'job-42');
 
-    // TTL refreshed
-    expect(redis.expire).toHaveBeenCalledWith(expect.stringMatching(/^announce:lock:/), 120);
     // Send still proceeds
     expect(mockProvider.sendAnnouncement).toHaveBeenCalled();
   });
 
   it('skips chat when lock is held by a different job', async () => {
-    (redis.set as Mock).mockImplementation((...args: unknown[]) => {
-      const key = args[0] as string;
-      if (key.startsWith('announce:lock:')) return Promise.resolve(null); // NX fail
-      return Promise.resolve('OK');
-    });
-    // Different holder
-    (redis.get as Mock).mockImplementation((...args: unknown[]) => {
-      const key = args[0] as string;
-      if (key.startsWith('announce:lock:')) return Promise.resolve('other-job-99');
-      return Promise.resolve(null);
-    });
+    // Lua script returns the other holder's value (not 'OK') when lock is held
+    (redis.eval as Mock).mockResolvedValue('other-job-99');
 
     await processStreamEvent(onlinePayload(), 'job-42');
 
@@ -867,7 +846,8 @@ describe('handleStreamOffline', () => {
     });
   });
 
-  it('falls back to lastMessageId when no session log exists', async () => {
+  it('does NOT fall back to lastMessageId when no session or recent log exists', async () => {
+    // lastMessageId may belong to a different stream session — skip to prevent deleting wrong message
     const chat = makeChat({ id: 'chat-1', deleteAfterEnd: true, lastMessageId: 'msg-fallback' });
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
@@ -877,7 +857,7 @@ describe('handleStreamOffline', () => {
 
     await processStreamEvent(offlinePayload());
 
-    expect(mockProvider.deleteMessage).toHaveBeenCalledWith('-1001234567890', 'msg-fallback');
+    expect(mockProvider.deleteMessage).not.toHaveBeenCalled();
   });
 
   it('falls back to recent log when no session log and no lastMessageId', async () => {
@@ -919,8 +899,12 @@ describe('handleStreamOffline', () => {
     const chat = makeChat({ id: 'chat-1', deleteAfterEnd: true, lastMessageId: 'msg-to-clear' });
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
+    const sessionLog = {
+      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
+      providerMsgId: 'msg-to-clear', status: 'sent',
+    };
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([sessionLog])
       .mockResolvedValueOnce([]);
 
     await processStreamEvent(offlinePayload());
@@ -958,8 +942,12 @@ describe('handleStreamOffline', () => {
     const chat = makeChat({ id: 'chat-1', deleteAfterEnd: true, lastMessageId: 'msg-1' });
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
+    const sessionLog = {
+      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
+      providerMsgId: 'msg-1', status: 'sent',
+    };
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([sessionLog])
       .mockResolvedValueOnce([]);
 
     mockProvider.deleteMessage.mockRejectedValue(new Error('API error'));
@@ -976,8 +964,17 @@ describe('handleStreamOffline', () => {
     ];
     (prisma.connectedChat.findMany as Mock).mockResolvedValue(chats);
 
+    const sessionLog1 = {
+      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
+      providerMsgId: 'msg-1', status: 'sent',
+    };
+    const sessionLog2 = {
+      id: 'log-2', chatId: 'chat-2', streamSessionId: sessionId,
+      providerMsgId: 'msg-2', status: 'sent',
+    };
+    // Batch fetch: first call = session logs (both chats), second call = recent logs
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([sessionLog1, sessionLog2])
       .mockResolvedValueOnce([]);
 
     mockProvider.deleteMessage

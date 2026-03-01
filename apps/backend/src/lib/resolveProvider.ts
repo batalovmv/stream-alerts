@@ -13,7 +13,15 @@ export function resolveProvider(chatProvider: string, customBotToken: string | n
     if (!isEncryptionAvailable()) {
       throw new Error('Custom bot token is set but BOT_TOKEN_ENCRYPTION_KEY is not configured');
     }
-    const token = decrypt(customBotToken);
+    let token: string;
+    try {
+      token = decrypt(customBotToken);
+    } catch (decryptError) {
+      throw new Error(
+        `Failed to decrypt custom bot token — encryption key may have changed or token is corrupted. ` +
+        `Original: ${decryptError instanceof Error ? decryptError.message : String(decryptError)}`,
+      );
+    }
     return new TelegramProvider(token);
   }
   return getProvider(chatProvider);

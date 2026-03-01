@@ -47,7 +47,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main layout */}
       <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
         {/* Desktop sidebar */}
-        <nav className="w-56 shrink-0 hidden md:block">
+        <nav className="w-56 shrink-0 hidden md:block" aria-label="Основная навигация">
           <div className="glass rounded-xl p-3 sticky top-24">
             {NAV_ITEMS.map((item) => (
               <NavLink
@@ -69,7 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* Mobile bottom nav */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 px-2 py-1">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 px-2 py-1" aria-label="Мобильная навигация">
           <div className="flex justify-around">
             {NAV_ITEMS.map((item) => (
               <NavLink
@@ -86,7 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </NavLink>
             ))}
           </div>
-        </div>
+        </nav>
 
         {/* Content */}
         <main className="flex-1 min-w-0 pb-20 md:pb-0">

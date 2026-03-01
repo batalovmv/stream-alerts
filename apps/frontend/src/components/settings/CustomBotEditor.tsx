@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { Button, Input, Badge, SectionCard, ConfirmDialog, Alert, Stepper, useDisclosure } from '@memelabui/ui';
 import { ApiError } from '../../api/client';
 
+function extractApiError(data: unknown): string | undefined {
+  if (data !== null && typeof data === 'object' && !Array.isArray(data)) {
+    const d = data as Record<string, unknown>;
+    if (typeof d.error === 'string') return d.error;
+    if (typeof d.message === 'string') return d.message;
+  }
+  return undefined;
+}
+
 interface CustomBotEditorProps {
   hasCustomBot: boolean;
   customBotUsername: string | null;
@@ -17,7 +26,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
   const removeDialog = useDisclosure();
 
   const apiErrorMessage = error instanceof ApiError
-    ? (error.data as { error?: string })?.error
+    ? extractApiError(error.data)
     : error?.message;
 
   // Auto-close form/dialog when hasCustomBot changes (connect/disconnect succeeded)

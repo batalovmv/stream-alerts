@@ -7,6 +7,11 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json apps/backend/
 RUN pnpm install --frozen-lockfile --filter backend
 
+FROM base AS prod-deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/backend/package.json apps/backend/
+RUN pnpm install --frozen-lockfile --filter backend --prod
+
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
@@ -18,8 +23,9 @@ FROM base AS runtime
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=build /app/apps/backend/dist ./apps/backend/dist
 COPY --from=build /app/apps/backend/prisma ./apps/backend/prisma
-COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=prod-deps /app/apps/backend/node_modules ./apps/backend/node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
 COPY --from=build /app/package.json ./
 COPY --from=build /app/apps/backend/package.json ./apps/backend/
 USER appuser

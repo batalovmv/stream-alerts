@@ -48,11 +48,15 @@ async function startPolling(): Promise<void> {
   logger.info('bot.polling_started');
 
   let offset: number | undefined;
+  let consecutiveErrors = 0;
+  const MIN_BACKOFF_MS = 3_000;
+  const MAX_BACKOFF_MS = 60_000;
 
   async function poll() {
     if (!pollingActive) return;
     try {
       const updates = await tg.getUpdates(offset);
+      consecutiveErrors = 0; // reset on successful poll
       for (const update of updates) {
         if (!pollingActive) return;
         offset = update.update_id + 1;
@@ -66,8 +70,13 @@ async function startPolling(): Promise<void> {
         (error instanceof Error && error.name === 'AbortError') ||
         (error instanceof TelegramApiError && error.code === 408);
       if (!isTimeout) {
-        logger.error({ error: error instanceof Error ? error.message : String(error) }, 'bot.polling_error');
-        await new Promise((r) => setTimeout(r, 3000));
+        consecutiveErrors++;
+        const backoff = Math.min(MIN_BACKOFF_MS * 2 ** (consecutiveErrors - 1), MAX_BACKOFF_MS);
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error), consecutiveErrors, backoffMs: backoff },
+          'bot.polling_error',
+        );
+        await new Promise((r) => setTimeout(r, backoff));
       }
     }
 

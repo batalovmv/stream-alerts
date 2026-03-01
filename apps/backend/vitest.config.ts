@@ -15,6 +15,10 @@ export default defineConfig({
         '**/*.test.ts',
         'src/index.ts',
       ],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+      },
     },
   },
 });

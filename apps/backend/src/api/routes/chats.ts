@@ -65,36 +65,36 @@ router.post('/', validate(addChatSchema), async (req: Request, res: Response) =>
 
     const chatInfo = await messengerProvider.getChatInfo(chatId);
 
-    // Enforce max chats per streamer (same limit as bot: 20)
-    const chatCount = await prisma.connectedChat.count({ where: { streamerId: streamer.id } });
-    if (chatCount >= 20) {
-      res.status(400).json({ error: 'Maximum 20 chats per streamer' });
-      return;
-    }
+    // Atomic count+create inside a transaction to prevent race conditions
+    // where two concurrent requests both see count=19 and both create
+    const chat = await prisma.$transaction(async (tx) => {
+      const chatCount = await tx.connectedChat.count({ where: { streamerId: streamer.id } });
+      if (chatCount >= 20) {
+        throw Object.assign(new Error('Maximum 20 chats per streamer'), { statusCode: 400 });
+      }
 
-    const existing = await prisma.connectedChat.findUnique({
-      where: {
-        streamerId_provider_chatId: {
+      const existing = await tx.connectedChat.findUnique({
+        where: {
+          streamerId_provider_chatId: {
+            streamerId: streamer.id,
+            provider,
+            chatId,
+          },
+        },
+      });
+      if (existing) {
+        throw Object.assign(new Error('This chat is already connected'), { statusCode: 409 });
+      }
+
+      return tx.connectedChat.create({
+        data: {
           streamerId: streamer.id,
           provider,
           chatId,
+          chatTitle: chatInfo.title,
+          chatType: chatInfo.type,
         },
-      },
-    });
-
-    if (existing) {
-      res.status(409).json({ error: 'This chat is already connected' });
-      return;
-    }
-
-    const chat = await prisma.connectedChat.create({
-      data: {
-        streamerId: streamer.id,
-        provider,
-        chatId,
-        chatTitle: chatInfo.title,
-        chatType: chatInfo.type,
-      },
+      });
     });
 
     logger.info(
@@ -104,7 +104,13 @@ router.post('/', validate(addChatSchema), async (req: Request, res: Response) =>
 
     res.status(201).json({ chat });
   } catch (error) {
-    // Handle unique constraint violation (race condition: two concurrent requests)
+    // Handle transaction-thrown errors (limit exceeded, duplicate)
+    if (error instanceof Error && 'statusCode' in error) {
+      const statusCode = (error as { statusCode: number }).statusCode;
+      res.status(statusCode).json({ error: error.message });
+      return;
+    }
+    // Handle unique constraint violation (race at DB level)
     if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2002') {
       res.status(409).json({ error: 'This chat is already connected' });
       return;

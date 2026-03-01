@@ -72,8 +72,10 @@ export async function editToMainMenu(chatId: number, messageId: number, userId: 
 
 // ─── Back Button Helpers ─────────────────────────────────
 
-/** Single "back to menu" button row */
-export const BACK_TO_MENU_ROW = [{ text: '\u{25C0}\u{FE0F} \u041C\u0435\u043D\u044E', callback_data: 'menu:main' }];
+/** Single "back to menu" button row — treat as immutable, do not push into this array */
+export const BACK_TO_MENU_ROW: Array<{ text: string; callback_data: string }> = [
+  { text: '\u{25C0}\u{FE0F} \u041C\u0435\u043D\u044E', callback_data: 'menu:main' },
+];
 
 /** Append "back to menu" row to any keyboard */
 export function withBackToMenu(keyboard: Array<Array<{ text: string; callback_data: string }>>): Array<Array<{ text: string; callback_data: string }>> {

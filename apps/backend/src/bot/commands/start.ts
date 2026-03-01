@@ -115,7 +115,15 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     return;
   }
 
-  const streamer = await prisma.streamer.findUniqueOrThrow({ where: { id: streamerId } });
+  const streamer = await prisma.streamer.findUnique({ where: { id: streamerId } });
+  if (!streamer) {
+    logger.warn({ streamerId }, 'bot.link_streamer_vanished');
+    await tg.sendMessage({
+      chatId: String(ctx.chatId),
+      text: '\u{274C} Аккаунт привязан, но данные временно недоступны. Попробуйте /start позже.',
+    });
+    return;
+  }
 
   logger.info(
     { streamerId, telegramUserId: ctx.userId },

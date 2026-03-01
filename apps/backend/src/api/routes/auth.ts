@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Router, type Request, type Response, type Router as RouterType } from 'express';
 import { requireAuth, extractToken, hashToken, AUTH_CACHE_PREFIX, fetchMemelabProfile } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
@@ -64,8 +64,7 @@ router.post('/logout', (req: Request, res: Response) => {
   // Invalidate cached profile so stale sessions can't be used
   const token = extractToken(req);
   if (token) {
-    const hash = createHash('sha256').update(token).digest('hex');
-    redis.del('auth:profile:' + hash).catch(() => {});
+    redis.del(AUTH_CACHE_PREFIX + hashToken(token)).catch(() => {});
   }
 
   res.clearCookie(config.jwtCookieName, {

@@ -122,7 +122,7 @@ export function PlatformsDisplay({ platforms, onUpdate, isUpdating }: PlatformsD
             const meta = PLATFORM_META[p.platform] ?? PLATFORM_META.other;
             const safeHref = isHttpUrl(p.url) ? p.url : undefined;
             return (
-              <div key={i} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3">
+              <div key={`${p.platform}:${p.login}`} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3">
                 <span className="text-lg">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

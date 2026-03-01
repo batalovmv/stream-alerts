@@ -161,7 +161,7 @@ export async function processStreamEvent(payload: StreamEventPayload, jobId?: st
     const sessionKey = `announce:session:${payload.channelId}`;
     const storedSessionId = await redis.get(sessionKey);
     const effectiveSessionId = storedSessionId ?? streamSessionId;
-    await handleStreamOffline(streamer.id, effectiveSessionId);
+    await handleStreamOffline(streamer.id, effectiveSessionId, streamer.customBotToken);
     // Clean up session key after successful offline processing
     await redis.del(sessionKey);
   }
@@ -208,10 +208,22 @@ async function handleStreamOnline(
   for (const chat of streamer.chats) {
     const title = escapeHtml(chat.chatTitle ?? chat.chatId);
     const lockKey = `announce:lock:${chat.id}:${streamSessionId}`;
+
+    // Pre-delivery validation — config errors should not create DB failure logs
+    let text: string;
+    let provider: ReturnType<typeof resolveProvider>;
     try {
       const template = chat.customTemplate || streamer.defaultTemplate;
-      const text = renderTemplate(template, templateVars);
-      const provider = resolveProvider(chat.provider, streamer.customBotToken);
+      text = renderTemplate(template, templateVars);
+      provider = resolveProvider(chat.provider, streamer.customBotToken);
+    } catch (configError) {
+      const errMsg = configError instanceof Error ? configError.message : String(configError);
+      logger.error({ chatId: chat.chatId, error: errMsg }, 'announce.config_error');
+      results.push({ chatTitle: title, ok: false, permanent: true });
+      continue;
+    }
+
+    try {
 
       // Check if already sent for this stream session (from batch query)
       const existing = existingByChat.get(chat.id);
@@ -244,16 +256,25 @@ async function handleStreamOnline(
       const lockValue = jobId ?? `fallback:${Date.now()}`;
       const LOCK_TTL_SECONDS = 120;
 
-      const acquired = await redis.set(lockKey, lockValue, 'EX', LOCK_TTL_SECONDS, 'NX');
-      if (!acquired) {
-        // Lock exists — check if it belongs to the same job (re-entrant retry)
-        const currentHolder = await redis.get(lockKey);
-        if (currentHolder !== lockValue) {
-          logger.info({ chatId: chat.chatId, streamSessionId, holder: currentHolder }, 'announce.dedup_locked');
-          continue;
-        }
-        // Same job retrying — allow re-entry, refresh TTL
-        await redis.expire(lockKey, LOCK_TTL_SECONDS);
+      // Atomic acquire-or-extend: eliminates TOCTOU between SET NX and GET.
+      // Returns 'OK' if lock acquired/re-entered, or the current holder's value if blocked.
+      const lockResult = await redis.eval(
+        `local cur = redis.call('GET', KEYS[1])
+         if cur == false then
+           redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
+           return 'OK'
+         elseif cur == ARGV[1] then
+           redis.call('EXPIRE', KEYS[1], ARGV[2])
+           return 'OK'
+         else
+           return cur
+         end`,
+        1, lockKey, lockValue, String(LOCK_TTL_SECONDS),
+      ) as string;
+
+      if (lockResult !== 'OK') {
+        logger.info({ chatId: chat.chatId, streamSessionId, holder: lockResult }, 'announce.dedup_locked');
+        continue;
       }
 
       // Post-lock DB re-check: covers "send succeeded but DB write failed" phantom scenario
@@ -335,15 +356,22 @@ async function handleStreamOnline(
       // NEVER release dedup lock on transient failure — let TTL expire naturally.
       // Same job's retry re-enters via jobId match; different jobs are blocked.
 
-      await prisma.announcementLog.create({
-        data: {
-          chatId: chat.id,
-          streamSessionId,
-          provider: chat.provider as MessengerProvider,
-          status: 'failed',
-          error: errMsg,
-        },
-      });
+      try {
+        await prisma.announcementLog.create({
+          data: {
+            chatId: chat.id,
+            streamSessionId,
+            provider: chat.provider as MessengerProvider,
+            status: 'failed',
+            error: errMsg,
+          },
+        });
+      } catch (dbError) {
+        logger.error(
+          { chatId: chat.chatId, error: dbError instanceof Error ? dbError.message : String(dbError) },
+          'announce.failed_log_write_error',
+        );
+      }
 
       results.push({ chatTitle: title, ok: false, permanent: isPermanent });
     }
@@ -452,7 +480,7 @@ async function handleStreamUpdate(
 
 // ─── Stream Offline ───────────────────────────────────────
 
-async function handleStreamOffline(streamerId: string, streamSessionId: string): Promise<void> {
+async function handleStreamOffline(streamerId: string, streamSessionId: string, customBotToken: string | null): Promise<void> {
   // Query ALL chats with deleteAfterEnd=true, regardless of enabled status,
   // so previously-sent announcements are cleaned up even if the chat was disabled mid-stream.
   const chats = await prisma.connectedChat.findMany({
@@ -463,12 +491,6 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
   });
 
   if (chats.length === 0) return;
-
-  // Load streamer's custom bot token for deletion (messages were sent by this bot)
-  const streamer = await prisma.streamer.findUnique({
-    where: { id: streamerId },
-    select: { customBotToken: true },
-  });
 
   // Pre-fetch all session logs and recent logs in batch to avoid N+1 queries
   const chatIds = chats.map((c) => c.id);
@@ -497,17 +519,15 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string):
       // Prefer finding the exact announcement for this stream session (from batch query)
       let messageIdToDelete: string | null = sessionLogByChat.get(chat.id)?.providerMsgId ?? null;
 
-      // Fall back to lastMessageId or recent log entry
-      if (!messageIdToDelete) {
-        messageIdToDelete = chat.lastMessageId;
-      }
+      // Fall back to recent log entry (24h window) — skip raw lastMessageId to avoid
+      // deleting messages from a different stream session
       if (!messageIdToDelete) {
         messageIdToDelete = recentLogByChat.get(chat.id)?.providerMsgId ?? null;
       }
 
       if (!messageIdToDelete) continue;
 
-      const provider = resolveProvider(chat.provider, streamer?.customBotToken);
+      const provider = resolveProvider(chat.provider, customBotToken);
       await provider.deleteMessage(chat.chatId, messageIdToDelete);
 
       // Update announcement log
