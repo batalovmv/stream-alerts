@@ -1,7 +1,9 @@
+import './lib/sentry.js'; // Sentry must init before other imports
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import * as Sentry from '@sentry/node';
 import { config } from './lib/config.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
@@ -126,6 +128,9 @@ app.use('/api/auth', authRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/chats', chatsRouter);
 app.use('/api/streamer', streamerRouter);
+
+// ─── Sentry Error Handler (must be before custom error handler) ──
+Sentry.setupExpressErrorHandler(app);
 
 // ─── Global Error Handler ─────────────────────────────────
 

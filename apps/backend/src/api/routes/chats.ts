@@ -24,6 +24,7 @@ router.get('/', async (req: Request, res: Response) => {
     const chats = await prisma.connectedChat.findMany({
       where: { streamerId: streamer.id },
       orderBy: { createdAt: 'asc' },
+      take: 100,
     });
 
     res.json({ chats });

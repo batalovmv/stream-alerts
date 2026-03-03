@@ -16,8 +16,8 @@ export default defineConfig({
         'src/index.ts',
       ],
       thresholds: {
-        lines: 60,
-        functions: 60,
+        lines: 70,
+        functions: 70,
       },
     },
   },

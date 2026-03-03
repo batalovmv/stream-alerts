@@ -502,6 +502,7 @@ async function handleStreamOffline(streamerId: string, streamSessionId: string, 
     prisma.announcementLog.findMany({
       where: { chatId: { in: chatIds }, status: 'sent', sentAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
       orderBy: { sentAt: 'desc' },
+      take: 500,
     }),
   ]);
 

@@ -54,16 +54,17 @@ apps/backend/
 │   │   ├── routes/
 │   │   │   ├── auth.ts         # OAuth endpoints
 │   │   │   ├── chats.ts        # Connected chats CRUD
-│   │   │   ├── settings.ts     # Streamer settings
+│   │   │   ├── streamer.ts     # Streamer settings
 │   │   │   └── webhooks.ts     # Webhook handlers
 │   │   └── middleware/
-│   │       ├── auth.ts         # JWT/session auth
+│   │       ├── auth.ts         # JWT cookie auth
 │   │       ├── webhookAuth.ts  # Webhook secret verification
 │   │       └── validation.ts   # Zod validation
 │   │
 │   ├── providers/              # Messenger providers
 │   │   ├── types.ts            # MessengerProvider interface
 │   │   ├── registry.ts         # Provider registry
+│   │   ├── resolveProvider.ts  # Custom bot vs global bot selection
 │   │   ├── telegram/
 │   │   │   ├── TelegramProvider.ts
 │   │   │   └── telegramApi.ts  # Raw API calls
@@ -72,7 +73,7 @@ apps/backend/
 │   │       └── maxApi.ts
 │   │
 │   ├── bot/                    # Telegram bot (commands)
-│   │   ├── bot.ts              # Bot setup
+│   │   ├── setup.ts            # Bot setup (polling/webhook)
 │   │   ├── commands/
 │   │   │   ├── start.ts
 │   │   │   ├── channels.ts
@@ -89,17 +90,16 @@ apps/backend/
 │   │   ├── streamerService.ts
 │   │   └── templateService.ts
 │   │
-│   ├── workers/                # BullMQ workers
-│   │   └── announcementWorker.ts
-│   │
-│   ├── queues/                 # BullMQ queue definitions
+│   ├── workers/                # BullMQ queue + worker
 │   │   └── announcementQueue.ts
 │   │
 │   ├── lib/                    # Shared utilities
+│   │   ├── config.ts
 │   │   ├── prisma.ts
 │   │   ├── redis.ts
 │   │   ├── logger.ts
-│   │   └── config.ts
+│   │   ├── sentry.ts
+│   │   └── encryption.ts       # AES-256-GCM for custom bot tokens
 │   │
 │   └── index.ts                # Entry point
 │
@@ -118,22 +118,10 @@ apps/frontend/
 │   │   └── Login.tsx           # OAuth redirect
 │   │
 │   ├── components/
+│   │   ├── ErrorBoundary.tsx   # Three-level error boundary
 │   │   ├── layout/
-│   │   │   ├── Header.tsx
-│   │   │   ├── Sidebar.tsx
-│   │   │   └── Layout.tsx
 │   │   ├── chat/
-│   │   │   ├── ChatCard.tsx
-│   │   │   ├── AddChatModal.tsx
-│   │   │   └── ChatSettings.tsx
-│   │   ├── template/
-│   │   │   ├── TemplateEditor.tsx
-│   │   │   └── TemplatePreview.tsx
-│   │   └── ui/                 # Shared UI components
-│   │       ├── Button.tsx
-│   │       ├── Card.tsx
-│   │       ├── Input.tsx
-│   │       └── Toggle.tsx
+│   │   └── template/
 │   │
 │   ├── hooks/
 │   │   ├── useAuth.ts
@@ -141,15 +129,14 @@ apps/frontend/
 │   │   └── useSettings.ts
 │   │
 │   ├── api/
-│   │   └── client.ts           # API client
+│   │   └── client.ts           # API client (with 401 global handler)
 │   │
 │   ├── styles/
-│   │   └── globals.css         # Tailwind + custom styles
+│   │   └── globals.css
 │   │
 │   └── main.tsx
 │
 ├── index.html
-├── tailwind.config.ts
 ├── vite.config.ts
 └── package.json
 ```
@@ -161,46 +148,72 @@ apps/frontend/
 ### ER-диаграмма
 
 ```
-┌──────────────┐       ┌─────────────────┐       ┌──────────────────┐
-│   Streamer   │──1:N──│  ConnectedChat  │──1:N──│ AnnouncementLog  │
-│              │       │                 │       │                  │
-│ id           │       │ id              │       │ id               │
-│ memelabUserId│       │ streamerId   FK │       │ chatId        FK │
-│ memlabChId   │       │ provider        │       │ streamSessionId  │
-│ twitchLogin  │       │ chatId          │       │ messageId        │
-│ displayName  │       │ chatTitle       │       │ status           │
-│ avatarUrl    │       │ chatType        │       │ sentAt           │
-│ defaultTempl │       │ enabled         │       │ deletedAt        │
-│ previewMode  │       │ deleteAfterEnd  │       │ error            │
-│ telegramId   │       │ customTemplate  │       └──────────────────┘
-│ createdAt    │       │ lastMessageId   │
-└──────────────┘       │ lastAnnounceAt  │
-                       │ createdAt       │
-                       └─────────────────┘
+┌────────────────────┐       ┌─────────────────┐       ┌──────────────────┐
+│     Streamer       │──1:N──│  ConnectedChat  │──1:N──│ AnnouncementLog  │
+│                    │       │                 │       │                  │
+│ id                 │       │ id              │       │ id               │
+│ memelabUserId      │       │ streamerId   FK │       │ chatId        FK │
+│ memelabChannelId   │       │ provider        │       │ streamSessionId  │
+│ channelSlug        │       │ chatId          │       │ providerMsgId    │
+│ twitchLogin        │       │ chatTitle       │       │ provider         │
+│ displayName        │       │ chatType        │       │ status           │
+│ avatarUrl          │       │ enabled         │       │ error            │
+│ defaultTemplate    │       │ deleteAfterEnd  │       │ attempts         │
+│ streamPlatforms    │       │ customTemplate  │       │ queuedAt         │
+│ customButtons      │       │ lastMessageId   │       │ sentAt           │
+│ photoType          │       │ lastAnnouncedAt │       │ deletedAt        │
+│ customBotToken     │       │ createdAt       │       └──────────────────┘
+│ customBotUsername   │       └─────────────────┘
+│ telegramUserId     │
+│ createdAt          │
+└────────────────────┘
 ```
 
 ### Prisma Schema
 
 ```prisma
 model Streamer {
-  id              String   @id @default(uuid())
-  memelabUserId   String   @unique
-  memelabChannelId String  @unique
-  twitchLogin     String?
-  displayName     String
-  avatarUrl       String?
+  id                String    @id @default(uuid())
+  memelabUserId     String    @unique
+  memelabChannelId  String    @unique
+  channelSlug       String    @default("")
+  twitchLogin       String?
+  displayName       String
+  avatarUrl         String?
 
-  // Settings
-  defaultTemplate String?  @db.Text
-  previewMode     String   @default("twitch") // twitch | custom | none
+  // Default announcement settings
+  defaultTemplate   String?   @db.Text
 
-  // Bot linking
-  telegramUserId  String?  @unique  // Telegram user ID (for bot commands)
+  // Stream platforms (Twitch, YouTube, VK, Kick, etc.)
+  // JSON array: [{ platform, login, url, isManual }]
+  streamPlatforms   Json?     @db.JsonB
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Custom inline buttons for announcements (streamer-level)
+  // JSON array: [{ label, url }] — null = default buttons, [] = no buttons
+  customButtons     Json?     @db.JsonB
 
-  chats           ConnectedChat[]
+  // Photo type for announcements
+  photoType         PhotoType @default(stream_preview)
+
+  // Custom Telegram bot for announcements (optional)
+  customBotToken    String?   @db.Text    // Encrypted bot token (AES-256-GCM)
+  customBotUsername String?               // @username of the custom bot (for display)
+
+  // Telegram bot linking (for bot commands)
+  telegramUserId    String?   @unique
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  chats             ConnectedChat[]
+
+  @@index([twitchLogin])
+}
+
+enum PhotoType {
+  stream_preview
+  game_box_art
+  none
 }
 
 enum MessengerProvider {
@@ -212,7 +225,7 @@ model ConnectedChat {
   id              String            @id @default(uuid())
   streamerId      String
   provider        MessengerProvider
-  chatId          String            // Provider-specific chat ID
+  chatId          String            // Provider-specific chat identifier
   chatTitle       String?
   chatType        String?           // channel | group | supergroup
 
@@ -222,7 +235,7 @@ model ConnectedChat {
   customTemplate  String?  @db.Text
 
   // Tracking
-  lastMessageId   String?           // Last sent message ID (for deletion)
+  lastMessageId   String?           // Last sent announcement message ID (for deletion)
   lastAnnouncedAt DateTime?
 
   createdAt       DateTime @default(now())
@@ -232,7 +245,7 @@ model ConnectedChat {
   announcements   AnnouncementLog[]
 
   @@unique([streamerId, provider, chatId])
-  @@index([streamerId])
+  @@index([streamerId, enabled])
   @@index([provider, chatId])
 }
 
@@ -248,12 +261,12 @@ model AnnouncementLog {
   chatId          String
   streamSessionId String?            // From MemeLab webhook
   provider        MessengerProvider
-  providerMsgId   String?            // Message ID from provider (for deletion)
+  providerMsgId   String?            // Message ID from messenger API (for deletion)
 
-  status          AnnouncementStatus @default(queued)
+  status          AnnouncementStatus @default(sent)
   error           String?            @db.Text
+  attempts        Int                @default(0)
 
-  // Timestamps
   queuedAt        DateTime           @default(now())
   sentAt          DateTime?
   deletedAt       DateTime?
@@ -261,6 +274,7 @@ model AnnouncementLog {
   chat            ConnectedChat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId, status])
+  @@index([chatId, streamSessionId, status])
   @@index([streamSessionId])
   @@index([status, queuedAt])
 }
@@ -303,27 +317,9 @@ export interface MessengerProvider {
 }
 ```
 
-### Provider Registry
+### Custom Bot Resolution
 
-```typescript
-// apps/backend/src/providers/registry.ts
-
-const providers = new Map<string, MessengerProvider>();
-
-export function registerProvider(provider: MessengerProvider): void {
-  providers.set(provider.name, provider);
-}
-
-export function getProvider(name: string): MessengerProvider {
-  const provider = providers.get(name);
-  if (!provider) throw new Error(`Provider "${name}" not registered`);
-  return provider;
-}
-
-export function getAllProviders(): MessengerProvider[] {
-  return Array.from(providers.values());
-}
-```
+When a streamer has a `customBotToken`, the system uses their custom bot for sending announcements. Otherwise, the global `@MemelabNotifyBot` is used. Custom tokens are encrypted with AES-256-GCM at rest.
 
 ---
 
@@ -333,8 +329,8 @@ export function getAllProviders(): MessengerProvider[] {
 
 ```
 GET  /api/auth/memelab            → Redirect to MemeLab OAuth
-GET  /api/auth/memelab/callback   → Handle OAuth callback, set session
-POST /api/auth/logout             → Clear session
+GET  /api/auth/memelab/callback   → Handle OAuth callback, set JWT cookie
+POST /api/auth/logout             → Clear JWT cookie
 GET  /api/auth/me                 → Current user info
 ```
 
@@ -344,19 +340,19 @@ GET  /api/auth/me                 → Current user info
 GET    /api/chats                 → List all connected chats
 POST   /api/chats                 → Connect new chat
          Body: { provider, chatId }
-         Returns: ConnectedChat
 PATCH  /api/chats/:id             → Update chat settings
          Body: { enabled?, deleteAfterEnd?, customTemplate? }
 DELETE /api/chats/:id             → Disconnect chat
 POST   /api/chats/:id/test       → Send test announcement
 ```
 
-### Settings
+### Streamer Settings
 
 ```
-GET    /api/settings              → Streamer settings
-PATCH  /api/settings              → Update settings
-         Body: { defaultTemplate?, previewMode? }
+GET    /api/streamer              → Streamer profile & settings
+PATCH  /api/streamer              → Update settings
+         Body: { defaultTemplate?, photoType?, customButtons?,
+                 streamPlatforms?, customBotToken? }
 ```
 
 ### Webhooks
@@ -381,13 +377,12 @@ announcementService.processStreamEvent()
        │
        ├─ Find all enabled chats for streamer
        ├─ Generate announcement text from template
-       ├─ Create AnnouncementLog records (status: queued)
-       ├─ Enqueue BullMQ jobs
+       ├─ Enqueue BullMQ jobs (dedup by channelId + startedAt)
        │
        ▼
-announcementWorker processes job
+Worker processes job
        │
-       ├─ Get provider for chat
+       ├─ Resolve provider (custom bot or global)
        ├─ Call provider.sendAnnouncement()
        ├─ Update AnnouncementLog (status: sent, providerMsgId)
        ├─ Update ConnectedChat.lastMessageId
@@ -398,17 +393,13 @@ Done (or retry on failure)
 
 ### Queue Configuration
 
-```typescript
-// apps/backend/src/queues/announcementQueue.ts
-
+```
 Queue name: 'announcements'
-Job types:
-  - 'send'    → Send announcement to chat
-  - 'delete'  → Delete previous announcement
-
-Retry: 5 attempts
-Backoff: [2s, 10s, 30s, 120s, 300s]
-Concurrency: 10
+Retry: 3 attempts
+Backoff: exponential (5s base)
+Concurrency: 5
+Rate limit: 30 jobs/sec
+Dedup: deterministic jobId for stream.online events
 ```
 
 ### Delete Flow (stream.offline)
@@ -419,7 +410,7 @@ Webhook: stream.offline
        ▼
 Find chats with deleteAfterEnd=true AND lastMessageId != null
        │
-       ├─ Enqueue 'delete' jobs
+       ├─ Enqueue delete jobs
        │
        ▼
 Worker:
@@ -479,6 +470,7 @@ Bot confirms: "Аккаунт привязан!"
 # Server
 PORT=3000
 NODE_ENV=development
+PUBLIC_URL=http://localhost:3000
 
 # Database
 DATABASE_URL=postgresql://user:pass@localhost:5432/memelab_notify
@@ -486,26 +478,30 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/memelab_notify
 # Redis
 REDIS_URL=redis://localhost:6379
 
-# MemeLab OAuth
-MEMELAB_CLIENT_ID=notify-app
-MEMELAB_CLIENT_SECRET=secret
-MEMELAB_OAUTH_URL=https://memelab.ru/oauth
+# MemeLab API
 MEMELAB_API_URL=https://memelab.ru/api
 
 # Webhook
 WEBHOOK_SECRET=shared-secret-with-memelab
 
-# Session
-SESSION_SECRET=random-session-secret
+# JWT Cookie
+JWT_COOKIE_NAME=token
 
 # Telegram Bot
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+# TELEGRAM_WEBHOOK_SECRET=<production only>
 
-# MAX Bot (Phase 3)
-MAX_BOT_TOKEN=max-bot-token
+# Encryption key for custom bot tokens (32-byte hex)
+BOT_TOKEN_ENCRYPTION_KEY=
+
+# Sentry (optional)
+# SENTRY_DSN=https://...@sentry.io/...
+
+# MAX Bot (Phase 3 — disabled until dev.max.ru access)
+# MAX_BOT_TOKEN=
 
 # Frontend
-VITE_API_URL=http://localhost:3000/api
+# VITE_SENTRY_DSN=https://...@sentry.io/...
 ```
 
 ---
@@ -513,23 +509,22 @@ VITE_API_URL=http://localhost:3000/api
 ## Security
 
 ### Webhook Verification
-```typescript
-// Verify webhook secret
-function verifyWebhook(req: Request): boolean {
-  const secret = req.headers['x-webhook-secret'];
-  return secret === process.env.WEBHOOK_SECRET;
-}
-```
+- `X-Webhook-Secret` header validation against `WEBHOOK_SECRET`
 
-### Session Management
-- Express-session with Redis store
-- HTTPOnly cookies
-- CSRF protection
+### Authentication
+- JWT cookies (HTTPOnly, SameSite=Strict)
+- CSRF protection via Origin header check
+- Redis-backed rate limiting
+
+### Encryption
+- Custom bot tokens encrypted with AES-256-GCM at rest
+- `BOT_TOKEN_ENCRYPTION_KEY` env var (32-byte hex)
 
 ### Input Validation
 - Zod schemas for all API inputs
-- Template sanitization (prevent XSS in templates)
+- Template sanitization (prevent XSS)
 - Chat ID format validation per provider
+- URL validation for custom buttons
 
 ---
 
@@ -541,12 +536,14 @@ function verifyWebhook(req: Request): boolean {
 | Production | Push to main | notify.memelab.ru |
 
 ### Infrastructure
-- **Server**: Same VPS as MemeLab (or separate)
-- **Database**: PostgreSQL (shared or separate instance)
-- **Redis**: Shared with MemeLab or separate
+- **Server**: VPS (notify.memelab.ru)
+- **Database**: PostgreSQL
+- **Redis**: For BullMQ, rate limiting, dedup locks
 - **Process manager**: PM2
 - **Reverse proxy**: Nginx
+- **CI/CD**: GitHub Actions → self-hosted runner
+- **Monitoring**: Sentry (optional)
 
 ---
 
-*Последнее обновление: 2026-02-16*
+*Последнее обновление: 2026-03-03*

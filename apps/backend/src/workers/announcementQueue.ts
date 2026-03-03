@@ -6,6 +6,7 @@
  */
 
 import { Queue, Worker } from 'bullmq';
+import { Sentry } from '../lib/sentry.js';
 import { logger } from '../lib/logger.js';
 import { config } from '../lib/config.js';
 import { processStreamEvent, type StreamEventPayload } from '../services/announcementService.js';
@@ -98,10 +99,18 @@ export function startAnnouncementWorker(): Worker<StreamEventPayload> {
       { jobId: job?.id, error: err.message, attempts: job?.attemptsMade },
       'queue.failed',
     );
+    Sentry.withScope((scope) => {
+      scope.setTag('queue', QUEUE_NAME);
+      if (job) {
+        scope.setContext('job', { id: job.id, event: job.data.event, attempts: job.attemptsMade });
+      }
+      Sentry.captureException(err);
+    });
   });
 
   worker.on('error', (err) => {
     logger.error({ error: err.message }, 'queue.worker_error');
+    Sentry.captureException(err);
   });
 
   logger.info('queue.worker_started');

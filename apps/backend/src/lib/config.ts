@@ -25,9 +25,6 @@ export const config = {
   // Webhook (required in production)
   webhookSecret: env('WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-webhook-secret' : undefined),
 
-  // Session (required in production)
-  sessionSecret: env('SESSION_SECRET', nodeEnv === 'development' ? 'dev-session-secret' : undefined),
-
   // JWT Cookie
   jwtCookieName: env('JWT_COOKIE_NAME', 'token'),
 
@@ -49,4 +46,7 @@ export const config = {
 
   // Public URL (for webhook registration etc.)
   publicUrl: env('PUBLIC_URL', nodeEnv === 'development' ? 'http://localhost:3000' : 'https://notify.memelab.ru'),
+
+  // Sentry (optional — error monitoring disabled if empty)
+  sentryDsn: env('SENTRY_DSN', ''),
 } as const;
