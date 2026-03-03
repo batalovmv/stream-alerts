@@ -10,6 +10,7 @@ const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   youtube: { label: 'YouTube', icon: '🔴' },
   vk: { label: 'VK', icon: '🔵' },
   kick: { label: 'Kick', icon: '🟢' },
+  trovo: { label: 'Trovo', icon: '🟠' },
   other: { label: 'Другая', icon: '🔗' },
 };
 

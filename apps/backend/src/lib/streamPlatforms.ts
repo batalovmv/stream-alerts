@@ -7,7 +7,7 @@
 
 export interface StreamPlatform {
   /** Platform identifier */
-  platform: 'twitch' | 'youtube' | 'vk' | 'kick' | 'other';
+  platform: 'twitch' | 'youtube' | 'vk' | 'kick' | 'trovo' | 'other';
   /** Login / channel ID on the platform */
   login: string;
   /** Full URL to the stream/channel */
@@ -29,6 +29,7 @@ const PLATFORM_URL_TEMPLATES: Record<string, (login: string) => string> = {
   youtube: (login) => `https://youtube.com/@${login}`,
   vk: (login) => `https://vk.com/video/@${login}/videos`,
   kick: (login) => `https://kick.com/${login}`,
+  trovo: (login) => `https://trovo.live/${login}`,
 };
 
 /** Build a platform URL from login. Returns the login as-is for unknown platforms. */
@@ -73,7 +74,7 @@ export function getPlatformUrl(platforms: StreamPlatform[], platform: string): s
 
 /** Get the "primary" stream URL — first platform by priority. */
 export function getPrimaryStreamUrl(platforms: StreamPlatform[]): string | undefined {
-  const priority = ['twitch', 'youtube', 'vk', 'kick', 'other'];
+  const priority = ['twitch', 'youtube', 'vk', 'kick', 'trovo', 'other'];
   for (const p of priority) {
     const url = getPlatformUrl(platforms, p);
     if (url) return url;

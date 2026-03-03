@@ -1,5 +1,5 @@
 export interface StreamPlatform {
-  platform: 'twitch' | 'youtube' | 'vk' | 'kick' | 'other';
+  platform: 'twitch' | 'youtube' | 'vk' | 'kick' | 'trovo' | 'other';
   login: string;
   url: string;
   isManual: boolean;

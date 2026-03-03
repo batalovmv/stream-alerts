@@ -4,6 +4,7 @@ const PLATFORM_URL_TEMPLATES: Record<string, (login: string) => string> = {
   youtube: (login) => `https://youtube.com/@${login}`,
   vk: (login) => `https://vk.com/video/@${login}/videos`,
   kick: (login) => `https://kick.com/${login}`,
+  trovo: (login) => `https://trovo.live/${login}`,
 };
 
 /** Build a platform URL from login. Returns the login as-is for unknown platforms. */

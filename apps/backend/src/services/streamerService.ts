@@ -10,7 +10,9 @@ export const PROVIDER_TO_PLATFORM: Record<string, StreamPlatform['platform']> = 
   youtube: 'youtube',
   google: 'youtube', // MemeLab might use 'google' for YouTube OAuth
   vk: 'vk',
+  vkvideo: 'vk',     // MemeLab sends 'vkvideo' for VK Video OAuth
   kick: 'kick',
+  trovo: 'trovo',
 };
 
 /**
