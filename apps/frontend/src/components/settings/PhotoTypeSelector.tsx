@@ -7,9 +7,9 @@ interface PhotoTypeSelectorProps {
   isSaving: boolean;
 }
 
-const PHOTO_TYPE_OPTIONS: Array<{ value: PhotoType; label: string; description: string }> = [
-  { value: 'stream_preview', label: 'Скриншот стрима', description: 'Превью стрима с Twitch' },
-  { value: 'game_box_art', label: 'Обложка игры', description: 'Обложка текущей категории' },
+const PHOTO_TYPE_OPTIONS: Array<{ value: PhotoType; label: string; description: string; disabled?: boolean }> = [
+  { value: 'stream_preview', label: 'Скриншот стрима', description: 'Превью стрима с платформы' },
+  { value: 'game_box_art', label: 'Обложка игры', description: 'Временно недоступно', disabled: true },
   { value: 'none', label: 'Без фото', description: 'Только текст' },
 ];
 
@@ -23,10 +23,14 @@ export function PhotoTypeSelector({ value, onSave, isSaving }: PhotoTypeSelector
         {PHOTO_TYPE_OPTIONS.map((option) => (
           <label
             key={option.value}
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer transition-colors ${
-              value === option.value
-                ? 'bg-white/10 ring-1 ring-white/20'
-                : 'bg-white/5 hover:bg-white/[0.07]'
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors ${
+              option.disabled
+                ? 'opacity-40 cursor-not-allowed'
+                : `cursor-pointer ${
+                    value === option.value
+                      ? 'bg-white/10 ring-1 ring-white/20'
+                      : 'bg-white/5 hover:bg-white/[0.07]'
+                  }`
             } ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <input
@@ -35,7 +39,7 @@ export function PhotoTypeSelector({ value, onSave, isSaving }: PhotoTypeSelector
               value={option.value}
               checked={value === option.value}
               onChange={() => onSave(option.value)}
-              disabled={isSaving}
+              disabled={isSaving || option.disabled}
               className="accent-[var(--color-primary,#6366f1)] w-4 h-4"
             />
             <div>

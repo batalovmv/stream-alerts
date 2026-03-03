@@ -44,16 +44,15 @@ function sanitizeThumbnailUrl(url: string | undefined): string | undefined {
 function resolvePhotoUrl(
   photoType: PhotoType,
   thumbnailUrl: string | undefined,
-  gameName: string | undefined,
+  _gameName: string | undefined,
 ): string | undefined {
   switch (photoType) {
     case 'stream_preview':
       return sanitizeThumbnailUrl(thumbnailUrl);
-    case 'game_box_art': {
-      if (!gameName) return sanitizeThumbnailUrl(thumbnailUrl); // fallback to stream preview
-      const boxArtUrl = `https://static-cdn.jtvnw.net/ttv-boxart/${encodeURIComponent(gameName)}-285x380.jpg`;
-      return sanitizeThumbnailUrl(boxArtUrl);
-    }
+    case 'game_box_art':
+      // Temporarily disabled — Twitch box art CDN returns placeholders for
+      // non-Twitch platforms or missing gameName. Fall back to stream preview.
+      return sanitizeThumbnailUrl(thumbnailUrl);
     case 'none':
       return undefined;
     default:
@@ -176,6 +175,7 @@ async function handleStreamOnline(
   jobId?: string,
 ): Promise<void> {
   const safePhotoUrl = resolvePhotoUrl(streamer.photoType, payload.thumbnailUrl, payload.gameName);
+  logger.info({ photoType: streamer.photoType, gameName: payload.gameName, resolvedPhotoUrl: safePhotoUrl }, 'announce.photo_resolved');
 
   const platforms = parseStreamPlatforms(streamer.streamPlatforms);
   const customButtons = parseCustomButtons(streamer.customButtons);
@@ -408,6 +408,7 @@ async function handleStreamUpdate(
   streamSessionId: string,
 ): Promise<void> {
   const safePhotoUrl = resolvePhotoUrl(streamer.photoType, payload.thumbnailUrl, payload.gameName);
+  logger.info({ photoType: streamer.photoType, gameName: payload.gameName, resolvedPhotoUrl: safePhotoUrl }, 'announce.photo_resolved');
 
   const platforms = parseStreamPlatforms(streamer.streamPlatforms);
   const customButtons = parseCustomButtons(streamer.customButtons);
