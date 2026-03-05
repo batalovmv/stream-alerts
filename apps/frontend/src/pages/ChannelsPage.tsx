@@ -1,11 +1,12 @@
-import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { ChatCard } from '../components/chat/ChatCard';
+import { Button, Skeleton, EmptyState, Alert, Card, useDisclosure } from '@memelabui/ui';
+
 import { AddChatModal } from '../components/chat/AddChatModal';
+import { ChatCard } from '../components/chat/ChatCard';
 import { TelegramStatus } from '../components/chat/TelegramStatus';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Button, Skeleton, EmptyState, Alert, Card, useDisclosure } from '@memelabui/ui';
-import { useChats } from '../hooks/useChats';
+import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { useAuth } from '../hooks/useAuth';
+import { useChats } from '../hooks/useChats';
 
 export function ChannelsPage() {
   const addModal = useDisclosure();
@@ -25,11 +26,7 @@ export function ChannelsPage() {
             Управляйте каналами для автоматических анонсов
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={addModal.open}
-        >
+        <Button variant="primary" size="md" onClick={addModal.open}>
           + Добавить канал
         </Button>
       </div>
@@ -44,20 +41,14 @@ export function ChannelsPage() {
       ) : error ? (
         <ErrorState />
       ) : chats.length === 0 ? (
-        <EmptyStateView
-          telegramLinked={user?.telegramLinked ?? false}
-          onAdd={addModal.open}
-        />
+        <EmptyStateView telegramLinked={user?.telegramLinked ?? false} onAdd={addModal.open} />
       ) : (
         <div className="space-y-4">
           {chats.map((chat) => (
             <ErrorBoundary
               key={chat.id}
               fallback={(reset) => (
-                <ChatCardErrorFallback
-                  title={chat.chatTitle || chat.chatId}
-                  onRetry={reset}
-                />
+                <ChatCardErrorFallback title={chat.chatTitle || chat.chatId} onRetry={reset} />
               )}
             >
               <ChatCard chat={chat} />
@@ -66,10 +57,7 @@ export function ChannelsPage() {
         </div>
       )}
 
-      <AddChatModal
-        open={addModal.isOpen}
-        onClose={addModal.close}
-      />
+      <AddChatModal open={addModal.isOpen} onClose={addModal.close} />
     </DashboardLayout>
   );
 }
@@ -90,9 +78,7 @@ function ChatCardErrorFallback({ title, onRetry }: { title: string; onRetry: () 
     <Card variant="glass" className="p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="feature-icon !w-12 !h-12 !rounded-xl !text-xl">
-            &#x26A0;&#xFE0F;
-          </div>
+          <div className="feature-icon !w-12 !h-12 !rounded-xl !text-xl">&#x26A0;&#xFE0F;</div>
           <div>
             <h3 className="font-semibold">{title}</h3>
             <p className="text-sm text-white/35">Ошибка отображения карточки</p>
@@ -123,7 +109,9 @@ function EmptyStateView({ telegramLinked, onAdd }: { telegramLinked: boolean; on
           variant="secondary"
           size="sm"
           className="mt-2"
-          onClick={() => window.open('https://t.me/MemelabNotifyBot', '_blank', 'noopener,noreferrer')}
+          onClick={() =>
+            window.open('https://t.me/MemelabNotifyBot', '_blank', 'noopener,noreferrer')
+          }
         >
           Открыть бота
         </Button>

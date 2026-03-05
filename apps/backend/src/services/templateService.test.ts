@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { renderTemplate, buildDefaultButtons, buildButtons, buildTemplateVars, formatStartTime } from './templateService.js';
+
+import {
+  renderTemplate,
+  buildDefaultButtons,
+  buildButtons,
+  buildTemplateVars,
+  formatStartTime,
+} from './templateService.js';
 
 describe('renderTemplate', () => {
   it('replaces all variables in default template', () => {
@@ -89,7 +96,11 @@ describe('buildDefaultButtons', () => {
 describe('buildButtons', () => {
   it('returns default buttons when customButtons is null', () => {
     const buttons = buildButtons(
-      { streamer_name: 'Test', stream_url: 'https://twitch.tv/test', memelab_url: 'https://memelab.ru/test' },
+      {
+        streamer_name: 'Test',
+        stream_url: 'https://twitch.tv/test',
+        memelab_url: 'https://memelab.ru/test',
+      },
       null,
     );
 
@@ -108,7 +119,11 @@ describe('buildButtons', () => {
 
   it('resolves variables in custom button URLs', () => {
     const buttons = buildButtons(
-      { streamer_name: 'Test', twitch_url: 'https://twitch.tv/test', youtube_url: 'https://youtube.com/@test' },
+      {
+        streamer_name: 'Test',
+        twitch_url: 'https://twitch.tv/test',
+        youtube_url: 'https://youtube.com/@test',
+      },
       [
         { label: 'Twitch', url: '{twitch_url}' },
         { label: 'YouTube', url: '{youtube_url}' },
@@ -121,13 +136,10 @@ describe('buildButtons', () => {
   });
 
   it('filters out buttons with invalid URLs after resolution', () => {
-    const buttons = buildButtons(
-      { streamer_name: 'Test' },
-      [
-        { label: 'Bad', url: '{twitch_url}' }, // resolves to empty string — not http
-        { label: 'Good', url: 'https://example.com' },
-      ],
-    );
+    const buttons = buildButtons({ streamer_name: 'Test' }, [
+      { label: 'Bad', url: '{twitch_url}' }, // resolves to empty string — not http
+      { label: 'Good', url: 'https://example.com' },
+    ]);
 
     expect(buttons).toHaveLength(1);
     expect(buttons[0].label).toBe('Good');
@@ -167,8 +179,18 @@ describe('buildTemplateVars', () => {
     const vars = buildTemplateVars({
       displayName: 'TestStreamer',
       platforms: [
-        { platform: 'twitch', login: 'teststreamer', url: 'https://twitch.tv/teststreamer', isManual: false },
-        { platform: 'youtube', login: 'testchannel', url: 'https://youtube.com/@testchannel', isManual: true },
+        {
+          platform: 'twitch',
+          login: 'teststreamer',
+          url: 'https://twitch.tv/teststreamer',
+          isManual: false,
+        },
+        {
+          platform: 'youtube',
+          login: 'testchannel',
+          url: 'https://youtube.com/@testchannel',
+          isManual: true,
+        },
       ],
       channelSlug: 'test-channel',
       twitchLogin: 'teststreamer',

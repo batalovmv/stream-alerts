@@ -13,17 +13,28 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly data: unknown,
   ) {
-    super(`API Error ${status}`);
+    super(ApiError.extractMessage(data, status));
     this.name = 'ApiError';
+  }
+
+  private static extractMessage(data: unknown, status: number): string {
+    if (data !== null && typeof data === 'object') {
+      const d = data as Record<string, unknown>;
+      // Standard envelope: { error: { message } }
+      if (d.error !== null && typeof d.error === 'object') {
+        const err = d.error as Record<string, unknown>;
+        if (typeof err.message === 'string') return err.message;
+      }
+      // Legacy: { error: "string" }
+      if (typeof d.error === 'string') return d.error;
+    }
+    return `API Error ${status}`;
   }
 }
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   // Only set Content-Type for requests with a body
-  const headers: Record<string, string> = { ...options.headers as Record<string, string> };
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
   if (options.body) {
     headers['Content-Type'] = 'application/json';
   }
@@ -65,6 +76,5 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
-  delete: <T>(path: string) =>
-    request<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };

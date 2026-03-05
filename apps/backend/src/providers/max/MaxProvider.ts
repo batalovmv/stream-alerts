@@ -14,6 +14,7 @@
  */
 
 import type { MessengerProvider, AnnouncementData, SendResult, ChatInfo } from '../types.js';
+
 import * as max from './maxApi.js';
 
 export class MaxProvider implements MessengerProvider {

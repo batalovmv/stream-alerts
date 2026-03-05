@@ -32,6 +32,30 @@ memelab-notify/
 
 ---
 
+## Tech Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Runtime** | Node.js (ESM) | 22+ |
+| **Package manager** | pnpm (workspace) | 9+ |
+| **Backend framework** | Express | 4.x |
+| **Database** | PostgreSQL + Prisma ORM | 6.x |
+| **Queue** | BullMQ + Redis (ioredis) | 5.x |
+| **Validation** | Zod | 3.x |
+| **Logging** | Pino + pino-pretty | 9.x |
+| **Monitoring** | Sentry (@sentry/node, @sentry/react) | 10.x |
+| **Frontend** | React 19 + TypeScript | 19.x |
+| **Routing** | react-router-dom | 7.x |
+| **Server state** | TanStack React Query | 5.x |
+| **UI kit** | @memelabui/ui + Tailwind CSS | 3.4.x |
+| **Build (frontend)** | Vite | 6.x |
+| **Build (backend)** | tsc (TypeScript) | 5.7+ |
+| **Tests** | Vitest + @testing-library/react | 3.x |
+| **Linting** | ESLint + Prettier | 9.x |
+| **Git hooks** | Husky + lint-staged + commitlint | — |
+
+---
+
 ## Architecture Principles
 
 1. **Provider-agnostic**: All messenger integrations implement a common `MessengerProvider` interface
@@ -39,6 +63,35 @@ memelab-notify/
 3. **One global bot**: Single @MemelabNotifyBot for Telegram, single bot for MAX
 4. **MemeLab OAuth**: Authentication through main MemeLab platform
 5. **Webhook-driven**: Stream events come from MemeLab backend via webhooks
+
+### Layer Rules
+
+| Layer | Location | Allowed dependencies |
+|-------|----------|---------------------|
+| **Routes** | `src/api/routes/` | Services, middleware, Prisma, Zod schemas |
+| **Middleware** | `src/api/middleware/` | Prisma, Redis, config — NO services |
+| **Services** | `src/services/` | Prisma, Redis, providers, lib/ — NO routes |
+| **Providers** | `src/providers/` | External APIs only — NO Prisma, NO services |
+| **Workers** | `src/workers/` | Services, Prisma, Redis — NO routes |
+| **Lib** | `src/lib/` | Pure utilities — NO services, NO routes |
+
+**Rule**: Never import upward. Workers/Routes → Services → Providers/Lib. Never Services → Routes.
+
+---
+
+## State Management
+
+### Backend
+- No global state. All state lives in PostgreSQL (Prisma) and Redis.
+- BullMQ handles async job state.
+
+### Frontend
+- **Server state**: TanStack React Query (`useQuery` / `useMutation`) — all API data goes through query cache
+- **Auth state**: Derived from `['auth', 'me']` query — no separate auth context/store
+- **Local state**: `useState` for component-level UI state only
+- **No global client state store** (no Redux, Zustand, Jotai, Context for state)
+
+**Rule**: Never add a global state library. If you need shared state, it's either server state (React Query) or should be lifted to a parent component.
 
 ---
 
@@ -62,6 +115,11 @@ pnpm dev:frontend     # Frontend only
 # Build
 pnpm build
 
+# Lint & format
+pnpm lint             # ESLint check
+pnpm lint:fix         # ESLint auto-fix
+pnpm format           # Prettier format
+
 # Database
 cd apps/backend
 npx prisma migrate dev
@@ -71,6 +129,58 @@ npx prisma studio
 # Tests
 pnpm test
 ```
+
+---
+
+## API Contract
+
+### Success Response
+
+```json
+{ "chat": { "id": "uuid", "provider": "telegram", ... } }
+```
+
+Top-level key is the resource name (`chat`, `chats`, `user`, etc.) or `{ "ok": true }` for actions without return data.
+
+### Error Response (standard envelope)
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Human-readable description",
+    "details": { "field": ["specific error"] }
+  }
+}
+```
+
+Error codes: `VALIDATION_FAILED`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`, `RATE_LIMITED`, `BAD_GATEWAY`, `INTERNAL_ERROR`, `BOT_ACCESS_DENIED`, `PROVIDER_ERROR`, `LIMIT_EXCEEDED`.
+
+Use `AppError` class from `src/lib/errors.ts`:
+```typescript
+throw AppError.notFound('Streamer');
+throw AppError.conflict('Chat already connected');
+throw AppError.badRequest('Invalid provider', { field: ['must be telegram or max'] });
+```
+
+### HTTP Status Codes
+
+| Code | Usage |
+|------|-------|
+| 200 | Success (GET, PATCH, DELETE) |
+| 201 | Created (POST) |
+| 400 | Validation / bad input |
+| 401 | Not authenticated |
+| 403 | CSRF / forbidden |
+| 404 | Resource not found |
+| 409 | Conflict (duplicate) |
+| 429 | Rate limited |
+| 502 | Upstream service error |
+| 503 | Health check degraded |
+
+### No Pagination
+
+This service has no paginated endpoints. All lists are bounded by business rules (max 20 chats per streamer). Use `take: 100` as a safety cap on `findMany`.
 
 ---
 
@@ -93,10 +203,12 @@ Before committing any migration:
 | File | Purpose |
 |------|---------|
 | `apps/backend/prisma/schema.prisma` | Database schema |
+| `apps/backend/src/lib/errors.ts` | Error catalog (AppError class + codes) |
 | `apps/backend/src/providers/` | Messenger provider implementations |
 | `apps/backend/src/api/` | REST API endpoints |
 | `apps/backend/src/bot/` | Telegram bot command handlers |
 | `apps/backend/src/workers/` | BullMQ workers |
+| `apps/backend/src/test/factories.ts` | Shared test factories |
 | `apps/frontend/src/` | React dashboard |
 | `docs/CONCEPT.md` | Product concept |
 | `docs/ARCHITECTURE.md` | Technical architecture |
@@ -138,6 +250,20 @@ Current providers:
 - Constants: `SCREAMING_SNAKE_CASE`
 - Types/interfaces: `PascalCase`
 
+### Import Order (enforced by ESLint)
+1. Node built-ins (`node:*`)
+2. External packages (`express`, `zod`, `react`)
+3. Internal modules (`../lib/`, `../services/`)
+4. Parent imports (`../`)
+5. Sibling imports (`./`)
+
+Blank line between groups. Alphabetical within groups.
+
+### File Size Limits
+- **Max 300 lines per file** (excluding blank lines and comments). Split if larger.
+- Routes: one file per resource (`chats.ts`, `streamer.ts`, `auth.ts`)
+- Services: one file per domain concern
+
 ### Commits
 ```
 feat: add feature X
@@ -145,6 +271,173 @@ fix: fix bug Y
 refactor: refactor module Z
 docs: update documentation
 ```
+
+Enforced by commitlint. Husky pre-commit runs `lint-staged` (ESLint + Prettier on staged files).
+
+---
+
+## Code Templates
+
+### New API Endpoint
+
+```typescript
+// apps/backend/src/api/routes/example.ts
+import { Router } from 'express';
+import type { Response } from 'express';
+import { z } from 'zod';
+import type { AuthenticatedRequest } from '../middleware/types.js';
+import { requireAuth } from '../middleware/auth.js';
+import { validate } from '../middleware/validation.js';
+import { prisma } from '../../lib/prisma.js';
+import { AppError } from '../../lib/errors.js';
+import { logger } from '../../lib/logger.js';
+
+const createSchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export const exampleRouter = Router();
+
+exampleRouter.use(requireAuth);
+
+// GET /api/example
+exampleRouter.get('/', async (req, res: Response) => {
+  const { streamer } = req as AuthenticatedRequest;
+  const items = await prisma.example.findMany({
+    where: { streamerId: streamer.id },
+    take: 100,
+  });
+  res.json({ items });
+});
+
+// POST /api/example
+exampleRouter.post('/', validate(createSchema), async (req, res: Response) => {
+  const { streamer } = req as AuthenticatedRequest;
+  try {
+    const item = await prisma.example.create({ data: { ...req.body, streamerId: streamer.id } });
+    res.status(201).json({ item });
+  } catch (err) {
+    logger.error({ error: err instanceof Error ? err.message : String(err) }, 'example.create_failed');
+    throw AppError.internal();
+  }
+});
+```
+
+### New React Page
+
+```tsx
+// apps/frontend/src/pages/ExamplePage.tsx
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../api/client';
+
+interface Example { id: string; name: string; }
+
+export function ExamplePage() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['examples'],
+    queryFn: () => api.get<{ items: Example[] }>('/api/example'),
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading data</div>;
+
+  return (
+    <div>
+      {data?.items.map((item) => (
+        <div key={item.id}>{item.name}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## Testing Rules
+
+### What to Test
+- **Always test**: Services (business logic), API routes (request/response), middleware, utility functions
+- **Don't test**: Prisma schema, config loading, type definitions, trivial getters
+
+### How to Test
+- **Framework**: Vitest with `vi.mock()` for dependency injection
+- **Factories**: Use shared factories from `src/test/factories.ts` — never duplicate mock objects inline
+- **Naming**: `<module>.test.ts` co-located next to source file
+- **Structure**: `describe('moduleName')` → `it('should ...')` with AAA (Arrange/Act/Assert)
+- **Backend ESM**: Mock imports use `.js` extensions (`vi.mock('../lib/prisma.js')`)
+
+### Coverage Targets
+- Backend: **70% lines, 70% functions** (enforced by vitest.config.ts)
+- Frontend: not enforced yet — aim for critical paths (API client, error boundaries)
+
+### Running Tests
+```bash
+pnpm test                   # All tests
+pnpm --filter backend test  # Backend only
+```
+
+### Test Factories
+
+```typescript
+import { makeStreamer, makeChat, makeFakeProvider, createMockReqRes } from '../test/factories.js';
+
+const streamer = makeStreamer({ displayName: 'Custom' });
+const chat = makeChat({ provider: 'max' });
+const provider = makeFakeProvider();
+const { req, res, next } = createMockReqRes({ streamer });
+```
+
+---
+
+## Git Workflow
+
+- **`main`** = production branch, deployed automatically via GitHub Actions
+- Create **feature branches** for non-trivial changes: `feat/add-discord-provider`, `fix/dedup-race`
+- **Squash merge** PRs into main
+- Direct commits to `main` only for hotfixes and docs
+
+### Pre-commit Checks (Husky)
+1. `lint-staged`: ESLint --fix + Prettier on staged `.ts`/`.tsx` files
+2. `commitlint`: Validates conventional commit format
+
+### Pre-push: Run `pnpm build && pnpm test` before pushing
+
+---
+
+## Guard Rails
+
+### Before Creating New Code
+- **Search first**: `Grep` for existing implementations before creating new utils/helpers/components. Duplication is the #1 source of bugs.
+- **Check the template**: Use the Code Templates section above for new endpoints/pages.
+- **Read before modify**: Never edit a file you haven't read. Understand the context.
+
+### Security Rules
+- **Validate all input** at API boundaries using Zod schemas via `validate()` middleware
+- **Sanitize URLs**: Use `isValidUrl()` from `lib/urlValidation.ts` for user-provided URLs
+- **No raw SQL**: Always use Prisma — never `prisma.$queryRawUnsafe` with user input
+- **CORS**: Only allow origins from `config.allowedOrigins` — never `*`
+- **Rate limiting**: All `/api/` routes are rate-limited via Redis-backed middleware
+- **Webhook auth**: `X-Webhook-Secret` HMAC validation on all webhook endpoints
+- **Cookie security**: `httpOnly`, `secure`, `sameSite: 'lax'` on auth cookies
+- **Bot tokens**: Encrypted at rest via `lib/encryption.ts` — never log or expose in API responses
+- **`take` limits**: Always use `take` on `findMany` queries to prevent unbounded results
+
+### What NOT to Do
+- Never add `"type": "commonjs"` — the project is ESM-only
+- Never use `axios` — use native `fetch`
+- Never add global state libraries (Redux, Zustand) to the frontend
+- Never commit `.env` files or secrets
+- Never skip Zod validation on POST/PATCH endpoints
+- Never use `any` without a `// eslint-disable-next-line` comment explaining why
+
+---
+
+## Shared Code Protocol
+
+Backend and frontend share no code package. If API types change:
+1. Update the Zod schema in backend
+2. Update the corresponding TypeScript interface in frontend manually
+3. Verify both sides with `pnpm build`
 
 ---
 
@@ -175,4 +468,11 @@ Body: {
 
 ---
 
-*Last updated: 2026-02-16*
+## Maintenance
+
+- **Keep this file updated**: When adding new patterns, routes, or architectural decisions, update CLAUDE.md in the same commit.
+- **Review quarterly**: Check that tech stack versions, file paths, and rules match reality.
+
+---
+
+*Last updated: 2026-03-05*

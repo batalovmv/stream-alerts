@@ -6,6 +6,7 @@
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+
 import { config } from './config.js';
 
 const ALGORITHM = 'aes-256-gcm';

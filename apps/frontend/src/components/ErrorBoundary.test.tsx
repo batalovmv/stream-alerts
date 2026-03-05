@@ -1,5 +1,5 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach } from 'vitest'; // eslint-disable-line import-x/order
 
 // Mock @sentry/react before importing ErrorBoundary
 vi.mock('@sentry/react', () => ({
@@ -9,14 +9,17 @@ vi.mock('@sentry/react', () => ({
 // Mock @memelabui/ui
 vi.mock('@memelabui/ui', () => ({
   Card: ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div data-testid="card" className={className}>{children}</div>
+    <div data-testid="card" className={className}>
+      {children}
+    </div>
   ),
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
 }));
 
-import * as Sentry from '@sentry/react';
+import * as Sentry from '@sentry/react'; // eslint-disable-line import-x/order -- must be after vi.mock
+
 import { ErrorBoundary } from './ErrorBoundary';
 
 function ThrowingChild({ error }: { error?: Error }) {

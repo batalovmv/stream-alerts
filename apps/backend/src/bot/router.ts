@@ -8,18 +8,23 @@
  * - my_chat_member (bot added/removed from chats)
  */
 
-import type { TelegramUpdate } from '../providers/telegram/telegramApi.js';
 import { logger } from '../lib/logger.js';
-import { handleStart } from './commands/start.js';
-import { handleConnect } from './commands/connect.js';
+import type { TelegramUpdate } from '../providers/telegram/telegramApi.js';
+
 import { handleChannels } from './commands/channels.js';
-import { handleTest } from './commands/test.js';
-import { handleSettings } from './commands/settings.js';
-import { handleStats } from './commands/stats.js';
+import { handleConnect } from './commands/connect.js';
 import { handlePreview } from './commands/preview.js';
-import { getPendingTemplateEdit, clearPendingTemplateEdit, handleTemplateTextInput } from './commands/settings.js';
-import { handleChatShared } from './handlers/chatShared.js';
+import {
+  handleSettings,
+  getPendingTemplateEdit,
+  clearPendingTemplateEdit,
+  handleTemplateTextInput,
+} from './commands/settings.js';
+import { handleStart } from './commands/start.js';
+import { handleStats } from './commands/stats.js';
+import { handleTest } from './commands/test.js';
 import { handleCallbackQuery } from './handlers/callbackQuery.js';
+import { handleChatShared } from './handlers/chatShared.js';
 import { handleMyChatMember } from './handlers/myChatMember.js';
 import type { BotContext } from './types.js';
 
@@ -77,7 +82,8 @@ export async function routeUpdate(update: TelegramUpdate): Promise<void> {
 
     // Check for pending template edit (text input for /settings)
     // Pass fetched chatDbId to avoid TOCTOU — key is read once, not twice
-    const pendingChatId = (!text.startsWith('/') && msg.from?.id) ? await getPendingTemplateEdit(msg.from.id) : undefined;
+    const pendingChatId =
+      !text.startsWith('/') && msg.from?.id ? await getPendingTemplateEdit(msg.from.id) : undefined;
     if (pendingChatId) {
       // Ignore non-text messages (stickers, photos, voice etc.) — they produce empty text
       if (!msg.text || msg.text.trim() === '') {

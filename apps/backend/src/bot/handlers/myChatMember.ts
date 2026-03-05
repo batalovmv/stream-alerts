@@ -5,11 +5,11 @@
  * Acts as a fallback catch-all for any method of adding the bot.
  */
 
+import { escapeHtml } from '../../lib/escapeHtml.js';
+import { logger } from '../../lib/logger.js';
+import { prisma } from '../../lib/prisma.js';
 import type { TelegramChatMemberUpdated } from '../../providers/telegram/telegramApi.js';
 import * as tg from '../../providers/telegram/telegramApi.js';
-import { prisma } from '../../lib/prisma.js';
-import { logger } from '../../lib/logger.js';
-import { escapeHtml } from '../../lib/escapeHtml.js';
 
 const LEFT_STATUSES = new Set(['left', 'kicked']);
 const MEMBER_STATUSES = new Set(['member', 'administrator', 'creator']);
@@ -45,6 +45,7 @@ export async function handleMyChatMember(update: TelegramChatMemberUpdated): Pro
     const affectedChats = await prisma.connectedChat.findMany({
       where: { provider: 'telegram', chatId: chatIdStr, enabled: true },
       include: { streamer: { select: { id: true, telegramUserId: true } } },
+      take: 100,
     });
 
     if (affectedChats.length === 0) return;
@@ -70,9 +71,10 @@ export async function handleMyChatMember(update: TelegramChatMemberUpdated): Pro
       try {
         await tg.sendMessage({
           chatId: affected.streamer.telegramUserId,
-          text: `⚠️ Бот был удалён из <b>${escapeHtml(chatTitle)}</b>.\n\n`
-            + 'Анонсы в этот чат приостановлены.\n'
-            + 'Используйте /connect чтобы подключить заново или /channels для управления.',
+          text:
+            `⚠️ Бот был удалён из <b>${escapeHtml(chatTitle)}</b>.\n\n` +
+            'Анонсы в этот чат приостановлены.\n' +
+            'Используйте /connect чтобы подключить заново или /channels для управления.',
         });
       } catch {
         // Streamer may have blocked the bot — ignore

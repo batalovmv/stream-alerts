@@ -1,7 +1,8 @@
+import { logger } from '../../lib/logger.js';
 import type { MessengerProvider, AnnouncementData, SendResult, ChatInfo } from '../types.js';
+
 import * as tg from './telegramApi.js';
 import { TelegramApiError } from './telegramApi.js';
-import { logger } from '../../lib/logger.js';
 
 export class TelegramProvider implements MessengerProvider {
   readonly name = 'telegram';
@@ -29,7 +30,10 @@ export class TelegramProvider implements MessengerProvider {
       } catch (error) {
         // On image-related 400 errors, fallback to text-only instead of failing
         if (error instanceof TelegramApiError && error.code === 400) {
-          logger.warn({ chatId, photoUrl: data.photoUrl, error: error.description }, 'telegram.sendPhoto_fallback_to_text');
+          logger.warn(
+            { chatId, photoUrl: data.photoUrl, error: error.description },
+            'telegram.sendPhoto_fallback_to_text',
+          );
         } else {
           throw error;
         }
@@ -75,7 +79,11 @@ export class TelegramProvider implements MessengerProvider {
         });
       } catch (error) {
         // Original message was a photo — editMessageText fails, fall back to editMessageCaption
-        if (error instanceof TelegramApiError && error.code === 400 && error.description?.includes('no text in the message')) {
+        if (
+          error instanceof TelegramApiError &&
+          error.code === 400 &&
+          error.description?.includes('no text in the message')
+        ) {
           await tg.editMessageCaption({
             chatId,
             messageId: numericId,

@@ -1,10 +1,26 @@
+import {
+  Button,
+  Input,
+  Badge,
+  SectionCard,
+  ConfirmDialog,
+  Alert,
+  Stepper,
+  useDisclosure,
+} from '@memelabui/ui';
 import { useState, useEffect } from 'react';
-import { Button, Input, Badge, SectionCard, ConfirmDialog, Alert, Stepper, useDisclosure } from '@memelabui/ui';
+
 import { ApiError } from '../../api/client';
 
 function extractApiError(data: unknown): string | undefined {
   if (data !== null && typeof data === 'object' && !Array.isArray(data)) {
     const d = data as Record<string, unknown>;
+    // New format: { error: { code, message } }
+    if (d.error !== null && typeof d.error === 'object') {
+      const err = d.error as Record<string, unknown>;
+      if (typeof err.message === 'string') return err.message;
+    }
+    // Legacy format: { error: "string" }
     if (typeof d.error === 'string') return d.error;
     if (typeof d.message === 'string') return d.message;
   }
@@ -20,14 +36,19 @@ interface CustomBotEditorProps {
   onResetError?: () => void;
 }
 
-export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSaving, error, onResetError }: CustomBotEditorProps) {
+export function CustomBotEditor({
+  hasCustomBot,
+  customBotUsername,
+  onSave,
+  isSaving,
+  error,
+  onResetError,
+}: CustomBotEditorProps) {
   const showForm = useDisclosure();
   const [token, setToken] = useState('');
   const removeDialog = useDisclosure();
 
-  const apiErrorMessage = error instanceof ApiError
-    ? extractApiError(error.data)
-    : error?.message;
+  const apiErrorMessage = error instanceof ApiError ? extractApiError(error.data) : error?.message;
 
   // Auto-close form/dialog when hasCustomBot changes (connect/disconnect succeeded)
   useEffect(() => {
@@ -37,7 +58,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
     } else {
       removeDialog.close();
     }
-  }, [hasCustomBot]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasCustomBot]);
 
   function handleSubmit() {
     if (!token.trim()) return;
@@ -62,9 +83,7 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
               <span className="text-lg">{'\uD83E\uDD16'}</span>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">
-                    @{customBotUsername}
-                  </span>
+                  <span className="font-medium text-sm">@{customBotUsername}</span>
                   <Badge variant="success">Подключён</Badge>
                 </div>
                 <p className="text-xs text-white/30 mt-0.5">
@@ -76,7 +95,10 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
             <Button
               variant="danger"
               size="sm"
-              onClick={() => { onResetError?.(); removeDialog.open(); }}
+              onClick={() => {
+                onResetError?.();
+                removeDialog.open();
+              }}
             >
               Отключить
             </Button>
@@ -133,7 +155,10 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { showForm.close(); setToken(''); }}
+              onClick={() => {
+                showForm.close();
+                setToken('');
+              }}
             >
               Отмена
             </Button>
@@ -143,7 +168,10 @@ export function CustomBotEditor({ hasCustomBot, customBotUsername, onSave, isSav
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => { onResetError?.(); showForm.open(); }}
+          onClick={() => {
+            onResetError?.();
+            showForm.open();
+          }}
         >
           + Подключить своего бота
         </Button>

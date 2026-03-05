@@ -5,13 +5,18 @@
  * Tapping a chat shows: toggle enabled, toggle deleteAfterEnd, edit template.
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
-import type { BotContext, CallbackContext } from '../types.js';
-import { escapeHtml } from '../../lib/escapeHtml.js';
-import { renderTemplate, buildButtons, buildTemplateVars, TEMPLATE_VARIABLE_DOCS } from '../../services/templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
+import {
+  renderTemplate,
+  buildButtons,
+  buildTemplateVars,
+  TEMPLATE_VARIABLE_DOCS,
+} from '../../services/templateService.js';
+import type { BotContext, CallbackContext } from '../types.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
 const PENDING_TEMPLATE_PREFIX = 'pending:template:';
@@ -27,7 +32,11 @@ export async function handleSettings(ctx: BotContext): Promise<void> {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: 'Сначала привяжите аккаунт.',
-      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }
@@ -51,12 +60,21 @@ export async function handleSettings(ctx: BotContext): Promise<void> {
 
 export async function sendSettingsMenu(
   chatId: number,
-  chats: Array<{ id: string; chatTitle: string | null; chatId: string; enabled: boolean; deleteAfterEnd: boolean; customTemplate: string | null }>,
+  chats: Array<{
+    id: string;
+    chatTitle: string | null;
+    chatId: string;
+    enabled: boolean;
+    deleteAfterEnd: boolean;
+    customTemplate: string | null;
+  }>,
 ): Promise<void> {
-  const keyboard: Array<Array<{ text: string; callback_data: string }>> = chats.map((chat) => [{
-    text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
-    callback_data: `settings:${chat.id}`,
-  }]);
+  const keyboard: Array<Array<{ text: string; callback_data: string }>> = chats.map((chat) => [
+    {
+      text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
+      callback_data: `settings:${chat.id}`,
+    },
+  ]);
 
   keyboard.push(BACK_TO_MENU_ROW);
 
@@ -67,10 +85,22 @@ export async function sendSettingsMenu(
   });
 }
 
-export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: string, skipAnswer = false): Promise<void> {
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+export async function handleSettingsCallback(
+  ctx: CallbackContext,
+  chatDbId: string,
+  skipAnswer = false,
+): Promise<void> {
+  const chat = await prisma.connectedChat.findUnique({
+    where: { id: chatDbId },
+    include: { streamer: true },
+  });
   if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
-    if (!skipAnswer) await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    if (!skipAnswer)
+      await tg.answerCallbackQuery({
+        callbackQueryId: ctx.callbackQueryId,
+        text: 'Канал не найден',
+        showAlert: true,
+      });
     return;
   }
 
@@ -85,8 +115,14 @@ export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: str
 
   const keyboard: Array<Array<{ text: string; callback_data: string }>> = [
     [
-      { text: chat.enabled ? '\u{1F534} Выключить' : '\u{1F7E2} Включить', callback_data: `stg_toggle:${chat.id}` },
-      { text: chat.deleteAfterEnd ? '\u{274C} Не удалять' : '\u{1F5D1} Удалять', callback_data: `stg_delete:${chat.id}` },
+      {
+        text: chat.enabled ? '\u{1F534} Выключить' : '\u{1F7E2} Включить',
+        callback_data: `stg_toggle:${chat.id}`,
+      },
+      {
+        text: chat.deleteAfterEnd ? '\u{274C} Не удалять' : '\u{1F5D1} Удалять',
+        callback_data: `stg_delete:${chat.id}`,
+      },
     ],
     [{ text: '\u{1F4DD} Изменить шаблон', callback_data: `stg_template:${chat.id}` }],
     [
@@ -105,9 +141,16 @@ export async function handleSettingsCallback(ctx: CallbackContext, chatDbId: str
 }
 
 export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: string): Promise<void> {
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  const chat = await prisma.connectedChat.findUnique({
+    where: { id: chatDbId },
+    include: { streamer: true },
+  });
   if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Канал не найден',
+      showAlert: true,
+    });
     return;
   }
 
@@ -126,9 +169,16 @@ export async function handleSettingsToggle(ctx: CallbackContext, chatDbId: strin
 }
 
 export async function handleSettingsDelete(ctx: CallbackContext, chatDbId: string): Promise<void> {
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  const chat = await prisma.connectedChat.findUnique({
+    where: { id: chatDbId },
+    include: { streamer: true },
+  });
   if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Канал не найден',
+      showAlert: true,
+    });
     return;
   }
 
@@ -155,27 +205,38 @@ export async function clearPendingTemplateEdit(userId: number): Promise<void> {
   await redis.del(PENDING_TEMPLATE_PREFIX + userId);
 }
 
-export async function handleSettingsTemplate(ctx: CallbackContext, chatDbId: string): Promise<void> {
+export async function handleSettingsTemplate(
+  ctx: CallbackContext,
+  chatDbId: string,
+): Promise<void> {
   // Verify ownership before storing pending edit state
-  const chat = await prisma.connectedChat.findUnique({ where: { id: chatDbId }, include: { streamer: true } });
+  const chat = await prisma.connectedChat.findUnique({
+    where: { id: chatDbId },
+    include: { streamer: true },
+  });
   if (!chat || chat.streamer.telegramUserId !== String(ctx.userId)) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Канал не найден',
+      showAlert: true,
+    });
     return;
   }
 
   await redis.setex(PENDING_TEMPLATE_PREFIX + ctx.userId, PENDING_TEMPLATE_TTL, chatDbId);
 
-  const varsList = TEMPLATE_VARIABLE_DOCS
-    .map((v) => `<code>{${v.name}}</code> — ${v.description}`)
-    .join('\n');
+  const varsList = TEMPLATE_VARIABLE_DOCS.map(
+    (v) => `<code>{${v.name}}</code> — ${v.description}`,
+  ).join('\n');
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: '📝 Отправьте новый шаблон анонса.\n\n'
-      + `Переменные:\n${varsList}\n\n`
-      + '<code>reset</code> — сбросить на стандартный\n'
-      + '/cancel — отмена',
+    text:
+      '📝 Отправьте новый шаблон анонса.\n\n' +
+      `Переменные:\n${varsList}\n\n` +
+      '<code>reset</code> — сбросить на стандартный\n' +
+      '/cancel — отмена',
   });
 }
 
@@ -186,16 +247,24 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
   });
 
   if (!streamer) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Аккаунт не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Аккаунт не найден',
+      showAlert: true,
+    });
     return;
   }
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
 
-  const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat: { id: string; chatTitle: string | null; chatId: string; enabled: boolean }) => [{
-    text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
-    callback_data: `settings:${chat.id}`,
-  }]);
+  const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map(
+    (chat: { id: string; chatTitle: string | null; chatId: string; enabled: boolean }) => [
+      {
+        text: `${chat.enabled ? '\u{1F7E2}' : '\u{1F534}'} ${chat.chatTitle || chat.chatId}`,
+        callback_data: `settings:${chat.id}`,
+      },
+    ],
+  );
 
   keyboard.push(BACK_TO_MENU_ROW);
 
@@ -207,8 +276,13 @@ export async function handleSettingsBack(ctx: CallbackContext): Promise<void> {
   });
 }
 
-export async function handleTemplateTextInput(chatId: number, userId: number, text: string, pendingChatDbId?: string): Promise<void> {
-  const chatDbId = pendingChatDbId ?? await redis.get(PENDING_TEMPLATE_PREFIX + userId);
+export async function handleTemplateTextInput(
+  chatId: number,
+  userId: number,
+  text: string,
+  pendingChatDbId?: string,
+): Promise<void> {
+  const chatDbId = pendingChatDbId ?? (await redis.get(PENDING_TEMPLATE_PREFIX + userId));
   if (!chatDbId) {
     await tg.sendMessage({
       chatId: String(chatId),
@@ -225,7 +299,10 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
 
   if (!chat || !streamer) {
     // Don't consume the pending key — user can retry after the issue resolves
-    await tg.sendMessage({ chatId: String(chatId), text: '\u{274C} Канал не найден или не принадлежит вашему аккаунту.' });
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: '\u{274C} Канал не найден или не принадлежит вашему аккаунту.',
+    });
     return;
   }
 
@@ -234,7 +311,10 @@ export async function handleTemplateTextInput(chatId: number, userId: number, te
   if (text.length > MAX_TEMPLATE_LENGTH) {
     // Restore pending state so user can retry with shorter text
     await redis.setex(PENDING_TEMPLATE_PREFIX + userId, PENDING_TEMPLATE_TTL, chatDbId);
-    await tg.sendMessage({ chatId: String(chatId), text: `\u{274C} Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH}). Сократите и отправьте снова.` });
+    await tg.sendMessage({
+      chatId: String(chatId),
+      text: `\u{274C} Шаблон слишком длинный (${text.length}/${MAX_TEMPLATE_LENGTH}). Сократите и отправьте снова.`,
+    });
     return;
   }
 

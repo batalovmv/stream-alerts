@@ -11,25 +11,24 @@
  * - settings:* / stg_* — settings sub-screens
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
-import { prisma } from '../../lib/prisma.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 import { logger } from '../../lib/logger.js';
+import { prisma } from '../../lib/prisma.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
 import { buildChannelsListContent, handleChannels } from '../commands/channels.js';
 import { handleConnect } from '../commands/connect.js';
-import { handleSettings } from '../commands/settings.js';
-import { handleTest } from '../commands/test.js';
 import { handlePreview } from '../commands/preview.js';
-import { handleStats } from '../commands/stats.js';
-import { sendTestAnnouncement } from '../commands/test.js';
 import {
+  handleSettings,
   handleSettingsCallback,
   handleSettingsToggle,
   handleSettingsDelete,
   handleSettingsTemplate,
   handleSettingsBack,
 } from '../commands/settings.js';
+import { handleStats } from '../commands/stats.js';
+import { handleTest, sendTestAnnouncement } from '../commands/test.js';
 import type { BotContext, CallbackContext } from '../types.js';
-import { escapeHtml } from '../../lib/escapeHtml.js';
 import { editToMainMenu, BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
@@ -104,19 +103,36 @@ export async function handleCallbackQuery(ctx: CallbackContext): Promise<void> {
     // Always answer the callback query to dismiss Telegram's loading spinner
     try {
       await tg.answerCallbackQuery({ callbackQueryId, text: 'Произошла ошибка', showAlert: true });
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
     throw error;
   }
 }
 
 async function handleToggle(
   ctx: CallbackContext,
-  streamer: { id: string; chats: Array<{ id: string; enabled: boolean; chatTitle: string | null; chatId: string; chatType: string | null; provider: string; deleteAfterEnd: boolean }> },
+  streamer: {
+    id: string;
+    chats: Array<{
+      id: string;
+      enabled: boolean;
+      chatTitle: string | null;
+      chatId: string;
+      chatType: string | null;
+      provider: string;
+      deleteAfterEnd: boolean;
+    }>;
+  },
   chatDbId: string,
 ): Promise<void> {
   const chat = streamer.chats.find((c) => c.id === chatDbId);
   if (!chat) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Канал не найден',
+      showAlert: true,
+    });
     return;
   }
 
@@ -136,6 +152,7 @@ async function handleToggle(
   const freshChats = await prisma.connectedChat.findMany({
     where: { streamerId: streamer.id },
     orderBy: { createdAt: 'asc' },
+    take: 100,
   });
 
   const { text: listText, replyMarkup } = buildChannelsListContent(freshChats);
@@ -154,7 +171,11 @@ async function handleRemovePrompt(
 ): Promise<void> {
   const chat = streamer.chats.find((c) => c.id === chatDbId);
   if (!chat) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Канал не найден',
+      showAlert: true,
+    });
     return;
   }
 
@@ -184,7 +205,11 @@ async function handleConfirmRemove(
 ): Promise<void> {
   const chat = streamer.chats.find((c) => c.id === chatDbId);
   if (!chat) {
-    await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал не найден', showAlert: true });
+    await tg.answerCallbackQuery({
+      callbackQueryId: ctx.callbackQueryId,
+      text: 'Канал не найден',
+      showAlert: true,
+    });
     return;
   }
 
@@ -192,7 +217,11 @@ async function handleConfirmRemove(
     await prisma.connectedChat.delete({ where: { id: chatDbId, streamerId: streamer.id } });
   } catch (error) {
     if (error instanceof Error && 'code' in error && (error as { code: string }).code === 'P2025') {
-      await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Канал уже удалён', showAlert: true });
+      await tg.answerCallbackQuery({
+        callbackQueryId: ctx.callbackQueryId,
+        text: 'Канал уже удалён',
+        showAlert: true,
+      });
       return;
     }
     throw error;
@@ -209,6 +238,7 @@ async function handleConfirmRemove(
   const freshChats = await prisma.connectedChat.findMany({
     where: { streamerId: streamer.id },
     orderBy: { createdAt: 'asc' },
+    take: 100,
   });
 
   if (freshChats.length === 0) {
@@ -234,15 +264,13 @@ async function handleConfirmRemove(
   }
 }
 
-async function handleCancelRemove(
-  ctx: CallbackContext,
-  streamer: { id: string },
-): Promise<void> {
+async function handleCancelRemove(ctx: CallbackContext, streamer: { id: string }): Promise<void> {
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId });
 
   const freshChats = await prisma.connectedChat.findMany({
     where: { streamerId: streamer.id },
     orderBy: { createdAt: 'asc' },
+    take: 100,
   });
 
   const { text, replyMarkup } = buildChannelsListContent(freshChats);
@@ -256,7 +284,25 @@ async function handleCancelRemove(
 
 async function handleTestCallback(
   ctx: CallbackContext,
-  streamer: { id: string; displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null; chats: Array<{ id: string; chatId: string; chatTitle: string | null; provider: string; customTemplate: string | null; enabled: boolean }> },
+  streamer: {
+    id: string;
+    displayName: string;
+    twitchLogin: string | null;
+    memelabChannelId: string;
+    channelSlug: string;
+    defaultTemplate: string | null;
+    streamPlatforms: unknown;
+    customButtons: unknown;
+    customBotToken: string | null;
+    chats: Array<{
+      id: string;
+      chatId: string;
+      chatTitle: string | null;
+      provider: string;
+      customTemplate: string | null;
+      enabled: boolean;
+    }>;
+  },
   targetId: string,
 ): Promise<void> {
   // Handle cancel
@@ -273,14 +319,16 @@ async function handleTestCallback(
 
   await tg.answerCallbackQuery({ callbackQueryId: ctx.callbackQueryId, text: 'Отправляю...' });
 
-  const chatsToTest = targetId === 'all'
-    ? streamer.chats.filter((c) => c.enabled)
-    : streamer.chats.filter((c) => c.id === targetId);
+  const chatsToTest =
+    targetId === 'all'
+      ? streamer.chats.filter((c) => c.enabled)
+      : streamer.chats.filter((c) => c.id === targetId);
 
   if (chatsToTest.length === 0) {
-    const msg = targetId && targetId !== 'all'
-      ? 'Канал не найден — возможно, он был удалён.'
-      : 'Нет доступных каналов для теста.';
+    const msg =
+      targetId && targetId !== 'all'
+        ? 'Канал не найден — возможно, он был удалён.'
+        : 'Нет доступных каналов для теста.';
     await tg.editMessageText({
       chatId: String(ctx.chatId),
       messageId: ctx.messageId,
@@ -295,7 +343,9 @@ async function handleTestCallback(
   for (const chat of chatsToTest) {
     const result = await sendTestAnnouncement(streamer, chat);
     const title = escapeHtml(chat.chatTitle || chat.chatId);
-    results.push(result.success ? `\u2705 ${title}` : `\u274C ${title}: ${escapeHtml(result.error ?? '')}`);
+    results.push(
+      result.success ? `\u2705 ${title}` : `\u274C ${title}: ${escapeHtml(result.error ?? '')}`,
+    );
   }
 
   await tg.editMessageText({
@@ -350,7 +400,11 @@ async function handleMenuButton(ctx: CallbackContext, command: string): Promise<
 function buildBotContext(ctx: CallbackContext): BotContext {
   return {
     update: ctx.update,
-    message: ctx.update.callback_query?.message ?? { message_id: ctx.messageId, chat: { id: ctx.chatId, type: 'private' }, date: Math.floor(Date.now() / 1000) },
+    message: ctx.update.callback_query?.message ?? {
+      message_id: ctx.messageId,
+      chat: { id: ctx.chatId, type: 'private' },
+      date: Math.floor(Date.now() / 1000),
+    },
     chatId: ctx.chatId,
     userId: ctx.userId,
     text: '',

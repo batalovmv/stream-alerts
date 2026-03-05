@@ -5,9 +5,9 @@
  * Every sub-screen includes a "◀️ Меню" button to return to main menu.
  */
 
-import * as tg from '../providers/telegram/telegramApi.js';
-import { prisma } from '../lib/prisma.js';
 import { escapeHtml } from '../lib/escapeHtml.js';
+import { prisma } from '../lib/prisma.js';
+import * as tg from '../providers/telegram/telegramApi.js';
 
 // ─── Main Menu ───────────────────────────────────────────
 
@@ -25,9 +25,7 @@ const MAIN_MENU_KEYBOARD = {
       { text: '\u{1F441} Предпросмотр', callback_data: 'menu:preview' },
       { text: '\u{1F4CA} Статистика', callback_data: 'menu:stats' },
     ],
-    [
-      { text: '\u{1F310} Дашборд', url: 'https://notify.memelab.ru/dashboard' },
-    ],
+    [{ text: '\u{1F310} Дашборд', url: 'https://notify.memelab.ru/dashboard' }],
   ],
 };
 
@@ -55,7 +53,11 @@ export async function sendMainMenu(chatId: number, displayName: string): Promise
 }
 
 /** Edit an existing message to show main menu */
-export async function editToMainMenu(chatId: number, messageId: number, userId: number): Promise<void> {
+export async function editToMainMenu(
+  chatId: number,
+  messageId: number,
+  userId: number,
+): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
     where: { telegramUserId: String(userId) },
   });
@@ -78,6 +80,8 @@ export const BACK_TO_MENU_ROW: Array<{ text: string; callback_data: string }> = 
 ];
 
 /** Append "back to menu" row to any keyboard */
-export function withBackToMenu(keyboard: Array<Array<{ text: string; callback_data: string }>>): Array<Array<{ text: string; callback_data: string }>> {
+export function withBackToMenu(
+  keyboard: Array<Array<{ text: string; callback_data: string }>>,
+): Array<Array<{ text: string; callback_data: string }>> {
   return [...keyboard, BACK_TO_MENU_ROW];
 }

@@ -1,6 +1,6 @@
-import { Component, type ReactNode, type ErrorInfo } from 'react';
-import * as Sentry from '@sentry/react';
 import { Card, Button } from '@memelabui/ui';
+import * as Sentry from '@sentry/react';
+import { Component, type ReactNode, type ErrorInfo } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -29,7 +29,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo.componentStack);
-    Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack ?? '' } } });
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack ?? '' } },
+    });
   }
 
   private reset = () => {

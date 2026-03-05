@@ -6,9 +6,10 @@
  */
 
 import { Queue, Worker } from 'bullmq';
-import { Sentry } from '../lib/sentry.js';
-import { logger } from '../lib/logger.js';
+
 import { config } from '../lib/config.js';
+import { logger } from '../lib/logger.js';
+import { Sentry } from '../lib/sentry.js';
 import { processStreamEvent, type StreamEventPayload } from '../services/announcementService.js';
 
 const QUEUE_NAME = 'announcements';
@@ -26,7 +27,10 @@ function parseRedisConnection() {
       ...(redisUrl.protocol === 'rediss:' ? { tls: {} } : {}),
     };
   } catch (error) {
-    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'queue.invalid_redis_url');
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'queue.invalid_redis_url',
+    );
     throw new Error('Invalid REDIS_URL format');
   }
 }
@@ -52,9 +56,10 @@ export async function enqueueStreamEvent(payload: StreamEventPayload): Promise<v
   // startedAt is guaranteed for stream.online by Zod schema validation.
   // Convert startedAt to Unix ms to avoid colons (BullMQ forbids ":" in custom job IDs).
   // Offline/Update events: unique jobId so BullMQ processes each update
-  const jobId = payload.event === 'stream.online'
-    ? `stream.online:${payload.channelId}:${new Date(payload.startedAt).getTime()}`
-    : `${payload.event}:${payload.channelId}:${Date.now()}`;
+  const jobId =
+    payload.event === 'stream.online'
+      ? `stream.online:${payload.channelId}:${new Date(payload.startedAt).getTime()}`
+      : `${payload.event}:${payload.channelId}:${Date.now()}`;
 
   await announcementQueue.add(payload.event, payload, {
     jobId,

@@ -1,12 +1,21 @@
+import {
+  Badge,
+  Button,
+  Toggle,
+  Card,
+  Textarea,
+  CollapsibleSection,
+  ConfirmDialog,
+  Divider,
+  useToast,
+  useDisclosure,
+} from '@memelabui/ui';
 import { useState, useEffect } from 'react';
-import type { ConnectedChat } from '../../types/chat';
+
 import { useChats } from '../../hooks/useChats';
 import { useStreamerSettings } from '../../hooks/useStreamerSettings';
+import type { ConnectedChat } from '../../types/chat';
 import { TemplateVariablesList } from '../settings/TemplateVariablesList';
-import {
-  Badge, Button, Toggle, Card, Textarea, CollapsibleSection,
-  ConfirmDialog, Divider, useToast, useDisclosure,
-} from '@memelabui/ui';
 
 interface ChatCardProps {
   chat: ConnectedChat;
@@ -60,9 +69,7 @@ export function ChatCard({ chat }: ChatCardProps) {
     <Card variant="glass" className="p-5">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="feature-icon !w-12 !h-12 !rounded-xl !text-xl">
-            {providerEmoji}
-          </div>
+          <div className="feature-icon !w-12 !h-12 !rounded-xl !text-xl">{providerEmoji}</div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold">{chat.chatTitle || chat.chatId}</h3>
@@ -103,12 +110,7 @@ export function ChatCard({ chat }: ChatCardProps) {
           >
             Тест
           </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={deleteDialog.open}
-            disabled={isBusy}
-          >
+          <Button variant="danger" size="sm" onClick={deleteDialog.open} disabled={isBusy}>
             Удалить
           </Button>
         </div>
@@ -159,8 +161,7 @@ export function ChatCard({ chat }: ChatCardProps) {
       {/* Last announced */}
       {chat.lastAnnouncedAt && (
         <p className="text-xs text-white/25 mt-3">
-          Последний анонс:{' '}
-          {new Date(chat.lastAnnouncedAt).toLocaleString('ru-RU')}
+          Последний анонс: {new Date(chat.lastAnnouncedAt).toLocaleString('ru-RU')}
         </p>
       )}
 

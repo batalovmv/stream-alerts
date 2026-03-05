@@ -1,5 +1,5 @@
-import type { Config } from 'tailwindcss';
 import memelabPreset from '@memelabui/ui/preset';
+import type { Config } from 'tailwindcss';
 
 export default {
   presets: [memelabPreset],

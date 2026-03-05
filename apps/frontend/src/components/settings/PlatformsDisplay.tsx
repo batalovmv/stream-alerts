@@ -1,9 +1,14 @@
-import { useState } from 'react';
 import { Badge, SectionCard, Button, IconButton, useToast } from '@memelabui/ui';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+
 import { api } from '../../api/client';
-import type { StreamPlatform, AvailablePlatformsResponse, SyncResponse } from '../../types/streamer';
 import { buildPlatformUrl } from '../../lib/platformUtils';
+import type {
+  StreamPlatform,
+  AvailablePlatformsResponse,
+  SyncResponse,
+} from '../../types/streamer';
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   twitch: { label: 'Twitch', icon: '🟣' },
@@ -112,7 +117,9 @@ export function PlatformsDisplay({ platforms, onUpdate, isUpdating }: PlatformsD
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => { setShowPicker(true); }}
+            onClick={() => {
+              setShowPicker(true);
+            }}
           >
             + Добавить платформу
           </Button>
@@ -123,7 +130,10 @@ export function PlatformsDisplay({ platforms, onUpdate, isUpdating }: PlatformsD
             const meta = PLATFORM_META[p.platform] ?? PLATFORM_META.other;
             const safeHref = isHttpUrl(p.url) ? p.url : undefined;
             return (
-              <div key={`${p.platform}:${p.login}`} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3">
+              <div
+                key={`${p.platform}:${p.login}`}
+                className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3"
+              >
                 <span className="text-lg">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -182,7 +192,9 @@ export function PlatformsDisplay({ platforms, onUpdate, isUpdating }: PlatformsD
               {availableQuery.isLoading ? (
                 <p className="text-xs text-white/40 py-2">Загрузка...</p>
               ) : availableQuery.isError ? (
-                <p className="text-xs text-red-400 py-2">Не удалось загрузить аккаунты. Попробуйте обновить страницу.</p>
+                <p className="text-xs text-red-400 py-2">
+                  Не удалось загрузить аккаунты. Попробуйте обновить страницу.
+                </p>
               ) : availableToAdd.length === 0 ? (
                 <p className="text-xs text-white/40 py-2">
                   Все привязанные аккаунты уже добавлены.{' '}

@@ -1,7 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@memelabui/ui';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { api } from '../api/client';
-import type { StreamerSettingsResponse, StreamPlatform, CustomButton, PhotoType } from '../types/streamer';
+import type {
+  StreamerSettingsResponse,
+  StreamPlatform,
+  CustomButton,
+  PhotoType,
+} from '../types/streamer';
 
 const SETTINGS_QUERY_KEY = ['streamer', 'settings'] as const;
 
@@ -19,33 +25,46 @@ export function useStreamerSettings() {
 
   const settingsQuery = useQuery<StreamerSettingsResponse>({
     queryKey: SETTINGS_QUERY_KEY,
-    queryFn: () => api.get<StreamerSettingsResponse>('/api/streamer/settings'),
+    queryFn: () =>
+      api
+        .get<{ settings: StreamerSettingsResponse }>('/api/streamer/settings')
+        .then((r) => r.settings),
   });
 
   const updatePlatforms = useMutation({
     mutationFn: (streamPlatforms: StreamPlatform[]) =>
-      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { streamPlatforms }),
+      api
+        .patch<{
+          settings: StreamerSettingsResponse;
+        }>('/api/streamer/settings', { streamPlatforms })
+        .then((r) => r.settings),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
     onError: handleUpdateError,
   });
 
   const updateButtons = useMutation({
     mutationFn: (customButtons: CustomButton[] | null) =>
-      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { customButtons }),
+      api
+        .patch<{ settings: StreamerSettingsResponse }>('/api/streamer/settings', { customButtons })
+        .then((r) => r.settings),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
     onError: handleUpdateError,
   });
 
   const updateCustomBot = useMutation({
     mutationFn: (customBotToken: string | null) =>
-      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { customBotToken }),
+      api
+        .patch<{ settings: StreamerSettingsResponse }>('/api/streamer/settings', { customBotToken })
+        .then((r) => r.settings),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
     onError: handleUpdateError,
   });
 
   const updatePhotoType = useMutation({
     mutationFn: (photoType: PhotoType) =>
-      api.patch<StreamerSettingsResponse>('/api/streamer/settings', { photoType }),
+      api
+        .patch<{ settings: StreamerSettingsResponse }>('/api/streamer/settings', { photoType })
+        .then((r) => r.settings),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),
     onError: handleUpdateError,
   });

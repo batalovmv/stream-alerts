@@ -5,10 +5,10 @@
  * total, sent, failed, last announcement.
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
-import { prisma } from '../../lib/prisma.js';
-import type { BotContext } from '../types.js';
 import { escapeHtml } from '../../lib/escapeHtml.js';
+import { prisma } from '../../lib/prisma.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
+import type { BotContext } from '../types.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleStats(ctx: BotContext): Promise<void> {
@@ -21,7 +21,11 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: 'Сначала привяжите аккаунт.',
-      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }

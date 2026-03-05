@@ -6,12 +6,12 @@
  * as admin with the requested permissions.
  */
 
+import { escapeHtml } from '../../lib/escapeHtml.js';
+import { logger } from '../../lib/logger.js';
+import { prisma } from '../../lib/prisma.js';
 import type { TelegramMessage } from '../../providers/telegram/telegramApi.js';
 import * as tg from '../../providers/telegram/telegramApi.js';
-import { prisma } from '../../lib/prisma.js';
-import { logger } from '../../lib/logger.js';
 import { REQUEST_ID_GROUP, REQUEST_ID_CHANNEL } from '../commands/connect.js';
-import { escapeHtml } from '../../lib/escapeHtml.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleChatShared(msg: TelegramMessage): Promise<void> {
@@ -29,21 +29,26 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
   });
 
   if (!streamer) {
-    await tg.removeReplyKeyboard(
-      chatId,
-      'Ваш аккаунт не привязан.',
-    );
+    await tg.removeReplyKeyboard(chatId, 'Ваш аккаунт не привязан.');
     await tg.sendMessage({
       chatId: String(chatId),
       text: 'Привяжите аккаунт на дашборде:',
-      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }
 
   const selectedChatId = String(shared.chat_id);
   const isChannel = shared.request_id === REQUEST_ID_CHANNEL;
-  const chatType = isChannel ? 'channel' : (shared.request_id === REQUEST_ID_GROUP ? 'group' : 'unknown');
+  const chatType = isChannel
+    ? 'channel'
+    : shared.request_id === REQUEST_ID_GROUP
+      ? 'group'
+      : 'unknown';
 
   // Try to get fresh chat info from Telegram API
   let chatTitle = shared.title ?? null;
@@ -164,7 +169,11 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
     });
   } catch (error) {
     logger.error(
-      { streamerId: streamer.id, chatId: selectedChatId, error: error instanceof Error ? error.message : String(error) },
+      {
+        streamerId: streamer.id,
+        chatId: selectedChatId,
+        error: error instanceof Error ? error.message : String(error),
+      },
       'bot.chat_connect_failed',
     );
     await tg.removeReplyKeyboard(chatId, 'Не удалось сохранить подключение.');
@@ -204,4 +213,3 @@ export async function handleChatShared(msg: TelegramMessage): Promise<void> {
     },
   });
 }
-

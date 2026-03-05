@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@memelabui/ui';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+
 import { api } from '../api/client';
 import type { TelegramLinkResponse } from '../types/auth';
 
@@ -16,7 +17,10 @@ export function useTelegramLink() {
   }, []);
 
   const linkMutation = useMutation({
-    mutationFn: () => api.post<TelegramLinkResponse>('/api/auth/telegram-link'),
+    mutationFn: () =>
+      api
+        .post<{ telegramLink: TelegramLinkResponse }>('/api/auth/telegram-link')
+        .then((r) => r.telegramLink),
     onSuccess: (data) => {
       if (data.linked) {
         // Already linked, invalidate auth to refresh telegramLinked flag
@@ -30,7 +34,11 @@ export function useTelegramLink() {
       }
     },
     onError: (error) => {
-      toast({ variant: 'error', title: 'Не удалось привязать Telegram', description: error.message || 'Попробуйте ещё раз' });
+      toast({
+        variant: 'error',
+        title: 'Не удалось привязать Telegram',
+        description: error.message || 'Попробуйте ещё раз',
+      });
     },
   });
 
@@ -42,7 +50,11 @@ export function useTelegramLink() {
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },
     onError: (error) => {
-      toast({ variant: 'error', title: 'Не удалось отвязать Telegram', description: error.message || 'Попробуйте ещё раз' });
+      toast({
+        variant: 'error',
+        title: 'Не удалось отвязать Telegram',
+        description: error.message || 'Попробуйте ещё раз',
+      });
     },
   });
 
@@ -53,6 +65,9 @@ export function useTelegramLink() {
     unlink: (callbacks?: { onSuccess?: () => void; onError?: () => void }) =>
       unlinkMutation.mutate(undefined, callbacks),
     isUnlinking: unlinkMutation.isPending,
-    reset: () => { setDeepLink(null); clearTimeout(expiryTimerRef.current); },
+    reset: () => {
+      setDeepLink(null);
+      clearTimeout(expiryTimerRef.current);
+    },
   };
 }

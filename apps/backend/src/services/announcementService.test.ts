@@ -98,69 +98,14 @@ vi.mock('../lib/escapeHtml.js', () => ({
 
 // ─── Imports (after mocks) ───────────────────────────────────
 
-import { processStreamEvent, type StreamEventPayload } from './announcementService.js';
 import { prisma } from '../lib/prisma.js';
 import { redis } from '../lib/redis.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
+import { makeStreamer, makeChat, onlinePayload, offlinePayload } from '../test/factories.js';
+
+import { processStreamEvent, type StreamEventPayload } from './announcementService.js';
 
 // ─── Helpers ─────────────────────────────────────────────────
-
-/** Build a minimal streamer object with sensible defaults. */
-function makeStreamer(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'streamer-1',
-    displayName: 'TestStreamer',
-    twitchLogin: 'teststreamer',
-    defaultTemplate: null,
-    telegramUserId: null,
-    streamPlatforms: [],
-    customButtons: null,
-    customBotToken: null,
-    chats: [makeChat()],
-    ...overrides,
-  };
-}
-
-/** Build a minimal connected chat. */
-function makeChat(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'chat-1',
-    provider: 'telegram',
-    chatId: '-1001234567890',
-    chatTitle: 'Test Channel',
-    customTemplate: null,
-    enabled: true,
-    deleteAfterEnd: false,
-    lastMessageId: null,
-    lastAnnouncedAt: null,
-    streamerId: 'streamer-1',
-    ...overrides,
-  };
-}
-
-/** Build a stream.online payload. */
-function onlinePayload(overrides: Record<string, unknown> = {}): StreamEventPayload {
-  return {
-    event: 'stream.online',
-    channelId: 'ch-1',
-    channelSlug: 'test-channel',
-    twitchLogin: 'teststreamer',
-    streamTitle: 'Playing Dota 2',
-    gameName: 'Dota 2',
-    startedAt: '2026-02-24T12:00:00Z',
-    ...overrides,
-  } as StreamEventPayload;
-}
-
-/** Build a stream.offline payload. */
-function offlinePayload(overrides: Record<string, unknown> = {}): StreamEventPayload {
-  return {
-    event: 'stream.offline',
-    channelId: 'ch-1',
-    channelSlug: 'test-channel',
-    ...overrides,
-  } as StreamEventPayload;
-}
 
 /** Build a stream.update payload. */
 function updatePayload(overrides: Record<string, unknown> = {}): StreamEventPayload {
@@ -176,7 +121,9 @@ function updatePayload(overrides: Record<string, unknown> = {}): StreamEventPayl
 }
 
 /** Create a permanent provider error (with .permanent = true). */
-function permanentError(msg = 'Forbidden: bot was blocked by the user'): Error & { permanent: boolean } {
+function permanentError(
+  msg = 'Forbidden: bot was blocked by the user',
+): Error & { permanent: boolean } {
   const err = new Error(msg) as Error & { permanent: boolean };
   err.permanent = true;
   return err;
@@ -227,7 +174,15 @@ describe('processStreamEvent routing', () => {
   it('returns early when streamer is not found in DB', async () => {
     (prisma.streamer.findUnique as Mock).mockResolvedValue(null);
 
-    await processStreamEvent(onlinePayload());
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+    );
 
     expect(prisma.streamer.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { memelabChannelId: 'ch-1' } }),
@@ -237,10 +192,19 @@ describe('processStreamEvent routing', () => {
   });
 
   it('dispatches stream.online to handleStreamOnline', async () => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // Session key stored in Redis
     expect(redis.set).toHaveBeenCalledWith(
@@ -254,10 +218,16 @@ describe('processStreamEvent routing', () => {
   });
 
   it('stores session key even when no enabled chats (online)', async () => {
-    const streamer = makeStreamer({ chats: [] });
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
-    await processStreamEvent(onlinePayload());
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+    );
 
     // Session key IS set (needed by offline even if no chats now)
     expect(redis.set).toHaveBeenCalledWith(
@@ -271,18 +241,18 @@ describe('processStreamEvent routing', () => {
   });
 
   it('dispatches stream.offline to handleStreamOffline and cleans session key', async () => {
-    const streamer = makeStreamer({ chats: [] });
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue('ch-1:2026-02-24T12:00:00Z');
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     // Session key deleted
     expect(redis.del).toHaveBeenCalledWith('announce:session:ch-1');
   });
 
   it('dispatches stream.update using stored session ID', async () => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue('ch-1:2026-02-24T12:00:00Z');
 
@@ -296,7 +266,7 @@ describe('processStreamEvent routing', () => {
   });
 
   it('returns early for stream.update when no stored session', async () => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue(null);
 
@@ -307,11 +277,11 @@ describe('processStreamEvent routing', () => {
   });
 
   it('uses fallback sessionId for offline when Redis has no stored session', async () => {
-    const streamer = makeStreamer({ chats: [] });
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue(null);
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     // Should still proceed (with fallback ID) and clean up
     expect(redis.del).toHaveBeenCalledWith('announce:session:ch-1');
@@ -324,7 +294,7 @@ describe('processStreamEvent routing', () => {
 
 describe('handleStreamOnline dedup logic', () => {
   beforeEach(() => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
   });
 
@@ -340,7 +310,16 @@ describe('handleStreamOnline dedup logic', () => {
     };
     (prisma.announcementLog.findMany as Mock).mockResolvedValue([existingLog]);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // Should edit, NOT send new
     expect(mockProvider.editAnnouncement).toHaveBeenCalledWith(
@@ -365,7 +344,16 @@ describe('handleStreamOnline dedup logic', () => {
     mockProvider.editAnnouncement.mockRejectedValue(permanentError('message not found'));
 
     // Should NOT throw — permanent edit failure on existing message is acceptable
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     expect(mockProvider.sendAnnouncement).not.toHaveBeenCalled();
   });
@@ -382,13 +370,33 @@ describe('handleStreamOnline dedup logic', () => {
     mockProvider.editAnnouncement.mockRejectedValue(transientError('timeout'));
 
     // Transient edit error → caught by outer catch → creates failed log → throws retryable
-    await expect(processStreamEvent(onlinePayload(), 'job-1')).rejects.toThrow('failed (retryable)');
+    await expect(
+      processStreamEvent(
+        onlinePayload({
+          channelId: 'ch-1',
+          channelSlug: 'test-channel',
+          gameName: 'Dota 2',
+          streamTitle: 'Playing Dota 2',
+          startedAt: '2026-02-24T12:00:00Z',
+        }),
+        'job-1',
+      ),
+    ).rejects.toThrow('failed (retryable)');
   });
 
   // --- Lock acquisition ---
 
   it('acquires Redis lock via Lua script and sends announcement', async () => {
-    await processStreamEvent(onlinePayload(), 'job-42');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-42',
+    );
 
     // Lock acquired via atomic Lua script
     expect(redis.eval).toHaveBeenCalledWith(
@@ -404,7 +412,16 @@ describe('handleStreamOnline dedup logic', () => {
   it('allows re-entrant retry when Lua script returns OK for same jobId', async () => {
     // Lua script returns 'OK' for re-entrant case (same job, TTL refreshed internally)
     // Default mock already returns 'OK', so this just validates the flow works
-    await processStreamEvent(onlinePayload(), 'job-42');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-42',
+    );
 
     // Send still proceeds
     expect(mockProvider.sendAnnouncement).toHaveBeenCalled();
@@ -414,7 +431,16 @@ describe('handleStreamOnline dedup logic', () => {
     // Lua script returns the other holder's value (not 'OK') when lock is held
     (redis.eval as Mock).mockResolvedValue('other-job-99');
 
-    await processStreamEvent(onlinePayload(), 'job-42');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-42',
+    );
 
     // Should NOT send — another worker owns the lock
     expect(mockProvider.sendAnnouncement).not.toHaveBeenCalled();
@@ -434,7 +460,16 @@ describe('handleStreamOnline dedup logic', () => {
       status: 'sent',
     });
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     expect(mockProvider.editAnnouncement).toHaveBeenCalledWith(
       '-1001234567890',
@@ -454,7 +489,16 @@ describe('handleStreamOnline dedup logic', () => {
     });
     mockProvider.editAnnouncement.mockRejectedValue(permanentError('message not found'));
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // No send — phantom was found, edit failed permanently, move on
     expect(mockProvider.sendAnnouncement).not.toHaveBeenCalled();
@@ -470,7 +514,18 @@ describe('handleStreamOnline dedup logic', () => {
     });
     mockProvider.editAnnouncement.mockRejectedValue(transientError('timeout'));
 
-    await expect(processStreamEvent(onlinePayload(), 'job-1')).rejects.toThrow('failed (retryable)');
+    await expect(
+      processStreamEvent(
+        onlinePayload({
+          channelId: 'ch-1',
+          channelSlug: 'test-channel',
+          gameName: 'Dota 2',
+          streamTitle: 'Playing Dota 2',
+          startedAt: '2026-02-24T12:00:00Z',
+        }),
+        'job-1',
+      ),
+    ).rejects.toThrow('failed (retryable)');
   });
 
   // --- Stale record cleanup ---
@@ -488,7 +543,16 @@ describe('handleStreamOnline dedup logic', () => {
     // Post-lock also returns nothing (no phantom)
     (prisma.announcementLog.findFirst as Mock).mockResolvedValue(null);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // Stale record deleted
     expect(prisma.announcementLog.delete).toHaveBeenCalledWith({ where: { id: 'log-stale' } });
@@ -509,7 +573,7 @@ describe('handleStreamOnline dedup logic', () => {
 
 describe('handleStreamOnline error handling', () => {
   beforeEach(() => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
   });
 
@@ -517,7 +581,16 @@ describe('handleStreamOnline error handling', () => {
     mockProvider.sendAnnouncement.mockRejectedValue(permanentError('bot blocked'));
 
     // Permanent error → chat disabled but function resolves (not retryable)
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     expect(prisma.connectedChat.update).toHaveBeenCalledWith({
       where: { id: 'chat-1' },
@@ -528,7 +601,16 @@ describe('handleStreamOnline error handling', () => {
   it('creates failed announcement log on permanent error', async () => {
     mockProvider.sendAnnouncement.mockRejectedValue(permanentError('bot blocked'));
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     expect(prisma.announcementLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -543,7 +625,18 @@ describe('handleStreamOnline error handling', () => {
   it('does NOT disable chat on transient error', async () => {
     mockProvider.sendAnnouncement.mockRejectedValue(transientError('timeout'));
 
-    await expect(processStreamEvent(onlinePayload(), 'job-1')).rejects.toThrow();
+    await expect(
+      processStreamEvent(
+        onlinePayload({
+          channelId: 'ch-1',
+          channelSlug: 'test-channel',
+          gameName: 'Dota 2',
+          streamTitle: 'Playing Dota 2',
+          startedAt: '2026-02-24T12:00:00Z',
+        }),
+        'job-1',
+      ),
+    ).rejects.toThrow();
 
     // update should only be called for lastMessageId update, NOT for disabling
     // Since send failed, connectedChat.update should not have been called at all for this chat
@@ -557,7 +650,18 @@ describe('handleStreamOnline error handling', () => {
   it('does NOT release Redis lock on transient error (let TTL expire)', async () => {
     mockProvider.sendAnnouncement.mockRejectedValue(transientError('timeout'));
 
-    await expect(processStreamEvent(onlinePayload(), 'job-1')).rejects.toThrow();
+    await expect(
+      processStreamEvent(
+        onlinePayload({
+          channelId: 'ch-1',
+          channelSlug: 'test-channel',
+          gameName: 'Dota 2',
+          streamTitle: 'Playing Dota 2',
+          startedAt: '2026-02-24T12:00:00Z',
+        }),
+        'job-1',
+      ),
+    ).rejects.toThrow();
 
     // Redis del should NOT be called for the lock key
     const delCalls = (redis.del as Mock).mock.calls;
@@ -570,13 +674,23 @@ describe('handleStreamOnline error handling', () => {
   it('throws error with count of retryable failures for BullMQ retry', async () => {
     mockProvider.sendAnnouncement.mockRejectedValue(transientError('timeout'));
 
-    await expect(processStreamEvent(onlinePayload(), 'job-1')).rejects.toThrow(
-      '1/1 announcement deliveries failed (retryable)',
-    );
+    await expect(
+      processStreamEvent(
+        onlinePayload({
+          channelId: 'ch-1',
+          channelSlug: 'test-channel',
+          gameName: 'Dota 2',
+          streamTitle: 'Playing Dota 2',
+          startedAt: '2026-02-24T12:00:00Z',
+        }),
+        'job-1',
+      ),
+    ).rejects.toThrow('1/1 announcement deliveries failed (retryable)');
   });
 
   it('resolves when all failures are permanent (no retryable failures)', async () => {
     const streamer = makeStreamer({
+      streamPlatforms: [],
       chats: [
         makeChat({ id: 'chat-1', chatId: '-100111' }),
         makeChat({ id: 'chat-2', chatId: '-100222' }),
@@ -586,13 +700,23 @@ describe('handleStreamOnline error handling', () => {
     mockProvider.sendAnnouncement.mockRejectedValue(permanentError('bot blocked'));
 
     // Permanent failures don't cause a throw — they're handled (chat disabled)
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     expect(prisma.connectedChat.update).toHaveBeenCalledTimes(2);
   });
 
   it('reports mixed permanent+transient as only transient count', async () => {
     const streamer = makeStreamer({
+      streamPlatforms: [],
       chats: [
         makeChat({ id: 'chat-1', chatId: '-100111' }),
         makeChat({ id: 'chat-2', chatId: '-100222' }),
@@ -601,12 +725,21 @@ describe('handleStreamOnline error handling', () => {
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
     mockProvider.sendAnnouncement
-      .mockRejectedValueOnce(permanentError('bot blocked'))      // chat-1: permanent
-      .mockRejectedValueOnce(transientError('timeout'));          // chat-2: transient
+      .mockRejectedValueOnce(permanentError('bot blocked')) // chat-1: permanent
+      .mockRejectedValueOnce(transientError('timeout')); // chat-2: transient
 
-    await expect(processStreamEvent(onlinePayload(), 'job-1')).rejects.toThrow(
-      '1/2 announcement deliveries failed (retryable)',
-    );
+    await expect(
+      processStreamEvent(
+        onlinePayload({
+          channelId: 'ch-1',
+          channelSlug: 'test-channel',
+          gameName: 'Dota 2',
+          streamTitle: 'Playing Dota 2',
+          startedAt: '2026-02-24T12:00:00Z',
+        }),
+        'job-1',
+      ),
+    ).rejects.toThrow('1/2 announcement deliveries failed (retryable)');
   });
 });
 
@@ -616,12 +749,25 @@ describe('handleStreamOnline error handling', () => {
 
 describe('handleStreamOnline DM notification', () => {
   it('sends DM to streamer on first successful delivery', async () => {
-    const streamer = makeStreamer({ telegramUserId: 'tg-user-123' });
+    const streamer = makeStreamer({
+      streamPlatforms: [],
+      chats: [makeChat()],
+      telegramUserId: 'tg-user-123',
+    });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (hasProvider as Mock).mockReturnValue(true);
     (getProvider as Mock).mockReturnValue(mockProvider);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // DM sent via provider (the last sendAnnouncement call is to the streamer's DM)
     const sendCalls = mockProvider.sendAnnouncement.mock.calls;
@@ -638,7 +784,11 @@ describe('handleStreamOnline DM notification', () => {
   });
 
   it('skips DM on BullMQ retry when already notified', async () => {
-    const streamer = makeStreamer({ telegramUserId: 'tg-user-123' });
+    const streamer = makeStreamer({
+      streamPlatforms: [],
+      chats: [makeChat()],
+      telegramUserId: 'tg-user-123',
+    });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (hasProvider as Mock).mockReturnValue(true);
     (getProvider as Mock).mockReturnValue(mockProvider);
@@ -650,7 +800,16 @@ describe('handleStreamOnline DM notification', () => {
       return Promise.resolve(null);
     });
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // Only ONE sendAnnouncement call — the actual message, no DM
     const sendCalls = mockProvider.sendAnnouncement.mock.calls;
@@ -659,14 +818,16 @@ describe('handleStreamOnline DM notification', () => {
   });
 
   it('does not fail overall if DM to streamer throws', async () => {
-    const streamer = makeStreamer({ telegramUserId: 'tg-user-123' });
+    const streamer = makeStreamer({
+      streamPlatforms: [],
+      chats: [makeChat()],
+      telegramUserId: 'tg-user-123',
+    });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (hasProvider as Mock).mockReturnValue(true);
 
     // Main send succeeds, DM send fails
-    let callIndex = 0;
     mockProvider.sendAnnouncement.mockImplementation((...args: unknown[]) => {
-      callIndex++;
       if (args[0] === 'tg-user-123') {
         return Promise.reject(new Error('DM failed'));
       }
@@ -675,16 +836,38 @@ describe('handleStreamOnline DM notification', () => {
     (getProvider as Mock).mockReturnValue(mockProvider);
 
     // Should NOT throw — DM failure is swallowed
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
   });
 
   it('skips DM when streamer has no telegramUserId', async () => {
-    const streamer = makeStreamer({ telegramUserId: null });
+    const streamer = makeStreamer({
+      streamPlatforms: [],
+      chats: [makeChat()],
+      telegramUserId: null,
+    });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (hasProvider as Mock).mockReturnValue(true);
     (getProvider as Mock).mockReturnValue(mockProvider);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // Only one call (the actual announcement), no DM
     expect(mockProvider.sendAnnouncement).toHaveBeenCalledTimes(1);
@@ -695,11 +878,24 @@ describe('handleStreamOnline DM notification', () => {
   });
 
   it('skips DM when telegram provider is not registered', async () => {
-    const streamer = makeStreamer({ telegramUserId: 'tg-user-123' });
+    const streamer = makeStreamer({
+      streamPlatforms: [],
+      chats: [makeChat()],
+      telegramUserId: 'tg-user-123',
+    });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (hasProvider as Mock).mockReturnValue(false); // No telegram provider
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // Only one call (announcement), no DM
     expect(mockProvider.sendAnnouncement).toHaveBeenCalledTimes(1);
@@ -712,10 +908,19 @@ describe('handleStreamOnline DM notification', () => {
 
 describe('handleStreamOnline happy path', () => {
   it('sends announcement, creates log, and updates connectedChat', async () => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     // 1. Provider was called
     expect(mockProvider.sendAnnouncement).toHaveBeenCalledWith(
@@ -750,6 +955,7 @@ describe('handleStreamOnline happy path', () => {
 
   it('sends to multiple chats', async () => {
     const streamer = makeStreamer({
+      streamPlatforms: [],
       chats: [
         makeChat({ id: 'chat-1', chatId: '-100111' }),
         makeChat({ id: 'chat-2', chatId: '-100222', provider: 'max' }),
@@ -757,7 +963,16 @@ describe('handleStreamOnline happy path', () => {
     });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
-    await processStreamEvent(onlinePayload(), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        gameName: 'Dota 2',
+        streamTitle: 'Playing Dota 2',
+        startedAt: '2026-02-24T12:00:00Z',
+      }),
+      'job-1',
+    );
 
     expect(mockProvider.sendAnnouncement).toHaveBeenCalledTimes(2);
     expect(prisma.announcementLog.create).toHaveBeenCalledTimes(2);
@@ -772,7 +987,7 @@ describe('handleStreamOffline', () => {
   const sessionId = 'ch-1:2026-02-24T12:00:00Z';
 
   beforeEach(() => {
-    const streamer = makeStreamer({ chats: [] }); // chats fetched separately for offline
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [] }); // chats fetched separately for offline
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue(sessionId);
   });
@@ -780,13 +995,14 @@ describe('handleStreamOffline', () => {
   it('queries all deleteAfterEnd chats regardless of enabled status', async () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([]);
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     expect(prisma.connectedChat.findMany).toHaveBeenCalledWith({
       where: {
         streamerId: 'streamer-1',
         deleteAfterEnd: true,
       },
+      take: 100,
     });
   });
 
@@ -799,7 +1015,7 @@ describe('handleStreamOffline', () => {
       .mockResolvedValueOnce([]) // session logs
       .mockResolvedValueOnce([]); // recent logs
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     // The two batch queries (session logs + recent logs) executed
     const findManyCalls = (prisma.announcementLog.findMany as Mock).mock.calls;
@@ -824,10 +1040,10 @@ describe('handleStreamOffline', () => {
       status: 'sent',
     };
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([sessionLog])  // session logs batch
-      .mockResolvedValueOnce([]);            // recent logs batch
+      .mockResolvedValueOnce([sessionLog]) // session logs batch
+      .mockResolvedValueOnce([]); // recent logs batch
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     // Provider delete called with session log message ID (preferred over lastMessageId)
     expect(mockProvider.deleteMessage).toHaveBeenCalledWith('-1001234567890', 'msg-50');
@@ -852,10 +1068,10 @@ describe('handleStreamOffline', () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([])  // no session logs
+      .mockResolvedValueOnce([]) // no session logs
       .mockResolvedValueOnce([]); // no recent logs
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     expect(mockProvider.deleteMessage).not.toHaveBeenCalled();
   });
@@ -873,10 +1089,10 @@ describe('handleStreamOffline', () => {
       sentAt: new Date(),
     };
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([])         // no session logs
+      .mockResolvedValueOnce([]) // no session logs
       .mockResolvedValueOnce([recentLog]); // recent log exists
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     expect(mockProvider.deleteMessage).toHaveBeenCalledWith('-1001234567890', 'msg-recent');
   });
@@ -886,10 +1102,10 @@ describe('handleStreamOffline', () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
     (prisma.announcementLog.findMany as Mock)
-      .mockResolvedValueOnce([])  // no session logs
+      .mockResolvedValueOnce([]) // no session logs
       .mockResolvedValueOnce([]); // no recent logs
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     expect(mockProvider.deleteMessage).not.toHaveBeenCalled();
     expect(prisma.announcementLog.updateMany).not.toHaveBeenCalled();
@@ -900,14 +1116,17 @@ describe('handleStreamOffline', () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
     const sessionLog = {
-      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
-      providerMsgId: 'msg-to-clear', status: 'sent',
+      id: 'log-1',
+      chatId: 'chat-1',
+      streamSessionId: sessionId,
+      providerMsgId: 'msg-to-clear',
+      status: 'sent',
     };
     (prisma.announcementLog.findMany as Mock)
       .mockResolvedValueOnce([sessionLog])
       .mockResolvedValueOnce([]);
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     expect(prisma.connectedChat.update).toHaveBeenCalledWith({
       where: { id: 'chat-1' },
@@ -920,20 +1139,24 @@ describe('handleStreamOffline', () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
     const sessionLog = {
-      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
-      providerMsgId: 'msg-50', status: 'sent',
+      id: 'log-1',
+      chatId: 'chat-1',
+      streamSessionId: sessionId,
+      providerMsgId: 'msg-50',
+      status: 'sent',
     };
     (prisma.announcementLog.findMany as Mock)
       .mockResolvedValueOnce([sessionLog])
       .mockResolvedValueOnce([]);
 
-    await processStreamEvent(offlinePayload());
+    await processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' }));
 
     // connectedChat.update should NOT be called to set lastMessageId to null
     // (it was already null — skip redundant write)
     const updateCalls = (prisma.connectedChat.update as Mock).mock.calls;
     const nullMsgCalls = updateCalls.filter(
-      (call: unknown[]) => (call[0] as { data: { lastMessageId: null } }).data.lastMessageId === null,
+      (call: unknown[]) =>
+        (call[0] as { data: { lastMessageId: null } }).data.lastMessageId === null,
     );
     expect(nullMsgCalls).toHaveLength(0);
   });
@@ -943,8 +1166,11 @@ describe('handleStreamOffline', () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue([chat]);
 
     const sessionLog = {
-      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
-      providerMsgId: 'msg-1', status: 'sent',
+      id: 'log-1',
+      chatId: 'chat-1',
+      streamSessionId: sessionId,
+      providerMsgId: 'msg-1',
+      status: 'sent',
     };
     (prisma.announcementLog.findMany as Mock)
       .mockResolvedValueOnce([sessionLog])
@@ -952,9 +1178,9 @@ describe('handleStreamOffline', () => {
 
     mockProvider.deleteMessage.mockRejectedValue(new Error('API error'));
 
-    await expect(processStreamEvent(offlinePayload())).rejects.toThrow(
-      '1/1 announcement deletions failed',
-    );
+    await expect(
+      processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' })),
+    ).rejects.toThrow('1/1 announcement deletions failed');
   });
 
   it('handles multiple chats with mixed success and failure', async () => {
@@ -965,12 +1191,18 @@ describe('handleStreamOffline', () => {
     (prisma.connectedChat.findMany as Mock).mockResolvedValue(chats);
 
     const sessionLog1 = {
-      id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId,
-      providerMsgId: 'msg-1', status: 'sent',
+      id: 'log-1',
+      chatId: 'chat-1',
+      streamSessionId: sessionId,
+      providerMsgId: 'msg-1',
+      status: 'sent',
     };
     const sessionLog2 = {
-      id: 'log-2', chatId: 'chat-2', streamSessionId: sessionId,
-      providerMsgId: 'msg-2', status: 'sent',
+      id: 'log-2',
+      chatId: 'chat-2',
+      streamSessionId: sessionId,
+      providerMsgId: 'msg-2',
+      status: 'sent',
     };
     // Batch fetch: first call = session logs (both chats), second call = recent logs
     (prisma.announcementLog.findMany as Mock)
@@ -978,12 +1210,12 @@ describe('handleStreamOffline', () => {
       .mockResolvedValueOnce([]);
 
     mockProvider.deleteMessage
-      .mockResolvedValueOnce(undefined)              // chat-1 succeeds
+      .mockResolvedValueOnce(undefined) // chat-1 succeeds
       .mockRejectedValueOnce(new Error('API error')); // chat-2 fails
 
-    await expect(processStreamEvent(offlinePayload())).rejects.toThrow(
-      '1/2 announcement deletions failed',
-    );
+    await expect(
+      processStreamEvent(offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel' })),
+    ).rejects.toThrow('1/2 announcement deletions failed');
 
     // chat-1 was still cleaned up successfully
     expect(prisma.announcementLog.updateMany).toHaveBeenCalled();
@@ -998,7 +1230,7 @@ describe('handleStreamUpdate', () => {
   const sessionId = 'ch-1:2026-02-24T12:00:00Z';
 
   beforeEach(() => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue(sessionId);
   });
@@ -1074,11 +1306,14 @@ describe('handleStreamUpdate', () => {
     mockProvider.editAnnouncement.mockRejectedValue(transientError('timeout'));
 
     // handleStreamUpdate accumulates transient failures and re-throws for BullMQ retry
-    await expect(processStreamEvent(updatePayload())).rejects.toThrow('1 stream update edits failed (retryable)');
+    await expect(processStreamEvent(updatePayload())).rejects.toThrow(
+      '1 stream update edits failed (retryable)',
+    );
   });
 
   it('edits multiple chats independently', async () => {
     const streamer = makeStreamer({
+      streamPlatforms: [],
       chats: [
         makeChat({ id: 'chat-1', chatId: '-100111' }),
         makeChat({ id: 'chat-2', chatId: '-100222' }),
@@ -1087,20 +1322,41 @@ describe('handleStreamUpdate', () => {
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
     const sentLogs = [
-      { id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId, providerMsgId: 'msg-1', status: 'sent' },
-      { id: 'log-2', chatId: 'chat-2', streamSessionId: sessionId, providerMsgId: 'msg-2', status: 'sent' },
+      {
+        id: 'log-1',
+        chatId: 'chat-1',
+        streamSessionId: sessionId,
+        providerMsgId: 'msg-1',
+        status: 'sent',
+      },
+      {
+        id: 'log-2',
+        chatId: 'chat-2',
+        streamSessionId: sessionId,
+        providerMsgId: 'msg-2',
+        status: 'sent',
+      },
     ];
     (prisma.announcementLog.findMany as Mock).mockResolvedValue(sentLogs);
 
     await processStreamEvent(updatePayload());
 
     expect(mockProvider.editAnnouncement).toHaveBeenCalledTimes(2);
-    expect(mockProvider.editAnnouncement).toHaveBeenCalledWith('-100111', 'msg-1', expect.any(Object));
-    expect(mockProvider.editAnnouncement).toHaveBeenCalledWith('-100222', 'msg-2', expect.any(Object));
+    expect(mockProvider.editAnnouncement).toHaveBeenCalledWith(
+      '-100111',
+      'msg-1',
+      expect.any(Object),
+    );
+    expect(mockProvider.editAnnouncement).toHaveBeenCalledWith(
+      '-100222',
+      'msg-2',
+      expect.any(Object),
+    );
   });
 
   it('continues editing remaining chats when one fails', async () => {
     const streamer = makeStreamer({
+      streamPlatforms: [],
       chats: [
         makeChat({ id: 'chat-1', chatId: '-100111' }),
         makeChat({ id: 'chat-2', chatId: '-100222' }),
@@ -1109,17 +1365,31 @@ describe('handleStreamUpdate', () => {
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
     const sentLogs = [
-      { id: 'log-1', chatId: 'chat-1', streamSessionId: sessionId, providerMsgId: 'msg-1', status: 'sent' },
-      { id: 'log-2', chatId: 'chat-2', streamSessionId: sessionId, providerMsgId: 'msg-2', status: 'sent' },
+      {
+        id: 'log-1',
+        chatId: 'chat-1',
+        streamSessionId: sessionId,
+        providerMsgId: 'msg-1',
+        status: 'sent',
+      },
+      {
+        id: 'log-2',
+        chatId: 'chat-2',
+        streamSessionId: sessionId,
+        providerMsgId: 'msg-2',
+        status: 'sent',
+      },
     ];
     (prisma.announcementLog.findMany as Mock).mockResolvedValue(sentLogs);
 
     mockProvider.editAnnouncement
-      .mockRejectedValueOnce(transientError('timeout'))  // chat-1 fails
-      .mockResolvedValueOnce(undefined);                  // chat-2 succeeds
+      .mockRejectedValueOnce(transientError('timeout')) // chat-1 fails
+      .mockResolvedValueOnce(undefined); // chat-2 succeeds
 
     // Should throw because of 1 transient failure, but both chats were attempted
-    await expect(processStreamEvent(updatePayload())).rejects.toThrow('1 stream update edits failed (retryable)');
+    await expect(processStreamEvent(updatePayload())).rejects.toThrow(
+      '1 stream update edits failed (retryable)',
+    );
 
     // Both were attempted
     expect(mockProvider.editAnnouncement).toHaveBeenCalledTimes(2);
@@ -1132,12 +1402,17 @@ describe('handleStreamUpdate', () => {
 
 describe('thumbnailUrl sanitization', () => {
   beforeEach(() => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
   });
 
   it('passes allowed Twitch CDN thumbnail through', async () => {
     const payload = onlinePayload({
+      channelId: 'ch-1',
+      channelSlug: 'test-channel',
+      gameName: 'Dota 2',
+      streamTitle: 'Playing Dota 2',
+      startedAt: '2026-02-24T12:00:00Z',
       thumbnailUrl: 'https://static-cdn.jtvnw.net/previews-ttv/live_user_test-{width}x{height}.jpg',
     });
 
@@ -1153,6 +1428,11 @@ describe('thumbnailUrl sanitization', () => {
 
   it('blocks thumbnail from disallowed host', async () => {
     const payload = onlinePayload({
+      channelId: 'ch-1',
+      channelSlug: 'test-channel',
+      gameName: 'Dota 2',
+      streamTitle: 'Playing Dota 2',
+      startedAt: '2026-02-24T12:00:00Z',
       thumbnailUrl: 'https://evil.com/ssrf-target.jpg',
     });
 
@@ -1168,6 +1448,11 @@ describe('thumbnailUrl sanitization', () => {
 
   it('blocks non-HTTPS thumbnail URLs', async () => {
     const payload = onlinePayload({
+      channelId: 'ch-1',
+      channelSlug: 'test-channel',
+      gameName: 'Dota 2',
+      streamTitle: 'Playing Dota 2',
+      startedAt: '2026-02-24T12:00:00Z',
       thumbnailUrl: 'http://static-cdn.jtvnw.net/test.jpg',
     });
 
@@ -1182,7 +1467,14 @@ describe('thumbnailUrl sanitization', () => {
   });
 
   it('handles undefined thumbnailUrl gracefully', async () => {
-    const payload = onlinePayload({ thumbnailUrl: undefined });
+    const payload = onlinePayload({
+      channelId: 'ch-1',
+      channelSlug: 'test-channel',
+      gameName: 'Dota 2',
+      streamTitle: 'Playing Dota 2',
+      startedAt: '2026-02-24T12:00:00Z',
+      thumbnailUrl: undefined,
+    });
 
     await processStreamEvent(payload, 'job-1');
 
@@ -1201,10 +1493,17 @@ describe('thumbnailUrl sanitization', () => {
 
 describe('buildStreamSessionId edge cases', () => {
   it('uses startedAt when provided (online event)', async () => {
-    const streamer = makeStreamer();
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [makeChat()] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
 
-    await processStreamEvent(onlinePayload({ startedAt: '2026-02-24T15:30:00Z' }), 'job-1');
+    await processStreamEvent(
+      onlinePayload({
+        channelId: 'ch-1',
+        channelSlug: 'test-channel',
+        startedAt: '2026-02-24T15:30:00Z',
+      }),
+      'job-1',
+    );
 
     // Session key stored with correct session ID
     expect(redis.set).toHaveBeenCalledWith(
@@ -1216,12 +1515,14 @@ describe('buildStreamSessionId edge cases', () => {
   });
 
   it('uses fallback ID for offline without startedAt when Redis has no stored session', async () => {
-    const streamer = makeStreamer({ chats: [] });
+    const streamer = makeStreamer({ streamPlatforms: [], chats: [] });
     (prisma.streamer.findUnique as Mock).mockResolvedValue(streamer);
     (redis.get as Mock).mockResolvedValue(null);
 
     // Offline with no startedAt and no stored session
-    await processStreamEvent(offlinePayload({ startedAt: undefined }));
+    await processStreamEvent(
+      offlinePayload({ channelId: 'ch-1', channelSlug: 'test-channel', startedAt: undefined }),
+    );
 
     // connectedChat.findMany will be called with streamerId and the fallback sessionId
     // The key thing is it doesn't crash

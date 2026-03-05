@@ -11,9 +11,10 @@
  * - global.fetch: vi.stubGlobal
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { createHash } from 'node:crypto';
+
 import type { Request, Response, NextFunction } from 'express';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 // ─── Mocks ────────────────────────────────────────────────────
 
@@ -49,16 +50,23 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-vi.mock('../../services/streamerService.js', () => ({
+vi.mock('../../lib/streamerUpsert.js', () => ({
   upsertStreamerFromProfile: vi.fn(),
 }));
 
 // ─── Imports (after mocks) ────────────────────────────────────
 
-import { requireAuth, extractToken, hashToken, fetchMemelabProfile, AUTH_CACHE_PREFIX } from './auth.js';
-import { redis } from '../../lib/redis.js';
 import { prisma } from '../../lib/prisma.js';
-import { upsertStreamerFromProfile } from '../../services/streamerService.js';
+import { redis } from '../../lib/redis.js';
+import { upsertStreamerFromProfile } from '../../lib/streamerUpsert.js';
+
+import {
+  requireAuth,
+  extractToken,
+  hashToken,
+  fetchMemelabProfile,
+  AUTH_CACHE_PREFIX,
+} from './auth.js';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -192,7 +200,9 @@ describe('requireAuth', () => {
     const { req, res, next } = createMockReqRes({ headers: {} } as Partial<Request>);
     await requireAuth(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect((res.json as Mock)).toHaveBeenCalledWith({ error: 'Not authenticated' });
+    expect(res.json as Mock).toHaveBeenCalledWith({
+      error: { code: 'UNAUTHORIZED', message: 'Not authenticated' },
+    });
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -272,10 +282,7 @@ describe('requireAuth', () => {
   it('returns 503 when fetchMemelabProfile returns network error', async () => {
     const token = 'net-err-token';
     (redis.get as Mock).mockResolvedValueOnce(null);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValueOnce(new Error('ECONNREFUSED')),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new Error('ECONNREFUSED')));
 
     const { req, res, next } = createMockReqRes({
       headers: { authorization: `Bearer ${token}` },
@@ -284,8 +291,11 @@ describe('requireAuth', () => {
     await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(503);
-    expect((res.json as Mock)).toHaveBeenCalledWith({
-      error: 'Authentication service temporarily unavailable',
+    expect(res.json as Mock).toHaveBeenCalledWith({
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Authentication service temporarily unavailable',
+      },
     });
     expect(next).not.toHaveBeenCalled();
   });
@@ -309,7 +319,9 @@ describe('requireAuth', () => {
     await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect((res.json as Mock)).toHaveBeenCalledWith({ error: 'Invalid or expired token' });
+    expect(res.json as Mock).toHaveBeenCalledWith({
+      error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' },
+    });
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -332,8 +344,8 @@ describe('requireAuth', () => {
     await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect((res.json as Mock)).toHaveBeenCalledWith({
-      error: 'No channel linked to your MemeLab account',
+    expect(res.json as Mock).toHaveBeenCalledWith({
+      error: { code: 'FORBIDDEN', message: 'No channel linked to your MemeLab account' },
     });
     expect(next).not.toHaveBeenCalled();
   });
@@ -375,7 +387,9 @@ describe('requireAuth', () => {
     await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect((res.json as Mock)).toHaveBeenCalledWith({ error: 'Authentication error' });
+    expect(res.json as Mock).toHaveBeenCalledWith({
+      error: { code: 'INTERNAL_ERROR', message: 'Authentication error' },
+    });
     expect(next).not.toHaveBeenCalled();
   });
 });
@@ -435,10 +449,7 @@ describe('fetchMemelabProfile', () => {
   });
 
   it('returns { profile: null, error: "network" } on network/fetch error', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')));
 
     const result = await fetchMemelabProfile('network-fail-token');
 
@@ -448,9 +459,11 @@ describe('fetchMemelabProfile', () => {
   it('returns { profile: null, error: "network" } when AbortController times out', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockRejectedValueOnce(
-        Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
-      ),
+      vi
+        .fn()
+        .mockRejectedValueOnce(
+          Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
+        ),
     );
 
     const result = await fetchMemelabProfile('timeout-token');

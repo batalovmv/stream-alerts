@@ -6,12 +6,12 @@
  * 2. /start link_<token> — link Telegram account to MemeLab streamer
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
+import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
-import { logger } from '../../lib/logger.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
 import type { BotContext } from '../types.js';
-import { escapeHtml } from '../../lib/escapeHtml.js';
 import { sendMainMenu, getMainMenuKeyboard } from '../ui.js';
 
 const LINK_TOKEN_PREFIX = 'link:token:';
@@ -125,10 +125,7 @@ async function handleLinkAccount(ctx: BotContext, args: string): Promise<void> {
     return;
   }
 
-  logger.info(
-    { streamerId, telegramUserId: ctx.userId },
-    'bot.account_linked',
-  );
+  logger.info({ streamerId, telegramUserId: ctx.userId }, 'bot.account_linked');
 
   await tg.sendMessage({
     chatId: String(ctx.chatId),

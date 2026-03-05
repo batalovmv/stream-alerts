@@ -1,7 +1,8 @@
+import { Button, Alert, ConfirmDialog, useDisclosure } from '@memelabui/ui';
+
 import { useAuth } from '../../hooks/useAuth';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 import { isSafeDeepLink } from '../../lib/safeLink';
-import { Button, Alert, ConfirmDialog, useDisclosure } from '@memelabui/ui';
 
 export function TelegramStatus() {
   const { user } = useAuth();
@@ -26,11 +27,7 @@ export function TelegramStatus() {
                 @MemelabNotifyBot
               </a>
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={unlinkDialog.open}
-            >
+            <Button variant="ghost" size="sm" onClick={unlinkDialog.open}>
               Отвязать
             </Button>
           </div>
@@ -59,9 +56,7 @@ export function TelegramStatus() {
     <div className="mb-6">
       <Alert variant="warning">
         <div className="flex items-center justify-between w-full">
-          <span className="text-sm">
-            Привяжите Telegram, чтобы управлять каналами через бота
-          </span>
+          <span className="text-sm">Привяжите Telegram, чтобы управлять каналами через бота</span>
           {deepLink ? (
             <Button
               variant="primary"
@@ -75,12 +70,7 @@ export function TelegramStatus() {
               Открыть бота
             </Button>
           ) : (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={generate}
-              loading={isLoading}
-            >
+            <Button variant="primary" size="sm" onClick={generate} loading={isLoading}>
               Привязать
             </Button>
           )}

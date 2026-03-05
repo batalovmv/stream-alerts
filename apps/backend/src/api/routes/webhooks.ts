@@ -1,14 +1,25 @@
 import { Router, type Router as RouterType } from 'express';
 import { z } from 'zod';
-import { webhookAuth } from '../middleware/webhookAuth.js';
-import { validate } from '../middleware/validation.js';
-import { enqueueStreamEvent } from '../../workers/announcementQueue.js';
+
+import { AppError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
+import { enqueueStreamEvent } from '../../workers/announcementQueue.js';
+import { validate } from '../middleware/validation.js';
+import { webhookAuth } from '../middleware/webhookAuth.js';
 
 const streamEventBase = {
   channelId: z.string().min(1).max(100),
-  channelSlug: z.string().min(1).max(100).regex(/^[\w-]+$/, 'channelSlug must be alphanumeric'),
-  twitchLogin: z.string().min(1).max(100).regex(/^[\w]+$/, 'twitchLogin must be alphanumeric').optional(),
+  channelSlug: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[\w-]+$/, 'channelSlug must be alphanumeric'),
+  twitchLogin: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[\w]+$/, 'twitchLogin must be alphanumeric')
+    .optional(),
   streamTitle: z.string().max(512).optional(),
   gameName: z.string().max(200).optional(),
   thumbnailUrl: z.string().url().optional(),
@@ -16,9 +27,21 @@ const streamEventBase = {
 };
 
 const streamEventSchema = z.discriminatedUnion('event', [
-  z.object({ event: z.literal('stream.online'), ...streamEventBase, startedAt: z.string().datetime({ offset: true }) }),
-  z.object({ event: z.literal('stream.offline'), ...streamEventBase, startedAt: z.string().datetime({ offset: true }).optional() }),
-  z.object({ event: z.literal('stream.update'), ...streamEventBase, startedAt: z.string().datetime({ offset: true }).optional() }),
+  z.object({
+    event: z.literal('stream.online'),
+    ...streamEventBase,
+    startedAt: z.string().datetime({ offset: true }),
+  }),
+  z.object({
+    event: z.literal('stream.offline'),
+    ...streamEventBase,
+    startedAt: z.string().datetime({ offset: true }).optional(),
+  }),
+  z.object({
+    event: z.literal('stream.update'),
+    ...streamEventBase,
+    startedAt: z.string().datetime({ offset: true }).optional(),
+  }),
 ]);
 
 const router: RouterType = Router();
@@ -36,10 +59,13 @@ router.post('/stream', webhookAuth, validate(streamEventSchema), async (req, res
 
   try {
     await enqueueStreamEvent(payload);
-    res.status(200).json({ ok: true });
+    res.json({ ok: true });
   } catch (error) {
-    logger.error({ error: error instanceof Error ? error.message : String(error) }, 'webhook.enqueue_failed');
-    res.status(500).json({ error: 'Failed to enqueue event' });
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'webhook.enqueue_failed',
+    );
+    throw AppError.internal('Failed to enqueue event');
   }
 });
 

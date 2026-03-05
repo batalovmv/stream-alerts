@@ -1,6 +1,7 @@
-import { NavLink } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
 import { Avatar, Button } from '@memelabui/ui';
+import { NavLink } from 'react-router-dom';
+
+import { useAuth } from '../../hooks/useAuth';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -27,14 +28,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {user && (
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
-                <Avatar
-                  src={user.avatarUrl ?? undefined}
-                  name={user.displayName}
-                  size="sm"
-                />
-                <span className="text-sm text-white/70 hidden sm:block">
-                  {user.displayName}
-                </span>
+                <Avatar src={user.avatarUrl ?? undefined} name={user.displayName} size="sm" />
+                <span className="text-sm text-white/70 hidden sm:block">{user.displayName}</span>
               </div>
               <Button variant="ghost" size="sm" onClick={logout}>
                 Выйти
@@ -69,7 +64,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* Mobile bottom nav */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 px-2 py-1" aria-label="Мобильная навигация">
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 px-2 py-1"
+          aria-label="Мобильная навигация"
+        >
           <div className="flex justify-around">
             {NAV_ITEMS.map((item) => (
               <NavLink
@@ -89,9 +87,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* Content */}
-        <main className="flex-1 min-w-0 pb-20 md:pb-0">
-          {children}
-        </main>
+        <main className="flex-1 min-w-0 pb-20 md:pb-0">{children}</main>
       </div>
     </div>
   );

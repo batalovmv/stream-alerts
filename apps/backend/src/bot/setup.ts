@@ -6,11 +6,14 @@
  */
 
 import { timingSafeEqual, createHash } from 'node:crypto';
+
 import type { Express, Request, Response } from 'express';
-import * as tg from '../providers/telegram/telegramApi.js';
-import { TelegramApiError } from '../providers/telegram/telegramApi.js';
+
 import { config } from '../lib/config.js';
 import { logger } from '../lib/logger.js';
+import * as tg from '../providers/telegram/telegramApi.js';
+import { TelegramApiError } from '../providers/telegram/telegramApi.js';
+
 import { routeUpdate } from './router.js';
 
 const WEBHOOK_PATH = '/api/telegram/webhook';
@@ -18,7 +21,9 @@ const WEBHOOK_SECRET = config.telegramWebhookSecret;
 
 /** Bot username resolved from getMe() at startup */
 let botUsername = 'MemelabNotifyBot'; // fallback
-export function getBotUsername(): string { return botUsername; }
+export function getBotUsername(): string {
+  return botUsername;
+}
 
 /** Register bot commands menu in Telegram */
 async function registerCommands(): Promise<void> {
@@ -61,7 +66,10 @@ async function startPolling(): Promise<void> {
         if (!pollingActive) return;
         offset = update.update_id + 1;
         routeUpdate(update).catch((err) => {
-          logger.error({ err: err instanceof Error ? err.message : String(err) }, 'bot.update_error');
+          logger.error(
+            { err: err instanceof Error ? err.message : String(err) },
+            'bot.update_error',
+          );
         });
       }
     } catch (error) {
@@ -73,7 +81,11 @@ async function startPolling(): Promise<void> {
         consecutiveErrors++;
         const backoff = Math.min(MIN_BACKOFF_MS * 2 ** (consecutiveErrors - 1), MAX_BACKOFF_MS);
         logger.error(
-          { error: error instanceof Error ? error.message : String(error), consecutiveErrors, backoffMs: backoff },
+          {
+            error: error instanceof Error ? error.message : String(error),
+            consecutiveErrors,
+            backoffMs: backoff,
+          },
           'bot.polling_error',
         );
         await new Promise((r) => setTimeout(r, backoff));
@@ -97,7 +109,9 @@ async function startWebhook(app: Express): Promise<void> {
   app.post(WEBHOOK_PATH, (req: Request, res: Response) => {
     // Validate secret token header (timing-safe comparison via SHA-256 digests)
     const secretHeader = req.headers['x-telegram-bot-api-secret-token'];
-    const incomingHash = createHash('sha256').update(typeof secretHeader === 'string' ? secretHeader : '').digest();
+    const incomingHash = createHash('sha256')
+      .update(typeof secretHeader === 'string' ? secretHeader : '')
+      .digest();
     const expectedHash = createHash('sha256').update(WEBHOOK_SECRET).digest();
     if (!timingSafeEqual(incomingHash, expectedHash)) {
       res.status(403).json({ error: 'Forbidden' });

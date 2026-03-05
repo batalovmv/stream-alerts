@@ -4,6 +4,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { Redis } from 'ioredis';
+
 import { config } from '../lib/config.js';
 
 const prisma = new PrismaClient();
@@ -24,6 +25,7 @@ async function main() {
   console.log('\n--- Streamers in DB ---');
   const streamers = await prisma.streamer.findMany({
     include: { chats: true },
+    take: 100,
   });
 
   if (streamers.length === 0) {
@@ -33,7 +35,9 @@ async function main() {
       const enabledChats = s.chats.filter((c) => c.enabled);
       console.log(`\nStreamer: ${s.displayName}`);
       console.log(`  memelabChannelId: ${s.memelabChannelId}`);
-      console.log(`  telegramUserId:   ${s.telegramUserId ?? '❌ NOT SET (no personal notifications!)'}`);
+      console.log(
+        `  telegramUserId:   ${s.telegramUserId ?? '❌ NOT SET (no personal notifications!)'}`,
+      );
       console.log(`  Total chats:      ${s.chats.length}`);
       console.log(`  Enabled chats:    ${enabledChats.length}`);
 
@@ -83,7 +87,9 @@ async function main() {
         // Check notification flag
         const notifyKey = `announce:notified:${streamer.id}:${session}`;
         const notified = await redis.get(notifyKey);
-        console.log(`  Streamer notified flag: ${notified ? `✅ SET (already notified)` : 'NOT SET'}`);
+        console.log(
+          `  Streamer notified flag: ${notified ? `✅ SET (already notified)` : 'NOT SET'}`,
+        );
       }
 
       // Check recent announcement logs
@@ -101,7 +107,9 @@ async function main() {
           const chat = streamer.chats.find((c) => c.id === log.chatId);
           const date = log.sentAt ? log.sentAt.toISOString() : 'no date';
           const status = log.status === 'sent' ? '✅' : '❌';
-          console.log(`  ${status} [${date}] ${chat?.chatTitle ?? log.chatId} — ${log.status}${log.error ? ` (${log.error})` : ''}`);
+          console.log(
+            `  ${status} [${date}] ${chat?.chatTitle ?? log.chatId} — ${log.status}${log.error ? ` (${log.error})` : ''}`,
+          );
         }
       }
 
@@ -112,15 +120,23 @@ async function main() {
   // 4. Validate webhook format (simulate what MemeLab backend should send)
   console.log('\n--- Webhook format check ---');
   console.log('Required POST /api/webhooks/stream body for stream.online:');
-  console.log(JSON.stringify({
-    event: 'stream.online',
-    channelId: '<memelabChannelId from DB>',
-    channelSlug: 'alphanumeric-slug',
-    twitchLogin: 'optionalTwitchLogin',
-    streamTitle: 'Stream title',
-    startedAt: new Date().toISOString(), // MUST include timezone (Z or +HH:MM)
-  }, null, 2));
-  console.log('\n⚠️  startedAt MUST have timezone offset (Z or +HH:MM) — bare "2024-01-01T12:00:00" fails!');
+  console.log(
+    JSON.stringify(
+      {
+        event: 'stream.online',
+        channelId: '<memelabChannelId from DB>',
+        channelSlug: 'alphanumeric-slug',
+        twitchLogin: 'optionalTwitchLogin',
+        streamTitle: 'Stream title',
+        startedAt: new Date().toISOString(), // MUST include timezone (Z or +HH:MM)
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(
+    '\n⚠️  startedAt MUST have timezone offset (Z or +HH:MM) — bare "2024-01-01T12:00:00" fails!',
+  );
 
   console.log('\n=== Done ===\n');
   await prisma.$disconnect();

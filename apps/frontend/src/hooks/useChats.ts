@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@memelabui/ui';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { api } from '../api/client';
 import type { ChatsResponse, ChatResponse } from '../types/chat';
 
@@ -19,7 +20,11 @@ export function useChats() {
       api.post<ChatResponse>('/api/chats', data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CHATS_QUERY_KEY }),
     onError: (error) => {
-      toast({ variant: 'error', title: 'Не удалось добавить канал', description: error.message || 'Попробуйте ещё раз' });
+      toast({
+        variant: 'error',
+        title: 'Не удалось добавить канал',
+        description: error.message || 'Попробуйте ещё раз',
+      });
     },
   });
 
@@ -35,7 +40,11 @@ export function useChats() {
     }) => api.patch<ChatResponse>(`/api/chats/${id}`, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CHATS_QUERY_KEY }),
     onError: (error) => {
-      toast({ variant: 'error', title: 'Не удалось обновить канал', description: error.message || 'Попробуйте ещё раз' });
+      toast({
+        variant: 'error',
+        title: 'Не удалось обновить канал',
+        description: error.message || 'Попробуйте ещё раз',
+      });
     },
   });
 
@@ -43,7 +52,11 @@ export function useChats() {
     mutationFn: (id: string) => api.delete(`/api/chats/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CHATS_QUERY_KEY }),
     onError: (error) => {
-      toast({ variant: 'error', title: 'Не удалось удалить канал', description: error.message || 'Попробуйте ещё раз' });
+      toast({
+        variant: 'error',
+        title: 'Не удалось удалить канал',
+        description: error.message || 'Попробуйте ещё раз',
+      });
     },
   });
 

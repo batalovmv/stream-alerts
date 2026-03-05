@@ -1,13 +1,22 @@
+import { Skeleton, Alert, Button } from '@memelabui/ui';
+
 import { DashboardLayout } from '../components/layout/DashboardLayout';
-import { PlatformsDisplay } from '../components/settings/PlatformsDisplay';
 import { ButtonsEditor } from '../components/settings/ButtonsEditor';
 import { CustomBotEditor } from '../components/settings/CustomBotEditor';
 import { PhotoTypeSelector } from '../components/settings/PhotoTypeSelector';
-import { Skeleton, Alert, Button } from '@memelabui/ui';
+import { PlatformsDisplay } from '../components/settings/PlatformsDisplay';
 import { useStreamerSettings } from '../hooks/useStreamerSettings';
 
 export function SettingsPage() {
-  const { settings, isLoading, error, updatePlatforms, updateButtons, updateCustomBot, updatePhotoType } = useStreamerSettings();
+  const {
+    settings,
+    isLoading,
+    error,
+    updatePlatforms,
+    updateButtons,
+    updateCustomBot,
+    updatePhotoType,
+  } = useStreamerSettings();
 
   if (isLoading) {
     return (
@@ -40,9 +49,7 @@ export function SettingsPage() {
     <DashboardLayout>
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Настройки анонса</h1>
-        <p className="text-white/40 text-sm mt-1">
-          Платформы и кнопки — общие для всех каналов
-        </p>
+        <p className="text-white/40 text-sm mt-1">Платформы и кнопки — общие для всех каналов</p>
       </div>
       <div className="space-y-4">
         <PlatformsDisplay

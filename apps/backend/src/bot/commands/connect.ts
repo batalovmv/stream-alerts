@@ -6,8 +6,8 @@
  * The bot is automatically added as admin with required permissions.
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
 import type { BotContext } from '../types.js';
 
 /** request_id values to distinguish groups from channels */
@@ -24,7 +24,11 @@ export async function handleConnect(ctx: BotContext): Promise<void> {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: 'Сначала привяжите аккаунт.',
-      replyMarkup: { inline_keyboard: [[{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: {
+        inline_keyboard: [
+          [{ text: '\u{1F517} Привязать', url: 'https://notify.memelab.ru/dashboard' }],
+        ],
+      },
     });
     return;
   }

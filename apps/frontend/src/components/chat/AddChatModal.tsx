@@ -1,4 +1,5 @@
 import { Modal, Button, IconButton, Card, CopyField, Alert, Stepper } from '@memelabui/ui';
+
 import { useAuth } from '../../hooks/useAuth';
 import { useTelegramLink } from '../../hooks/useTelegramLink';
 import { isSafeDeepLink } from '../../lib/safeLink';
@@ -19,7 +20,12 @@ export function AddChatModal({ open, onClose }: AddChatModalProps) {
   }
 
   return (
-    <Modal isOpen={open} onClose={handleClose} ariaLabel="Подключить канал" contentClassName="max-w-md p-5">
+    <Modal
+      isOpen={open}
+      onClose={handleClose}
+      ariaLabel="Подключить канал"
+      contentClassName="max-w-md p-5"
+    >
       <div className="space-y-5">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">Подключить канал</h2>
@@ -50,8 +56,16 @@ function LinkAccountFlow({ telegramLink }: { telegramLink: ReturnType<typeof use
     <>
       <Stepper
         steps={[
-          { label: 'Привяжите Telegram', description: 'Нажмите кнопку ниже — откроется бот в Telegram. Это нужно сделать один раз.' },
-          { label: 'Добавьте канал через бота', description: 'Напишите /connect боту — он покажет нативный список ваших каналов и групп.' },
+          {
+            label: 'Привяжите Telegram',
+            description:
+              'Нажмите кнопку ниже — откроется бот в Telegram. Это нужно сделать один раз.',
+          },
+          {
+            label: 'Добавьте канал через бота',
+            description:
+              'Напишите /connect боту — он покажет нативный список ваших каналов и групп.',
+          },
         ]}
         activeStep={0}
         className="mb-4"
@@ -95,14 +109,15 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
 
       <Card variant="glass" className="p-4 text-sm text-white/50 space-y-3">
         <p>
-          Откройте <span className="text-accent-light">@MemelabNotifyBot</span> в Telegram и отправьте команду:
+          Откройте <span className="text-accent-light">@MemelabNotifyBot</span> в Telegram и
+          отправьте команду:
         </p>
 
         <CopyField value="/connect" label="Команда" />
 
         <p>
-          Бот покажет нативный список ваших каналов и групп.
-          Выберите нужный — бот добавится туда автоматически с нужными правами.
+          Бот покажет нативный список ваших каналов и групп. Выберите нужный — бот добавится туда
+          автоматически с нужными правами.
         </p>
       </Card>
 
@@ -111,7 +126,9 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
           variant="primary"
           size="md"
           className="flex-1"
-          onClick={() => window.open('https://t.me/MemelabNotifyBot', '_blank', 'noopener,noreferrer')}
+          onClick={() =>
+            window.open('https://t.me/MemelabNotifyBot', '_blank', 'noopener,noreferrer')
+          }
         >
           Открыть бота
         </Button>
@@ -122,4 +139,3 @@ function LinkedFlow({ onClose }: { onClose: () => void }) {
     </>
   );
 }
-

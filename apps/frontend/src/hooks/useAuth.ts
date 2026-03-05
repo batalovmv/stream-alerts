@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+
 import { api, ApiError, API_BASE, addUnauthorizedListener } from '../api/client';
 import type { AuthMeResponse, User } from '../types/auth';
 

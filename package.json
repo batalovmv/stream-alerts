@@ -2,6 +2,7 @@
   "name": "memelab-notify",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Automatic stream announcements for Telegram and MAX",
   "scripts": {
     "dev": "concurrently \"pnpm dev:backend\" \"pnpm dev:frontend\"",
@@ -11,6 +12,11 @@
     "build:backend": "pnpm --filter @memelab-notify/backend build",
     "build:frontend": "pnpm --filter @memelab-notify/frontend build",
     "test": "pnpm --filter @memelab-notify/backend test && pnpm --filter @memelab-notify/frontend test",
+    "lint": "eslint apps/",
+    "lint:fix": "eslint apps/ --fix",
+    "format": "prettier --write \"apps/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx}\"",
+    "prepare": "husky",
     "postinstall": "cd apps/backend && npx prisma generate"
   },
   "pnpm": {
@@ -23,6 +29,16 @@
     ]
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import-x": "^4.16.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
+    "prettier": "^3.8.1"
   }
 }

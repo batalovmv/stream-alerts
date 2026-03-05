@@ -42,6 +42,5 @@ export interface AvailablePlatformsResponse {
 }
 
 export interface SyncResponse {
-  ok: boolean;
   availableAccounts: AvailableAccount[];
 }

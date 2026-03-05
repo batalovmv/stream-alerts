@@ -5,14 +5,14 @@
  * or lets the user pick a specific chat if they have multiple.
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
+import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
 import { resolveProvider } from '../../lib/resolveProvider.js';
-import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
-import { logger } from '../../lib/logger.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
+import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import type { BotContext } from '../types.js';
-import { escapeHtml } from '../../lib/escapeHtml.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
 export async function handleTest(ctx: BotContext): Promise<void> {
@@ -25,7 +25,9 @@ export async function handleTest(ctx: BotContext): Promise<void> {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: 'Сначала привяжите аккаунт.',
-      replyMarkup: { inline_keyboard: [[{ text: '🔗 Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: {
+        inline_keyboard: [[{ text: '🔗 Привязать', url: 'https://notify.memelab.ru/dashboard' }]],
+      },
     });
     return;
   }
@@ -46,12 +48,14 @@ export async function handleTest(ctx: BotContext): Promise<void> {
 
   // If multiple chats, let the user choose
   if (streamer.chats.length > 1) {
-    const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map((chat: { id: string; chatTitle: string | null; chatId: string }) => [
-      {
-        text: `${chat.chatTitle || chat.chatId}`,
-        callback_data: `test:${chat.id}`,
-      },
-    ]);
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = streamer.chats.map(
+      (chat: { id: string; chatTitle: string | null; chatId: string }) => [
+        {
+          text: `${chat.chatTitle || chat.chatId}`,
+          callback_data: `test:${chat.id}`,
+        },
+      ],
+    );
 
     keyboard.push([{ text: '📣 Отправить во все', callback_data: 'test:all' }]);
     keyboard.push(BACK_TO_MENU_ROW);
@@ -82,7 +86,16 @@ export async function handleTest(ctx: BotContext): Promise<void> {
 }
 
 export async function sendTestAnnouncement(
-  streamer: { displayName: string; twitchLogin: string | null; memelabChannelId: string; channelSlug: string; defaultTemplate: string | null; streamPlatforms: unknown; customButtons: unknown; customBotToken: string | null },
+  streamer: {
+    displayName: string;
+    twitchLogin: string | null;
+    memelabChannelId: string;
+    channelSlug: string;
+    defaultTemplate: string | null;
+    streamPlatforms: unknown;
+    customButtons: unknown;
+    customBotToken: string | null;
+  },
   chat: { chatId: string; provider: string; customTemplate: string | null },
 ): Promise<{ success: boolean; error?: string }> {
   const platforms = parseStreamPlatforms(streamer.streamPlatforms);

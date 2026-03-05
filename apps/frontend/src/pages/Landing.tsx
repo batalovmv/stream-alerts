@@ -1,6 +1,7 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import { Button, Card, Navbar, Spinner, StatCard, Stepper, Divider } from '@memelabui/ui';
+import { Navigate } from 'react-router-dom';
+
+import { useAuth } from '../hooks/useAuth';
 
 export function Landing() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -35,10 +36,16 @@ export function Landing() {
         }
       >
         <nav className="flex items-center gap-8">
-          <a href="#features" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
+          <a
+            href="#features"
+            className="text-sm text-white/50 hover:text-white transition hidden sm:block"
+          >
             Возможности
           </a>
-          <a href="#how-it-works" className="text-sm text-white/50 hover:text-white transition hidden sm:block">
+          <a
+            href="#how-it-works"
+            className="text-sm text-white/50 hover:text-white transition hidden sm:block"
+          >
             Как это работает
           </a>
           <Button variant="primary" size="sm" onClick={login}>
@@ -50,9 +57,7 @@ export function Landing() {
       {/* Hero */}
       <section className="pt-36 pb-24 px-6 relative">
         <div className="max-w-4xl mx-auto text-center">
-          <div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-8 opacity-0 animate-fade-up bg-accent/10 border border-accent/20"
-          >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-8 opacity-0 animate-fade-up bg-accent/10 border border-accent/20">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-glow" />
             <span className="text-accent-light">Telegram</span>
           </div>
@@ -64,15 +69,21 @@ export function Landing() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-12 leading-relaxed opacity-0 animate-fade-up-delayed-2">
-            Стрим начался — анонс с превью уже в вашем Telegram-канале.
-            Настройте один раз, дальше всё работает само.
+            Стрим начался — анонс с превью уже в вашем Telegram-канале. Настройте один раз, дальше
+            всё работает само.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6 opacity-0 animate-fade-up-delayed-2">
             <Button variant="primary" size="lg" onClick={login}>
               Начать бесплатно
             </Button>
-            <Button variant="secondary" size="lg" onClick={() => { document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' }); }}>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => {
+                document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            >
               Как это работает?
             </Button>
           </div>
@@ -139,10 +150,10 @@ export function Landing() {
               },
             ].map((feature) => (
               <Card key={feature.title} variant="glass" hoverable className="p-6 group">
-                <div className="feature-icon mb-5">
-                  {feature.icon}
-                </div>
-                <h3 className="text-lg font-semibold mb-2 group-hover:text-accent-light transition-colors">{feature.title}</h3>
+                <div className="feature-icon mb-5">{feature.icon}</div>
+                <h3 className="text-lg font-semibold mb-2 group-hover:text-accent-light transition-colors">
+                  {feature.title}
+                </h3>
                 <p className="text-sm text-white/40 leading-relaxed">{feature.desc}</p>
               </Card>
             ))}
@@ -157,17 +168,27 @@ export function Landing() {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Как <span className="text-gradient">начать</span>
             </h2>
-            <p className="text-white/35">
-              Три шага — и анонсы работают автоматически
-            </p>
+            <p className="text-white/35">Три шага — и анонсы работают автоматически</p>
           </div>
 
           <Card variant="glass" className="p-8">
             <Stepper
               steps={[
-                { label: 'Войди через MemeLab', description: 'Один клик — и аккаунт привязан. Твой канал и настройки подтянутся автоматически.' },
-                { label: 'Добавь бота в канал', description: 'Добавь @MemelabNotifyBot как администратора в Telegram-канал или группу.' },
-                { label: 'Готово!', description: 'Теперь при каждом начале стрима бот автоматически отправит красивый анонс с превью.' },
+                {
+                  label: 'Войди через MemeLab',
+                  description:
+                    'Один клик — и аккаунт привязан. Твой канал и настройки подтянутся автоматически.',
+                },
+                {
+                  label: 'Добавь бота в канал',
+                  description:
+                    'Добавь @MemelabNotifyBot как администратора в Telegram-канал или группу.',
+                },
+                {
+                  label: 'Готово!',
+                  description:
+                    'Теперь при каждом начале стрима бот автоматически отправит красивый анонс с превью.',
+                },
               ]}
               activeStep={3}
             />
@@ -182,9 +203,7 @@ export function Landing() {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               Как выглядит <span className="text-gradient">анонс</span>
             </h2>
-            <p className="text-white/35">
-              Красивый анонс с превью, названием стрима и кнопкой
-            </p>
+            <p className="text-white/35">Красивый анонс с превью, названием стрима и кнопкой</p>
           </div>
 
           <div className="max-w-sm mx-auto">
@@ -203,7 +222,8 @@ export function Landing() {
               <div className="p-5">
                 <p className="text-white/90 leading-relaxed">
                   <span className="text-red-400">🔴</span> <strong>Стрим начался!</strong>
-                  <br /><br />
+                  <br />
+                  <br />
                   <span className="text-white/60">StreamerName</span> сейчас в эфире
                   <br />
                   📺 Вечерний стрим с чатом
@@ -250,10 +270,20 @@ export function Landing() {
             <span>MemeLab Notify v0.1.0</span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="https://github.com/batalovmv/stream-alerts" target="_blank" rel="noopener noreferrer" className="hover:text-white/50 transition">
+            <a
+              href="https://github.com/batalovmv/stream-alerts"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 transition"
+            >
               GitHub
             </a>
-            <a href="https://memelab.ru" target="_blank" rel="noopener noreferrer" className="hover:text-white/50 transition">
+            <a
+              href="https://memelab.ru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 transition"
+            >
               memelab.ru
             </a>
           </div>

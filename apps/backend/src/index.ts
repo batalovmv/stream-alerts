@@ -1,24 +1,25 @@
 import './lib/sentry.js'; // Sentry must init before other imports
+import * as Sentry from '@sentry/node';
+import type { Worker } from 'bullmq';
+import cors from 'cors';
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
-import * as Sentry from '@sentry/node';
+
+import { authRouter } from './api/routes/auth.js';
+import { chatsRouter } from './api/routes/chats.js';
+import { streamerRouter } from './api/routes/streamer.js';
+import { webhooksRouter } from './api/routes/webhooks.js';
+import { setupBot, stopPolling } from './bot/setup.js';
 import { config } from './lib/config.js';
+import { AppError } from './lib/errors.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { redis } from './lib/redis.js';
+import { MaxProvider } from './providers/max/MaxProvider.js';
 import { registerProvider } from './providers/registry.js';
 import { TelegramProvider } from './providers/telegram/TelegramProvider.js';
-import { MaxProvider } from './providers/max/MaxProvider.js';
-import { webhooksRouter } from './api/routes/webhooks.js';
-import { chatsRouter } from './api/routes/chats.js';
-import { authRouter } from './api/routes/auth.js';
-import { streamerRouter } from './api/routes/streamer.js';
-import { setupBot, stopPolling } from './bot/setup.js';
 import { startAnnouncementWorker, closeQueue } from './workers/announcementQueue.js';
-
-import type { Worker } from 'bullmq';
 
 let announcementWorker: Worker | null = null;
 let botReady = false;
@@ -33,10 +34,12 @@ app.use(helmet());
 
 const allowedOrigins = config.isDev ? ['http://localhost:5173'] : ['https://notify.memelab.ru'];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: '100kb' }));
 
 // ─── CSRF Protection ─────────────────────────────────────
@@ -44,20 +47,30 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) return next();
   if (req.path.startsWith('/api/webhooks')) return next();
 
-  const origin = req.headers.origin || (() => {
-    try { return req.headers.referer ? new URL(req.headers.referer).origin : null; } catch { return null; }
-  })();
+  const origin =
+    req.headers.origin ||
+    (() => {
+      try {
+        return req.headers.referer ? new URL(req.headers.referer).origin : null;
+      } catch {
+        return null;
+      }
+    })();
 
   if (!origin) {
     if (!config.isDev) {
-      return res.status(403).json({ error: 'CSRF: missing Origin header' });
+      return res
+        .status(403)
+        .json({ error: { code: 'FORBIDDEN', message: 'CSRF: missing Origin header' } });
     }
     return next();
   }
 
   if (!allowedOrigins.includes(origin)) {
     logger.warn({ origin, path: req.path }, 'csrf_blocked');
-    return res.status(403).json({ error: 'CSRF: origin not allowed' });
+    return res
+      .status(403)
+      .json({ error: { code: 'FORBIDDEN', message: 'CSRF: origin not allowed' } });
   }
 
   next();
@@ -73,12 +86,15 @@ function rateLimit(name: string, windowMs: number, max: number) {
       const results = await redis.multi().incr(windowKey).pexpire(windowKey, windowMs).exec();
       const count = (results?.[0]?.[1] as number) ?? 0;
       if (count > max) {
-        res.status(429).json({ error: 'Too many requests' });
+        res.status(429).json(AppError.rateLimited().toJSON());
         return;
       }
       next();
     } catch (err) {
-      logger.warn({ error: err instanceof Error ? err.message : String(err) }, 'rateLimit.redis_error_fail_open');
+      logger.warn(
+        { error: err instanceof Error ? err.message : String(err) },
+        'rateLimit.redis_error_fail_open',
+      );
       next(); // fail-open: allow request if Redis is unavailable
     }
   };
@@ -108,16 +124,14 @@ if (!config.botTokenEncryptionKey) {
 
 // ─── Routes ───────────────────────────────────────────────
 
-import { createRequire } from 'node:module';
+import { createRequire } from 'node:module'; // eslint-disable-line import-x/order -- must stay near usage
+
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
 
 app.get('/api/health', async (_req, res) => {
   try {
-    await Promise.all([
-      prisma.$queryRaw`SELECT 1`,
-      redis.ping(),
-    ]);
+    await Promise.all([prisma.$queryRaw`SELECT 1`, redis.ping()]);
     res.json({ status: 'ok', version, bot: botReady });
   } catch {
     res.status(503).json({ status: 'degraded', version, bot: botReady });
@@ -135,8 +149,15 @@ Sentry.setupExpressErrorHandler(app);
 // ─── Global Error Handler ─────────────────────────────────
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  // AppError — structured, expected errors
+  if (err.name === 'AppError' && 'status' in err && 'code' in err) {
+    const appErr = err as import('./lib/errors.js').AppError;
+    res.status(appErr.status).json(appErr.toJSON());
+    return;
+  }
+
   logger.error({ error: err.message, stack: err.stack }, 'unhandled_error');
-  res.status(500).json({ error: 'Internal server error' });
+  res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } });
 });
 
 // ─── Start ────────────────────────────────────────────────
@@ -149,7 +170,9 @@ const server = app.listen(config.port, () => {
 
   // Initialize Telegram bot (polling or webhook)
   setupBot(app)
-    .then(() => { botReady = true; })
+    .then(() => {
+      botReady = true;
+    })
     .catch((err) => {
       logger.error({ error: err instanceof Error ? err.message : String(err) }, 'bot.init_failed');
     });

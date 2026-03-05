@@ -1,4 +1,5 @@
 import { SectionCard } from '@memelabui/ui';
+
 import type { PhotoType } from '../../types/streamer';
 
 interface PhotoTypeSelectorProps {
@@ -7,18 +8,25 @@ interface PhotoTypeSelectorProps {
   isSaving: boolean;
 }
 
-const PHOTO_TYPE_OPTIONS: Array<{ value: PhotoType; label: string; description: string; disabled?: boolean }> = [
+const PHOTO_TYPE_OPTIONS: Array<{
+  value: PhotoType;
+  label: string;
+  description: string;
+  disabled?: boolean;
+}> = [
   { value: 'stream_preview', label: 'Скриншот стрима', description: 'Превью стрима с платформы' },
-  { value: 'game_box_art', label: 'Обложка игры', description: 'Временно недоступно', disabled: true },
+  {
+    value: 'game_box_art',
+    label: 'Обложка игры',
+    description: 'Временно недоступно',
+    disabled: true,
+  },
   { value: 'none', label: 'Без фото', description: 'Только текст' },
 ];
 
 export function PhotoTypeSelector({ value, onSave, isSaving }: PhotoTypeSelectorProps) {
   return (
-    <SectionCard
-      title="Фото в анонсе"
-      description="Какое изображение прикреплять к сообщению"
-    >
+    <SectionCard title="Фото в анонсе" description="Какое изображение прикреплять к сообщению">
       <div className="flex flex-col gap-2">
         {PHOTO_TYPE_OPTIONS.map((option) => (
           <label

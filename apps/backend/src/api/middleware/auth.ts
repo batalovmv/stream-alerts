@@ -1,12 +1,15 @@
 import { createHash } from 'node:crypto';
+
 import type { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import type { AuthenticatedRequest, AuthStreamer, MemelabUserProfile } from './types.js';
+
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
-import { redis } from '../../lib/redis.js';
 import { prisma } from '../../lib/prisma.js';
-import { upsertStreamerFromProfile } from '../../services/streamerService.js';
+import { redis } from '../../lib/redis.js';
+import { upsertStreamerFromProfile } from '../../lib/streamerUpsert.js';
+
+import type { AuthenticatedRequest, AuthStreamer, MemelabUserProfile } from './types.js';
 
 export const AUTH_CACHE_PREFIX = 'auth:profile:';
 const AUTH_CACHE_TTL = 300; // 5 minutes
@@ -16,15 +19,11 @@ const AUTH_CACHE_TTL = 300; // 5 minutes
  * Caches user profile in Redis for 5 minutes.
  * Upserts Streamer record only on fresh profile fetch; uses findUnique when serving from cache.
  */
-export async function requireAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const token = extractToken(req);
     if (!token) {
-      res.status(401).json({ error: 'Not authenticated' });
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
       return;
     }
 
@@ -34,11 +33,18 @@ export async function requireAuth(
     if (!profile) {
       const fetchResult = await fetchMemelabProfile(token);
       if (fetchResult.error === 'network') {
-        res.status(503).json({ error: 'Authentication service temporarily unavailable' });
+        res.status(503).json({
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Authentication service temporarily unavailable',
+          },
+        });
         return;
       }
       if (!fetchResult.profile) {
-        res.status(401).json({ error: 'Invalid or expired token' });
+        res
+          .status(401)
+          .json({ error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' } });
         return;
       }
       profile = fetchResult.profile;
@@ -46,7 +52,9 @@ export async function requireAuth(
     }
 
     if (!profile.channelId || !profile.channel) {
-      res.status(403).json({ error: 'No channel linked to your MemeLab account' });
+      res.status(403).json({
+        error: { code: 'FORBIDDEN', message: 'No channel linked to your MemeLab account' },
+      });
       return;
     }
 
@@ -84,7 +92,7 @@ export async function requireAuth(
       { error: error instanceof Error ? error.message : String(error) },
       'auth.middleware_error',
     );
-    res.status(500).json({ error: 'Authentication error' });
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Authentication error' } });
   }
 }
 
@@ -122,7 +130,11 @@ async function getCachedProfile(token: string): Promise<MemelabUserProfile | nul
 
 async function cacheProfile(token: string, profile: MemelabUserProfile): Promise<void> {
   try {
-    await redis.setex(AUTH_CACHE_PREFIX + hashToken(token), AUTH_CACHE_TTL, JSON.stringify(profile));
+    await redis.setex(
+      AUTH_CACHE_PREFIX + hashToken(token),
+      AUTH_CACHE_TTL,
+      JSON.stringify(profile),
+    );
   } catch {
     // Non-critical
   }
@@ -135,21 +147,27 @@ const memelabProfileSchema = z.object({
   profileImageUrl: z.string().nullable(),
   role: z.string(),
   channelId: z.string().nullable(),
-  channel: z.object({
-    id: z.string().min(1),
-    slug: z.string().min(1),
-    name: z.string(),
-  }).nullable(),
-  externalAccounts: z.array(z.object({
-    provider: z.string(),
-    providerAccountId: z.string(),
-    displayName: z.string().nullable(),
-    login: z.string().nullable(),
-    avatarUrl: z.string().nullable(),
-  })),
+  channel: z
+    .object({
+      id: z.string().min(1),
+      slug: z.string().min(1),
+      name: z.string(),
+    })
+    .nullable(),
+  externalAccounts: z.array(
+    z.object({
+      provider: z.string(),
+      providerAccountId: z.string(),
+      displayName: z.string().nullable(),
+      login: z.string().nullable(),
+      avatarUrl: z.string().nullable(),
+    }),
+  ),
 });
 
-type FetchResult = { profile: MemelabUserProfile; error?: undefined } | { profile: null; error: 'rejected' | 'network' };
+type FetchResult =
+  | { profile: MemelabUserProfile; error?: undefined }
+  | { profile: null; error: 'rejected' | 'network' };
 
 export async function fetchMemelabProfile(token: string): Promise<FetchResult> {
   const controller = new AbortController();
@@ -169,7 +187,10 @@ export async function fetchMemelabProfile(token: string): Promise<FetchResult> {
     const json = await res.json();
     const parsed = memelabProfileSchema.safeParse(json);
     if (!parsed.success) {
-      logger.error({ issues: parsed.error.issues.map((i) => i.message) }, 'auth.memelab_api_invalid_response');
+      logger.error(
+        { issues: parsed.error.issues.map((i) => i.message) },
+        'auth.memelab_api_invalid_response',
+      );
       // Schema mismatch = upstream API changed; treat as service unavailable, not auth rejection
       return { profile: null, error: 'network' };
     }

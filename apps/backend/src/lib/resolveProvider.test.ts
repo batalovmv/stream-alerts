@@ -17,10 +17,11 @@ vi.mock('../providers/telegram/TelegramProvider.js', () => ({
 
 // ─── Imports (after vi.mock hoisting) ─────────────────────────
 
-import { resolveProvider } from './resolveProvider.js';
 import { getProvider } from '../providers/registry.js';
-import { isEncryptionAvailable, decrypt } from './encryption.js';
 import { TelegramProvider } from '../providers/telegram/TelegramProvider.js';
+
+import { isEncryptionAvailable, decrypt } from './encryption.js';
+import { resolveProvider } from './resolveProvider.js';
 
 const mockGetProvider = getProvider as Mock;
 const mockIsEncryptionAvailable = isEncryptionAvailable as Mock;
@@ -166,7 +167,6 @@ describe('resolveProvider', () => {
 
     it('rethrows with a wrapped message when decrypt throws a non-Error', () => {
       mockDecrypt.mockImplementation(() => {
-        // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw 'string error';
       });
 

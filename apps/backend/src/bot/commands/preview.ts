@@ -5,10 +5,15 @@
  * the result in the chat (with photo) — no actual send to channels.
  */
 
-import * as tg from '../../providers/telegram/telegramApi.js';
 import { prisma } from '../../lib/prisma.js';
-import { renderTemplate, buildButtons, buildTemplateVars, TEMPLATE_VARIABLE_DOCS } from '../../services/templateService.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
+import * as tg from '../../providers/telegram/telegramApi.js';
+import {
+  renderTemplate,
+  buildButtons,
+  buildTemplateVars,
+  TEMPLATE_VARIABLE_DOCS,
+} from '../../services/templateService.js';
 import type { BotContext } from '../types.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';
 
@@ -18,14 +23,18 @@ const PREVIEW_PLACEHOLDER_URL = 'https://static-cdn.jtvnw.net/ttv-static/404_pre
 export async function handlePreview(ctx: BotContext): Promise<void> {
   const streamer = await prisma.streamer.findUnique({
     where: { telegramUserId: String(ctx.userId) },
-    include: { chats: { select: { customTemplate: true }, orderBy: { createdAt: 'asc' }, take: 1 } },
+    include: {
+      chats: { select: { customTemplate: true }, orderBy: { createdAt: 'asc' }, take: 1 },
+    },
   });
 
   if (!streamer) {
     await tg.sendMessage({
       chatId: String(ctx.chatId),
       text: 'Сначала привяжите аккаунт.',
-      replyMarkup: { inline_keyboard: [[{ text: '🔗 Привязать', url: 'https://notify.memelab.ru/dashboard' }]] },
+      replyMarkup: {
+        inline_keyboard: [[{ text: '🔗 Привязать', url: 'https://notify.memelab.ru/dashboard' }]],
+      },
     });
     return;
   }
@@ -66,15 +75,16 @@ export async function handlePreview(ctx: BotContext): Promise<void> {
     });
   }
 
-  const varsList = TEMPLATE_VARIABLE_DOCS
-    .map((v) => `<code>{${v.name}}</code> — ${v.description}`)
-    .join('\n');
+  const varsList = TEMPLATE_VARIABLE_DOCS.map(
+    (v) => `<code>{${v.name}}</code> — ${v.description}`,
+  ).join('\n');
 
   await tg.sendMessage({
     chatId: String(ctx.chatId),
-    text: '👁 <b>Предпросмотр</b>\n\n'
-      + '👆 Так будет выглядеть анонс.\n\n'
-      + `Переменные:\n${varsList}`,
+    text:
+      '👁 <b>Предпросмотр</b>\n\n' +
+      '👆 Так будет выглядеть анонс.\n\n' +
+      `Переменные:\n${varsList}`,
     replyMarkup: {
       inline_keyboard: [
         [{ text: '📝 Изменить шаблон', callback_data: 'menu:settings' }],

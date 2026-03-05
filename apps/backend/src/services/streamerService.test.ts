@@ -31,9 +31,11 @@ vi.mock('../lib/logger.js', () => ({
 
 // ─── Imports (after mocks) ────────────────────────────────────
 
-import { prisma } from '../lib/prisma.js';
-import { upsertStreamerFromProfile } from './streamerService.js';
 import type { MemelabUserProfile } from '../api/middleware/types.js';
+import { prisma } from '../lib/prisma.js';
+import { makeStreamer } from '../test/factories.js';
+
+import { upsertStreamerFromProfile } from './streamerService.js';
 
 // ─── Typed mock aliases ───────────────────────────────────────
 
@@ -58,8 +60,13 @@ function makeProfile(overrides: ProfileOverrides = {}): MemelabUserProfile & {
     profileImageUrl: 'https://cdn.example.com/avatar.png',
     role: 'streamer',
     channelId: 'chan-1',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    channel: { id: 'chan-1', slug: 'streamername', name: 'StreamerName', ...overrides.channel } as any,
+
+    channel: {
+      id: 'chan-1',
+      slug: 'streamername',
+      name: 'StreamerName',
+      ...overrides.channel,
+    } as any,
     externalAccounts: overrides.externalAccounts ?? [
       {
         provider: 'twitch',
@@ -74,20 +81,6 @@ function makeProfile(overrides: ProfileOverrides = {}): MemelabUserProfile & {
 
   return base as MemelabUserProfile & {
     channel: NonNullable<MemelabUserProfile['channel']>;
-  };
-}
-
-function makeDbStreamer(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    id: 'streamer-db-1',
-    memelabUserId: 'user-1',
-    memelabChannelId: 'chan-1',
-    channelSlug: 'streamername',
-    twitchLogin: 'streamername',
-    displayName: 'StreamerName',
-    avatarUrl: 'https://cdn.example.com/avatar.png',
-    streamPlatforms: [],
-    ...overrides,
   };
 }
 
@@ -126,7 +119,7 @@ describe('upsertStreamerFromProfile', () => {
       const slug = 'a'.repeat(100);
       const profile = makeProfile({ channel: { slug } });
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer({ channelSlug: slug }));
+      mockUpsert.mockResolvedValue(makeStreamer({ channelSlug: slug }));
 
       await expect(upsertStreamerFromProfile(profile)).resolves.not.toThrow();
     });
@@ -156,7 +149,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -195,7 +188,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -219,7 +212,9 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer({ avatarUrl: 'https://cdn.twitch.com/fallback.png' }));
+      mockUpsert.mockResolvedValue(
+        makeStreamer({ avatarUrl: 'https://cdn.twitch.com/fallback.png' }),
+      );
 
       await upsertStreamerFromProfile(profile);
 
@@ -241,7 +236,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer({ twitchLogin: null }));
+      mockUpsert.mockResolvedValue(makeStreamer({ twitchLogin: null }));
 
       await upsertStreamerFromProfile(profile);
 
@@ -269,10 +264,8 @@ describe('upsertStreamerFromProfile', () => {
         },
       ];
 
-      mockFindUnique.mockResolvedValue(
-        makeDbStreamer({ streamPlatforms: existingPlatforms }),
-      );
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockFindUnique.mockResolvedValue(makeStreamer({ streamPlatforms: existingPlatforms }));
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       const profile = makeProfile({
         externalAccounts: [
@@ -289,8 +282,7 @@ describe('upsertStreamerFromProfile', () => {
       await upsertStreamerFromProfile(profile);
 
       const call = mockUpsert.mock.calls[0][0];
-      const platforms: Array<{ platform: string; isManual: boolean }> =
-        call.update.streamPlatforms;
+      const platforms: Array<{ platform: string; isManual: boolean }> = call.update.streamPlatforms;
 
       // Both entries preserved
       expect(platforms).toHaveLength(2);
@@ -316,10 +308,8 @@ describe('upsertStreamerFromProfile', () => {
         },
       ];
 
-      mockFindUnique.mockResolvedValue(
-        makeDbStreamer({ streamPlatforms: existingPlatforms }),
-      );
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockFindUnique.mockResolvedValue(makeStreamer({ streamPlatforms: existingPlatforms }));
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       const profile = makeProfile({
         externalAccounts: [
@@ -361,10 +351,8 @@ describe('upsertStreamerFromProfile', () => {
         },
       ];
 
-      mockFindUnique.mockResolvedValue(
-        makeDbStreamer({ streamPlatforms: existingPlatforms }),
-      );
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockFindUnique.mockResolvedValue(makeStreamer({ streamPlatforms: existingPlatforms }));
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       // OAuth profile no longer has twitch
       const profile = makeProfile({ externalAccounts: [] });
@@ -372,8 +360,7 @@ describe('upsertStreamerFromProfile', () => {
       await upsertStreamerFromProfile(profile);
 
       const call = mockUpsert.mock.calls[0][0];
-      const platforms: Array<{ platform: string; login: string }> =
-        call.update.streamPlatforms;
+      const platforms: Array<{ platform: string; login: string }> = call.update.streamPlatforms;
 
       expect(platforms).toHaveLength(1);
       expect(platforms[0]).toMatchObject({ platform: 'twitch', login: 'streamername' });
@@ -397,7 +384,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -430,7 +417,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -441,9 +428,7 @@ describe('upsertStreamerFromProfile', () => {
       expect(platforms.find((p) => p.platform === 'vk')?.url).toBe(
         'https://vk.com/video/@vk_user/videos',
       );
-      expect(platforms.find((p) => p.platform === 'kick')?.url).toBe(
-        'https://kick.com/kick_user',
-      );
+      expect(platforms.find((p) => p.platform === 'kick')?.url).toBe('https://kick.com/kick_user');
     });
 
     it('ignores unknown providers', async () => {
@@ -460,7 +445,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -493,7 +478,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -518,7 +503,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -533,7 +518,7 @@ describe('upsertStreamerFromProfile', () => {
     it('passes memelabUserId as where clause for both create and update', async () => {
       const profile = makeProfile();
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -547,7 +532,7 @@ describe('upsertStreamerFromProfile', () => {
         channel: { id: 'chan-42', slug: 'valid-slug' },
       });
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -561,7 +546,7 @@ describe('upsertStreamerFromProfile', () => {
     it('update data does NOT include memelabUserId', async () => {
       const profile = makeProfile();
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
@@ -571,7 +556,7 @@ describe('upsertStreamerFromProfile', () => {
 
     it('returns AuthStreamer shape from the upserted row', async () => {
       const profile = makeProfile();
-      const dbRow = makeDbStreamer({
+      const dbRow = makeStreamer({
         id: 'streamer-abc',
         memelabUserId: 'user-1',
         memelabChannelId: 'chan-1',
@@ -619,7 +604,7 @@ describe('upsertStreamerFromProfile', () => {
       });
 
       mockFindUnique.mockResolvedValue(null);
-      mockUpsert.mockResolvedValue(makeDbStreamer());
+      mockUpsert.mockResolvedValue(makeStreamer());
 
       await upsertStreamerFromProfile(profile);
 
