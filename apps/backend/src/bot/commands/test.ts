@@ -8,9 +8,9 @@
 import { escapeHtml } from '../../lib/escapeHtml.js';
 import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import { resolveProvider } from '../../lib/resolveProvider.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
 import * as tg from '../../providers/telegram/telegramApi.js';
+import { resolveProvider } from '../../services/resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import type { BotContext } from '../types.js';
 import { BACK_TO_MENU_ROW } from '../ui.js';

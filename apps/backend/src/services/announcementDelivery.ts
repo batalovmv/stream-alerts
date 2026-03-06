@@ -11,12 +11,12 @@ import { escapeHtml } from '../lib/escapeHtml.js';
 import { logger } from '../lib/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { redis } from '../lib/redis.js';
-import { resolveProvider } from '../lib/resolveProvider.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../lib/streamPlatforms.js';
 import { getProvider, hasProvider } from '../providers/registry.js';
 
 import type { StreamEventPayload } from './announcementService.js';
 import { resolvePhotoUrl } from './announcementService.js';
+import { resolveProvider } from './resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from './templateService.js';
 
 interface OnlineStreamer {

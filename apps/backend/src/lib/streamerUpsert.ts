@@ -1,9 +1,8 @@
-import type { MemelabUserProfile, AuthStreamer } from '../api/middleware/types.js';
-
 import { logger } from './logger.js';
 import { prisma } from './prisma.js';
 import { buildPlatformUrl, parseStreamPlatforms } from './streamPlatforms.js';
 import type { StreamPlatform } from './streamPlatforms.js';
+import type { MemelabUserProfile, AuthStreamer } from './types.js';
 
 /** Map MemeLab OAuth provider names to our platform identifiers */
 export const PROVIDER_TO_PLATFORM: Record<string, StreamPlatform['platform']> = {

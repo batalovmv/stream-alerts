@@ -31,8 +31,8 @@ vi.mock('../lib/logger.js', () => ({
 
 // ─── Imports (after mocks) ────────────────────────────────────
 
-import type { MemelabUserProfile } from '../api/middleware/types.js';
 import { prisma } from '../lib/prisma.js';
+import type { MemelabUserProfile } from '../lib/types.js';
 import { makeStreamer } from '../test/factories.js';
 
 import { upsertStreamerFromProfile } from './streamerService.js';

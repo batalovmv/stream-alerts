@@ -11,7 +11,8 @@ import { encrypt, isEncryptionAvailable } from '../../lib/encryption.js';
 import { AppError } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
-import { getMeWithToken } from '../../providers/telegram/telegramApi.js';
+import { isValidUrl } from '../../lib/urlValidation.js';
+import { validateBotToken } from '../../services/resolveProvider.js';
 import { TEMPLATE_VARIABLE_DOCS } from '../../services/templateService.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
@@ -23,16 +24,24 @@ router.use(requireAuth);
 
 // ─── Validation Schemas ──────────────────────────────────
 
+const safeUrl = z
+  .string()
+  .url()
+  .max(500)
+  .refine((val) => isValidUrl(val), {
+    message: 'URL must use https:// and point to a public host',
+  });
+
 const streamPlatformSchema = z.object({
-  platform: z.enum(['twitch', 'youtube', 'vk', 'kick', 'other']),
+  platform: z.enum(['twitch', 'youtube', 'vk', 'kick', 'trovo', 'other']),
   login: z.string().min(1).max(200),
-  url: z.string().url().max(500),
+  url: safeUrl,
   isManual: z.boolean(),
 });
 
 const customButtonSchema = z.object({
   label: z.string().min(1).max(100),
-  url: z.string().url().max(500),
+  url: safeUrl,
 });
 
 const updateSettingsSchema = z
@@ -146,7 +155,7 @@ router.patch(
 
           // Validate the token by calling Telegram getMe
           const botInfo = await Promise.race([
-            getMeWithToken(customBotToken),
+            validateBotToken(customBotToken),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error('Bot token validation timed out')), 5000),
             ),
@@ -178,6 +187,7 @@ router.patch(
           streamPlatforms: parseStreamPlatforms(updated.streamPlatforms),
           customButtons: parseCustomButtons(updated.customButtons),
           defaultTemplate: updated.defaultTemplate,
+          templateVariables: TEMPLATE_VARIABLE_DOCS,
           customBotUsername: updated.customBotUsername ?? null,
           hasCustomBot: !!updated.customBotToken,
           photoType: updated.photoType,

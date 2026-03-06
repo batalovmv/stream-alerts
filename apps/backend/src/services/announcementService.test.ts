@@ -64,7 +64,7 @@ const mockProvider: {
   validateBotAccess: vi.fn(),
 };
 
-vi.mock('../lib/resolveProvider.js', () => ({
+vi.mock('./resolveProvider.js', () => ({
   resolveProvider: vi.fn(() => mockProvider),
 }));
 

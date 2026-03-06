@@ -1,13 +1,20 @@
 /**
- * Shared provider resolution — uses custom bot token for Telegram if available,
+ * Provider resolution service.
+ *
+ * Uses custom bot token for Telegram if available,
  * falls back to global registered provider.
+ *
+ * Also re-exports provider registry helpers for use by routes
+ * (routes should import from services, not providers directly).
  */
 
-import { getProvider } from '../providers/registry.js';
-import { TelegramProvider } from '../providers/telegram/TelegramProvider.js';
+import { decrypt, isEncryptionAvailable } from '../lib/encryption.js';
+import { getProvider, hasProvider } from '../providers/registry.js';
+import { getMeWithToken } from '../providers/telegram/telegramApi.js';
+import { TelegramProvider } from '../providers/telegram/telegramProvider.js';
 import type { MessengerProvider } from '../providers/types.js';
 
-import { decrypt, isEncryptionAvailable } from './encryption.js';
+export { hasProvider };
 
 export function resolveProvider(
   chatProvider: string,
@@ -29,4 +36,14 @@ export function resolveProvider(
     return new TelegramProvider(token);
   }
   return getProvider(chatProvider);
+}
+
+/**
+ * Validate a Telegram bot token by calling getMe.
+ * Returns bot info ({ username, first_name }) on success, throws on failure.
+ */
+export async function validateBotToken(
+  token: string,
+): Promise<{ username?: string; first_name: string }> {
+  return getMeWithToken(token);
 }

@@ -4,23 +4,28 @@ import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 
 vi.mock('../providers/registry.js', () => ({
   getProvider: vi.fn(),
+  hasProvider: vi.fn(),
 }));
 
-vi.mock('./encryption.js', () => ({
+vi.mock('../lib/encryption.js', () => ({
   isEncryptionAvailable: vi.fn(),
   decrypt: vi.fn(),
 }));
 
-vi.mock('../providers/telegram/TelegramProvider.js', () => ({
+vi.mock('../providers/telegram/telegramProvider.js', () => ({
   TelegramProvider: vi.fn(),
+}));
+
+vi.mock('../providers/telegram/telegramApi.js', () => ({
+  getMeWithToken: vi.fn(),
 }));
 
 // ─── Imports (after vi.mock hoisting) ─────────────────────────
 
+import { isEncryptionAvailable, decrypt } from '../lib/encryption.js';
 import { getProvider } from '../providers/registry.js';
-import { TelegramProvider } from '../providers/telegram/TelegramProvider.js';
+import { TelegramProvider } from '../providers/telegram/telegramProvider.js';
 
-import { isEncryptionAvailable, decrypt } from './encryption.js';
 import { resolveProvider } from './resolveProvider.js';
 
 const mockGetProvider = getProvider as Mock;

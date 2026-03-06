@@ -9,9 +9,8 @@ import {
 import { AppError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { prisma } from '../../lib/prisma.js';
-import { resolveProvider } from '../../lib/resolveProvider.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
-import { hasProvider } from '../../providers/registry.js';
+import { resolveProvider, hasProvider } from '../../services/resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../middleware/types.js';
@@ -231,9 +230,9 @@ router.post(
 
       // Use custom bot for test if configured — so streamer sees the actual bot that will send
       const provider = resolveProvider(chat.provider, dbStreamer.customBotToken);
-      const result = await provider.sendAnnouncement(chat.chatId, { text, buttons });
+      await provider.sendAnnouncement(chat.chatId, { text, buttons });
 
-      res.json({ ok: true, messageId: result.messageId });
+      res.json({ ok: true });
     } catch (error) {
       next(error);
     }

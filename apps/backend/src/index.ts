@@ -16,9 +16,9 @@ import { AppError } from './lib/errors.js';
 import { logger } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { redis } from './lib/redis.js';
-import { MaxProvider } from './providers/max/MaxProvider.js';
+import { MaxProvider } from './providers/max/maxProvider.js';
 import { registerProvider } from './providers/registry.js';
-import { TelegramProvider } from './providers/telegram/TelegramProvider.js';
+import { TelegramProvider } from './providers/telegram/telegramProvider.js';
 import { startAnnouncementWorker, closeQueue } from './workers/announcementQueue.js';
 
 let announcementWorker: Worker | null = null;
@@ -124,10 +124,11 @@ if (!config.botTokenEncryptionKey) {
 
 // ─── Routes ───────────────────────────────────────────────
 
-import { createRequire } from 'node:module'; // eslint-disable-line import-x/order -- must stay near usage
+import { readFileSync } from 'node:fs'; // eslint-disable-line import-x/order -- must stay near usage
 
-const require = createRequire(import.meta.url);
-const { version } = require('../package.json') as { version: string };
+const { version } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf-8'),
+) as { version: string };
 
 app.get('/api/health', async (_req, res) => {
   try {

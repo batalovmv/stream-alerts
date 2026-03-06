@@ -204,7 +204,10 @@ Before committing any migration:
 |------|---------|
 | `apps/backend/prisma/schema.prisma` | Database schema |
 | `apps/backend/src/lib/errors.ts` | Error catalog (AppError class + codes) |
+| `apps/backend/src/lib/types.ts` | Shared types (MemelabUserProfile, AuthStreamer, AuthenticatedRequest) |
+| `apps/backend/src/lib/urlValidation.ts` | URL validation utility (isValidUrl — SSRF protection) |
 | `apps/backend/src/providers/` | Messenger provider implementations |
+| `apps/backend/src/services/resolveProvider.ts` | Provider resolution (custom bot token, hasProvider, validateBotToken) |
 | `apps/backend/src/api/` | REST API endpoints |
 | `apps/backend/src/bot/` | Telegram bot command handlers |
 | `apps/backend/src/workers/` | BullMQ workers |
@@ -475,4 +478,4 @@ Body: {
 
 ---
 
-*Last updated: 2026-03-05*
+*Last updated: 2026-03-06*

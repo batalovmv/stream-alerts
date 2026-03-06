@@ -33,13 +33,9 @@ vi.mock('../../lib/prisma.js', () => ({
   },
 }));
 
-vi.mock('../../providers/registry.js', () => ({
-  hasProvider: vi.fn(),
-  getProvider: vi.fn(),
-}));
-
-vi.mock('../../lib/resolveProvider.js', () => ({
+vi.mock('../../services/resolveProvider.js', () => ({
   resolveProvider: vi.fn(),
+  hasProvider: vi.fn(),
 }));
 
 vi.mock('../../services/templateService.js', () => ({
@@ -74,9 +70,8 @@ vi.mock('../middleware/validation.js', () => ({
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { prisma } from '../../lib/prisma.js';
-import { resolveProvider } from '../../lib/resolveProvider.js';
 import { parseStreamPlatforms, parseCustomButtons } from '../../lib/streamPlatforms.js';
-import { hasProvider } from '../../providers/registry.js';
+import { resolveProvider, hasProvider } from '../../services/resolveProvider.js';
 import { renderTemplate, buildButtons, buildTemplateVars } from '../../services/templateService.js';
 import { makeStreamer, makeFakeProvider, createMockReqRes } from '../../test/factories.js';
 
@@ -557,7 +552,7 @@ describe('POST /:id/test — send test announcement', () => {
     expect(error.message).toMatch(/streamer not found/i);
   });
 
-  it('sends a test announcement and returns { ok: true, messageId }', async () => {
+  it('sends a test announcement and returns { ok: true }', async () => {
     const chat = {
       id: 'c-1',
       enabled: true,
@@ -601,7 +596,7 @@ describe('POST /:id/test — send test announcement', () => {
       '-100123',
       expect.objectContaining({ text: 'TestStreamer is live!' }),
     );
-    expect(res.json).toHaveBeenCalledWith({ ok: true, messageId: 'msg-99' });
+    expect(res.json).toHaveBeenCalledWith({ ok: true });
   });
 
   it('uses chat.customTemplate when set', async () => {
