@@ -62,20 +62,31 @@ pnpm dev
 
 ```
 memelab-notify/
+├── .ai/                # Общий AI-слой: контекст, задачи, решения, handoff
 ├── apps/
 │   ├── backend/        # Express API + Telegram/MAX боты
 │   └── frontend/       # React SPA (dashboard)
 ├── docs/               # Документация
 │   ├── CONCEPT.md      # Концепция продукта
 │   └── ARCHITECTURE.md # Техническая архитектура
-├── CLAUDE.md           # Инструкции для AI-ассистентов
+├── AGENTS.md           # Точка входа для Codex
+├── CLAUDE.md           # Точка входа для Opus
 └── README.md
 ```
+
+## AI workflow
+
+- `AGENTS.md` и `CLAUDE.md` задают правила входа для Codex и Opus
+- Весь долговечный AI-контекст хранится в `.ai/`
+- Нетривиальные задачи ведутся в `.ai/tasks/`
+- Незавершённые сессии передаются через `.ai/handoffs/`
+- Долговечные технические решения фиксируются в `.ai/decisions/`
 
 ## Документация
 
 - [Концепция продукта](docs/CONCEPT.md)
 - [Архитектура](docs/ARCHITECTURE.md)
+- [.ai/README.md](.ai/README.md)
 
 ## Лицензия
 

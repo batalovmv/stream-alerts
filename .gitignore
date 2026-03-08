@@ -8,3 +8,6 @@ coverage/
 .turbo/
 *.tsbuildinfo
 .claude/
+.ai/local/
+.ai/tmp/
+.ai/scratch/

@@ -48,8 +48,8 @@ memelab-notify/
 │   ├── backend/          # Express API, Telegram/MAX bots, BullMQ workers
 │   └── frontend/         # React SPA dashboard
 ├── docs/                 # Project documentation
-├── AGENTS.md             # Codex entry guide
-├── CLAUDE.md             # Opus entry guide (YOU ARE HERE)
+├── AGENTS.md             # Codex entry guide (YOU ARE HERE)
+├── CLAUDE.md             # Opus entry guide
 └── README.md
 ```
 
@@ -497,8 +497,8 @@ Body: {
 ## Maintenance
 
 - **Keep the AI layer updated**: When adding new patterns, routes, or architectural decisions, update `.ai/` in the same commit.
-- **Keep entry guides aligned**: `CLAUDE.md` and `AGENTS.md` must stay semantically synchronized.
-- **Keep this file updated**: If Opus-specific workflow expectations change, update `CLAUDE.md` in the same commit.
+- **Keep entry guides aligned**: `AGENTS.md` and `CLAUDE.md` must stay semantically synchronized.
+- **Keep this file updated**: If Codex-specific workflow expectations change, update `AGENTS.md` in the same commit.
 - **Review quarterly**: Check that tech stack versions, file paths, and rules match reality.
 
 ---
