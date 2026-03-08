@@ -44,6 +44,20 @@ export default [
     },
   },
 
+  {
+    files: ['apps/**/*.test.ts', 'apps/**/*.test.tsx'],
+    rules: {
+      'max-lines': 'off',
+    },
+  },
+
+  {
+    files: ['apps/**/src/scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
   // Disable rules that conflict with Prettier
   prettier,
 ];

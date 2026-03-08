@@ -59,6 +59,7 @@ vi.mock('../../lib/streamerUpsert.js', () => ({
 import { prisma } from '../../lib/prisma.js';
 import { redis } from '../../lib/redis.js';
 import { upsertStreamerFromProfile } from '../../lib/streamerUpsert.js';
+import type { AuthenticatedRequest } from '../../lib/types.js';
 
 import {
   requireAuth,
@@ -223,7 +224,7 @@ describe('requireAuth', () => {
       expect.objectContaining({ where: { memelabUserId: validProfile.id } }),
     );
     expect(upsertStreamerFromProfile).not.toHaveBeenCalled();
-    expect((req as any).streamer).toEqual(validStreamer);
+    expect((req as AuthenticatedRequest).streamer).toEqual(validStreamer);
     expect(next).toHaveBeenCalled();
   });
 
@@ -242,7 +243,7 @@ describe('requireAuth', () => {
     expect(upsertStreamerFromProfile).toHaveBeenCalledWith(
       expect.objectContaining({ id: validProfile.id }),
     );
-    expect((req as any).streamer).toEqual(validStreamer);
+    expect((req as AuthenticatedRequest).streamer).toEqual(validStreamer);
     expect(next).toHaveBeenCalled();
   });
 
@@ -275,7 +276,7 @@ describe('requireAuth', () => {
       expect.objectContaining({ id: validProfile.id }),
     );
     expect(prisma.streamer.findUnique).not.toHaveBeenCalled();
-    expect((req as any).streamer).toEqual(validStreamer);
+    expect((req as AuthenticatedRequest).streamer).toEqual(validStreamer);
     expect(next).toHaveBeenCalled();
   });
 

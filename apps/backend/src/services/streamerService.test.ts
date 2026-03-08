@@ -54,20 +54,22 @@ type ProfileOverrides = Partial<
 function makeProfile(overrides: ProfileOverrides = {}): MemelabUserProfile & {
   channel: NonNullable<MemelabUserProfile['channel']>;
 } {
+  const { channel: channelOverrides, externalAccounts, ...profileOverrides } = overrides;
+  const channel: NonNullable<MemelabUserProfile['channel']> = {
+    id: 'chan-1',
+    slug: 'streamername',
+    name: 'StreamerName',
+    ...channelOverrides,
+  };
+
   const base: MemelabUserProfile = {
     id: 'user-1',
     displayName: 'StreamerName',
     profileImageUrl: 'https://cdn.example.com/avatar.png',
     role: 'streamer',
     channelId: 'chan-1',
-
-    channel: {
-      id: 'chan-1',
-      slug: 'streamername',
-      name: 'StreamerName',
-      ...overrides.channel,
-    } as any,
-    externalAccounts: overrides.externalAccounts ?? [
+    channel,
+    externalAccounts: externalAccounts ?? [
       {
         provider: 'twitch',
         providerAccountId: 'twitch-123',
@@ -76,7 +78,7 @@ function makeProfile(overrides: ProfileOverrides = {}): MemelabUserProfile & {
         avatarUrl: null,
       },
     ],
-    ...overrides,
+    ...profileOverrides,
   };
 
   return base as MemelabUserProfile & {
