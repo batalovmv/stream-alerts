@@ -1,269 +1,160 @@
-# MemeLab Notify — Концепция продукта
+# MemeLab Notify - Product Concept
 
-## Проблема
+Last updated: 2026-03-09
 
-Стримеры теряют зрителей из-за трёх причин:
-1. **Push-уведомления ненадёжны** — Twitch/YouTube нотификации часто не приходят или игнорируются
-2. **Ручной постинг — рутина** — писать в канал перед каждым стримом утомительно и забывается
-3. **Нет единого решения** — для каждого мессенджера нужен отдельный инструмент
+## Problem
 
-## Решение
+Streamers still lose audience around stream start for predictable reasons:
 
-**MemeLab Notify** — сервис автоматических уведомлений о стримах.
+1. Platform push notifications are unreliable or ignored
+2. Manual announcement posting is repetitive and easy to forget
+3. Audience communication happens in messengers, not only on the streaming platform
 
-Стрим начался → анонс с превью автоматически появляется в Telegram-канале и MAX-группе стримера.
+## Solution
 
-Стример настраивает один раз — дальше всё работает само.
+MemeLab Notify automatically posts stream announcements to messenger chats when a MemeLab-connected streamer goes live, updates those announcements during the stream, and can remove them after the stream ends.
 
----
+The service is opinionated:
 
-## Целевая аудитория
+- one dashboard for configuration
+- one Telegram bot for linking chats and managing them
+- asynchronous delivery through a queue
+- defaults that work without heavy setup
 
-### Стримеры (основные пользователи)
-- Стримеры на Twitch, VK Video, YouTube, Kick
-- Уже используют MemeLab для управления каналом
-- Имеют Telegram-каналы или MAX-группы для общения с аудиторией
-- Хотят автоматизировать рутину
+## Current Product Scope
 
-### Зрители (конечные получатели)
-- Подписчики каналов/групп стримера
-- Хотят не пропускать стримы
-- Предпочитают уведомления в привычном мессенджере
+### Live today
 
----
+- Login through the main MemeLab platform
+- Telegram account linking through `@MemelabNotifyBot`
+- Chat connection through Telegram native chat picker and `/connect`
+- Automatic handling of `stream.online`, `stream.update`, `stream.offline`
+- Per-streamer settings for platforms, inline buttons, photo type, and default template
+- Per-chat enable/disable, custom template override, and delete-after-end
+- Test announcement sending
+- Optional custom Telegram bot for announcement delivery
 
-## Ключевые принципы
+### In code, but not enabled for users yet
 
-### 1. Минимум действий
-Настройка за 2 минуты: авторизация → добавить бота в канал → готово.
-Никаких сложных конфигураций для базового сценария.
+- MAX provider and API integration
 
-### 2. Красота по умолчанию
-Дефолтный шаблон анонса выглядит профессионально: фото превью, название стрима, кнопка "Смотреть". Стример может кастомизировать, но и без этого красиво.
+Current blocker:
 
-### 3. Надёжность
-Анонс должен дойти. Очередь с retry, обработка ошибок, мониторинг. Если Telegram API упал — сообщение уйдёт когда API вернётся.
+- activation depends on real MAX bot access and `MAX_BOT_TOKEN`
+- frontend add-chat flow intentionally stays Telegram-only until that is available
 
-### 4. Мультиплатформенность
-Один dashboard — несколько мессенджеров. Telegram сегодня, MAX завтра, Discord послезавтра. Архитектура готова к расширению.
+## Primary Users
 
----
+### Streamers
 
-## Функции
+- use MemeLab as their main account and channel identity
+- maintain Telegram channels or groups for audience communication
+- want zero-friction announcement automation
 
-### MVP (Phase 1)
+### Viewers
 
-| Функция | Описание | Приоритет |
-|---------|---------|-----------|
-| Авторизация через MemeLab | Единый аккаунт, без новой регистрации | Критично |
-| Подключение Telegram-канала | Добавить бота → канал появляется в dashboard | Критично |
-| Автоматический анонс | stream.online → фото + текст + кнопка в канале | Критично |
-| Настройка шаблона | Свой текст, переменные {stream_title}, {game_name} и т.д. | Важно |
-| Удаление после стрима | stream.offline → сообщение удаляется | Важно |
-| Тестовый анонс | Проверить как выглядит перед запуском | Важно |
-| Несколько каналов | Один стример → N каналов | Важно |
+- follow streamers through messenger channels and groups
+- want a clear “stream started” signal with a direct watch link
 
-### Phase 2: Управление через бота
+## Product Principles
 
-| Функция | Описание |
-|---------|---------|
-| /start | Приветствие, привязка аккаунта |
-| /channels | Список каналов с кнопками вкл/выкл |
-| /test | Тестовый анонс в выбранный канал |
-| /settings | Настройки через inline-кнопки |
-| Привязка аккаунта | Связать Telegram-аккаунт с MemeLab через бота |
+### 1. Setup should feel short
 
-### Phase 3: MAX Messenger
+The user should not manually paste chat IDs or configure a queue. Login, link Telegram, run `/connect`, and pick a chat.
 
-| Функция | Описание |
-|---------|---------|
-| Подключение MAX-группы | Аналогично Telegram |
-| MAX бот | Управление через MAX бота |
-| Единый dashboard | Telegram + MAX в одном месте |
+### 2. Delivery should be reliable
 
-### Phase 4: Расширение
+Webhook handlers must stay fast. Delivery, retries, edits, and deletes belong to the queue worker.
 
-| Функция | Описание |
-|---------|---------|
-| Статистика | Сколько анонсов, доставки, ошибки |
-| Настраиваемые кнопки | Своя ссылка, свой текст кнопки |
-| Discord | Третья платформа |
-| Мультиязычные шаблоны | Разный текст для разных каналов |
+### 3. Defaults should already look usable
 
-### Убрали (не нужно)
+Default text, buttons, and preview image should be good enough before any customization.
 
-| Функция | Почему убрали |
-|---------|--------------|
-| Настройка звука | Это настройка мессенджера, а не бота |
-| Cooldown | Стрим начинается один раз, защита от дублей достаточна |
-| Расписание / тихие часы | Стример сам решает когда стримить |
-| Персональные подписки через бота | Слишком сложно для MVP, каналы/группы — проще |
-| Свой бот для каждого стримера | Один глобальный бот проще для всех |
+### 4. Advanced customization should stay optional
 
----
+Custom buttons, photo type, platform URLs, and custom Telegram bot are power-user features, not a requirement for activation.
+
+## Core Features
+
+| Feature | Status | Notes |
+|--------|--------|-------|
+| MemeLab auth | Active | Uses main MemeLab token and profile sync |
+| Telegram linking | Active | Deep link + bot handshake |
+| Connect Telegram chat | Active | `/connect` + native chat picker |
+| Auto announce on stream start | Active | `stream.online` |
+| Update existing announcement | Active | `stream.update` |
+| Delete announcement after stream | Active | Optional per chat |
+| Custom template | Active | Global + per-chat override |
+| Custom buttons | Active | Streamer-level |
+| Photo type selector | Active | Preview, box-art fallback, none |
+| Custom Telegram bot | Active | Optional advanced setting |
+| MAX announcements | Dormant | Code present, waiting for activation |
 
 ## User Flow
 
-### Стример: первая настройка
+### First-time setup
 
-```
+```text
 notify.memelab.ru
-       │
-       ▼
-┌─────────────────┐
-│  "Войти через   │
-│   MemeLab"      │
-└────────┬────────┘
-         │ OAuth
-         ▼
-┌─────────────────┐
-│  Dashboard:     │
-│  "Нет каналов"  │
-│                 │
-│  [+ Добавить]   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Выбор:         │
-│  ○ Telegram     │
-│  ○ MAX          │
-└────────┬────────┘
-         │ Telegram
-         ▼
-┌─────────────────┐
-│  Инструкция:    │
-│  "Добавьте      │
-│  @MemelabNotify │
-│  Bot в канал    │
-│  как админа"    │
-│                 │
-│  [Проверить]    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  "Канал найден!"│
-│  #my_streams    │
-│                 │
-│  Шаблон: [...]  │
-│  Удалять: ☐     │
-│                 │
-│  [Тест] [Сохр.] │
-└─────────────────┘
+  -> Login through MemeLab
+  -> Open dashboard
+  -> Link Telegram account
+  -> Open @MemelabNotifyBot
+  -> Run /connect
+  -> Pick channel or group from Telegram native picker
+  -> Channel appears in dashboard
 ```
 
-### Автоматический анонс
+### Stream lifecycle
 
-```
-Twitch: stream.online
-       │
-       ▼
-MemeLab Backend
-       │ POST /api/webhooks/stream
-       ▼
-Notify Backend
-       │
-       ├─ Найти каналы стримера
-       ├─ Сформировать анонс
-       ├─ Добавить в очередь
-       │
-       ▼
-BullMQ Worker
-       │
-       ├─ Telegram API: sendPhoto
-       ├─ Сохранить message_id
-       └─ Логировать результат
-       │
-       ▼
-Telegram-канал:
-┌─────────────────────────┐
-│  🔴 Стрим начался!      │
-│                         │
-│  [превью стрима.jpg]    │
-│                         │
-│  StreamerName в эфире   │
-│  📺 Играем в Dota 2    │
-│                         │
-│  [🔗 Смотреть стрим]   │
-└─────────────────────────┘
+```text
+MemeLab sends stream.online
+  -> Notify enqueues delivery
+  -> Worker posts announcement
+
+MemeLab sends stream.update
+  -> Notify enqueues update
+  -> Worker edits existing message
+
+MemeLab sends stream.offline
+  -> Notify enqueues cleanup
+  -> Worker optionally deletes message
 ```
 
----
+## Announcement Shape
 
-## Шаблон анонса
+Default announcement includes:
 
-### По умолчанию
+- stream started marker
+- streamer name
+- stream title
+- game or category
+- primary watch link
+- MemeLab link when available
 
-```
-🔴 Стрим начался!
+Available template data includes:
 
-{streamer_name} сейчас в эфире
-📺 {stream_title}
-🎮 {game_name}
-```
+- `streamer_name`
+- `stream_title`
+- `game_name`
+- `stream_url`
+- `memelab_url`
+- per-platform URLs
+- `start_time`
+- `start_date`
+- `viewer_count`
+- `twitch_login`
+- `channel_slug`
 
-### Доступные переменные
+## Non-goals Right Now
 
-| Переменная | Описание | Пример |
-|------------|---------|--------|
-| `{streamer_name}` | Имя стримера | StreamerName |
-| `{stream_title}` | Название стрима | Играем в Dota 2 |
-| `{game_name}` | Категория / игра | Dota 2 |
-| `{stream_url}` | Ссылка на стрим | twitch.tv/streamer |
-| `{memelab_url}` | Ссылка на MemeLab | memelab.ru/streamer |
+- Manual chat ID onboarding in the main UX
+- A separate global client-state store in frontend
+- Provider-specific business logic leaking into core announcement flow
+- Enabling MAX in UI before backend access is actually available
 
-### Кнопки под анонсом (inline keyboard)
+## Near-Term Roadmap
 
-По умолчанию:
-- **Смотреть стрим** → ссылка на трансляцию
-- **MemeLab** → ссылка на страницу канала в MemeLab
-
----
-
-## Интеграция с MemeLab
-
-### Webhook: Stream Events
-
-MemeLab backend отправляет webhook при изменении статуса стрима:
-
-```
-POST https://notify.memelab.ru/api/webhooks/stream
-Headers:
-  X-Webhook-Secret: <shared_secret>
-  Content-Type: application/json
-Body:
-{
-  "event": "stream.online",
-  "channelId": "uuid-of-channel",
-  "channelSlug": "streamer_name",
-  "twitchLogin": "streamer_name",
-  "streamTitle": "Играем в Dota 2",
-  "gameName": "Dota 2",
-  "thumbnailUrl": "https://static-cdn.jtvnw.net/previews-ttv/live_user_streamer-1280x720.jpg",
-  "startedAt": "2026-02-16T18:00:00Z"
-}
-```
-
-### OAuth: Авторизация стримера
-
-Стример авторизуется через основной MemeLab:
-1. Notify перенаправляет на `memelab.ru/oauth/authorize`
-2. MemeLab выдаёт access_token
-3. Notify запрашивает `GET memelab.ru/api/me` для данных стримера
-
----
-
-## Метрики успеха
-
-| Метрика | Описание |
-|---------|---------|
-| Подключённых каналов | Сколько каналов/групп подключено |
-| Анонсов / день | Сколько анонсов отправляется ежедневно |
-| Время доставки | От stream.online до отправки (цель: < 5 секунд) |
-| Ошибок / день | Сколько не удалось доставить |
-| Активных стримеров | Сколько стримеров используют сервис |
-
----
-
-*Последнее обновление: 2026-02-16*
+1. Enable MAX once real bot access and token provisioning are available
+2. Expand analytics and delivery visibility around sent/failed announcements
+3. Improve channel-level management inside bot flows without duplicating dashboard logic

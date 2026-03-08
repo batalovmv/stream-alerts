@@ -1,6 +1,6 @@
 # Current State
 
-Updated: 2026-03-08
+Updated: 2026-03-09
 
 ## Snapshot
 
@@ -9,6 +9,8 @@ Updated: 2026-03-08
 - `.claude/` exists in the repo but is gitignored and should be treated as local tool state only.
 - A root AI CLI now exists at `scripts/ai.js` with `pnpm ai:*` commands for task, handoff, ADR, and check workflows.
 - `pnpm ai:check` is a soft reminder and is invoked from `.husky/pre-commit`.
+- Root `pnpm test` now runs both backend and frontend Vitest suites because the frontend package exposes a `test` script.
+- Root docs (`README.md`, `docs/ARCHITECTURE.md`, `docs/CONCEPT.md`, `AGENTS.md`, `CLAUDE.md`) were refreshed to match the current auth flow, provider contract, bot flow, and platform status.
 
 ## Observed Surface In Code
 
@@ -29,5 +31,4 @@ Updated: 2026-03-08
 
 - `.claude/` is ignored, so knowledge stored only there is invisible to other assistants.
 - `pnpm ai:check` intentionally warns softly by default, so it improves compliance but does not fully enforce it yet.
-- The root `pnpm test` flow should be verified before relying on it for frontend coverage, because `apps/frontend/package.json` currently does not define an explicit `test` script.
-- Some project docs describe target architecture at a higher level than the current implementation, so assistants should verify code paths before editing adjacent files.
+- Docs now reflect the current implementation more closely, but code and tests remain the source of truth when future edits diverge.

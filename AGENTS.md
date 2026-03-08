@@ -61,7 +61,7 @@ memelab-notify/
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| **Runtime** | Node.js (ESM) | 22+ |
+| **Runtime** | Node.js (ESM) | 20+ |
 | **Package manager** | pnpm (workspace) | 9+ |
 | **Backend framework** | Express | 4.x |
 | **Database** | PostgreSQL + Prisma ORM | 6.x |
@@ -85,8 +85,8 @@ memelab-notify/
 
 1. **Provider-agnostic**: All messenger integrations implement a common `MessengerProvider` interface
 2. **Async delivery**: Announcements go through BullMQ queue (never block webhook handlers)
-3. **One global bot**: Single @MemelabNotifyBot for Telegram, single bot for MAX
-4. **MemeLab OAuth**: Authentication through main MemeLab platform
+3. **Telegram-first management**: Chat linking and bot UX go through the global `@MemelabNotifyBot`, while announcement delivery may use an optional per-streamer custom Telegram bot
+4. **MemeLab token auth**: Authentication relies on the main MemeLab platform token/profile flow, not a local OAuth callback implementation
 5. **Webhook-driven**: Stream events come from MemeLab backend via webhooks
 
 ### Layer Rules
@@ -185,7 +185,7 @@ Top-level key is the resource name (`chat`, `chats`, `user`, etc.) or `{ "ok": t
 }
 ```
 
-Error codes: `VALIDATION_FAILED`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`, `RATE_LIMITED`, `BAD_GATEWAY`, `INTERNAL_ERROR`, `BOT_ACCESS_DENIED`, `PROVIDER_ERROR`, `LIMIT_EXCEEDED`.
+Error codes: `VALIDATION_FAILED`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`, `RATE_LIMITED`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`, `BOT_ACCESS_DENIED`, `PROVIDER_ERROR`, `LIMIT_EXCEEDED`.
 
 Use `AppError` class from `src/lib/errors.ts`:
 ```typescript
@@ -257,6 +257,7 @@ All providers implement the `MessengerProvider` interface:
 interface MessengerProvider {
   name: string;
   sendAnnouncement(chatId, data): Promise<{ messageId: string }>;
+  editAnnouncement(chatId, messageId, data): Promise<void>;
   deleteMessage(chatId, messageId): Promise<void>;
   getChatInfo(chatId): Promise<ChatInfo>;
   validateBotAccess(chatId): Promise<boolean>;
@@ -267,7 +268,7 @@ Adding a new messenger = new provider file, no changes to core logic.
 
 Current providers:
 - `TelegramProvider` — Telegram Bot API via native fetch
-- `MaxProvider` — MAX Bot API via @maxhub/max-bot-api (planned)
+- `MaxProvider` — MAX Bot API via @maxhub/max-bot-api (implemented but intentionally disabled until `MAX_BOT_TOKEN` and platform access are available)
 
 ---
 
@@ -294,7 +295,8 @@ Current providers:
 Blank line between groups. Alphabetical within groups.
 
 ### File Size Limits
-- **Max 300 lines per file** (excluding blank lines and comments). Split if larger.
+- **Max 300 lines per production source file** (excluding blank lines and comments). Split if larger.
+- **Scenario-heavy test files may exceed this** when splitting would hurt readability, but prefer shared setup/helpers before allowing growth.
 - Routes: one file per resource (`chats.ts`, `streamer.ts`, `auth.ts`)
 - Services: one file per domain concern
 
@@ -482,16 +484,17 @@ Backend and frontend share no code package. If API types change:
 POST /api/webhooks/stream
 Headers: X-Webhook-Secret: <shared_secret>
 Body: {
-  event: 'stream.online' | 'stream.offline',
+  event: 'stream.online' | 'stream.update' | 'stream.offline',
   channelId, channelSlug, twitchLogin,
-  streamTitle?, gameName?, thumbnailUrl?, startedAt?
+  streamTitle?, gameName?, thumbnailUrl?, viewerCount?, startedAt?
 }
 ```
 
-### OAuth via MemeLab
-- Redirect to memelab.ru/oauth/authorize
-- Callback with access_token
-- Use token to fetch streamer data
+### Auth via MemeLab
+- Frontend enters through `GET /api/auth/login`, which redirects to the main MemeLab login page with a return URL back to Notify
+- Requests are authenticated with the MemeLab token from the cookie named by `JWT_COOKIE_NAME` or from `Authorization: Bearer ...`
+- Notify fetches `GET {MEMELAB_API_URL}/v1/me`, caches the profile in Redis, and upserts the local `Streamer`
+- Telegram account linking is handled separately through `POST /api/auth/telegram-link` and the bot deep-link flow
 
 ---
 
