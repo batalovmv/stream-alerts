@@ -69,6 +69,7 @@ memelab-notify/
 ├── docs/               # Документация
 │   ├── CONCEPT.md      # Концепция продукта
 │   └── ARCHITECTURE.md # Техническая архитектура
+├── scripts/            # Локальные утилиты репозитория, включая AI CLI
 ├── AGENTS.md           # Точка входа для Codex
 ├── CLAUDE.md           # Точка входа для Opus
 └── README.md
@@ -81,6 +82,13 @@ memelab-notify/
 - Нетривиальные задачи ведутся в `.ai/tasks/`
 - Незавершённые сессии передаются через `.ai/handoffs/`
 - Долговечные технические решения фиксируются в `.ai/decisions/`
+
+```bash
+pnpm ai:task:new -- short-slug
+pnpm ai:handoff:new -- short-slug --task YYYY-MM-DD-short-slug
+pnpm ai:adr:new -- short-slug
+pnpm ai:check
+```
 
 ## Документация
 

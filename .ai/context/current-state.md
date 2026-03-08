@@ -7,6 +7,8 @@ Updated: 2026-03-08
 - A tracked `.ai/` collaboration layer now exists for Codex and Opus.
 - Durable AI context belongs in `.ai/`, `AGENTS.md`, `CLAUDE.md`, and tracked docs.
 - `.claude/` exists in the repo but is gitignored and should be treated as local tool state only.
+- A root AI CLI now exists at `scripts/ai.js` with `pnpm ai:*` commands for task, handoff, ADR, and check workflows.
+- `pnpm ai:check` is a soft reminder and is invoked from `.husky/pre-commit`.
 
 ## Observed Surface In Code
 
@@ -26,5 +28,6 @@ Updated: 2026-03-08
 ## Known Risks And Follow-Ups
 
 - `.claude/` is ignored, so knowledge stored only there is invisible to other assistants.
+- `pnpm ai:check` intentionally warns softly by default, so it improves compliance but does not fully enforce it yet.
 - The root `pnpm test` flow should be verified before relying on it for frontend coverage, because `apps/frontend/package.json` currently does not define an explicit `test` script.
 - Some project docs describe target architecture at a higher level than the current implementation, so assistants should verify code paths before editing adjacent files.

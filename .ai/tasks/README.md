@@ -9,6 +9,14 @@ Use this directory tree for durable task history.
 - `done/` - finished work
 - `templates/task.md` - task template
 
+## Preferred Command
+
+Create new task files with:
+
+```bash
+pnpm ai:task:new -- short-slug
+```
+
 ## Naming
 
 Use `YYYY-MM-DD-slug.md`.

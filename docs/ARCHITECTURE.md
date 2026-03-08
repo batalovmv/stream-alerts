@@ -54,6 +54,9 @@
 ├── handoffs/                # Передача незавершённой работы
 └── tasks/                   # Бэклог, активные и завершённые задачи
 
+scripts/
+└── ai.js                    # CLI для AI-задач, handoff, ADR и soft-check
+
 apps/backend/
 ├── src/
 │   ├── api/                    # REST API

@@ -28,7 +28,9 @@ After reading this file, read in order:
 
 ### Required Workflow
 
-- For any non-trivial task, create or update `.ai/tasks/active/YYYY-MM-DD-slug.md`
+- For any non-trivial task, start with `pnpm ai:task:new -- short-slug`
+- Prefer the repository AI CLI over manual `.ai/` file creation
+- Standard commands: `pnpm ai:task:new -- short-slug`, `pnpm ai:handoff:new -- short-slug --task YYYY-MM-DD-short-slug`, `pnpm ai:adr:new -- short-slug`, `pnpm ai:check`
 - When the task is completed, move or rewrite it into `.ai/tasks/done/YYYY-MM-DD-slug.md`
 - If work stops unfinished, create or update `.ai/handoffs/YYYY-MM-DD-slug.md`
 - Record durable rules, architecture changes, or workflow decisions in `.ai/decisions/`
@@ -127,6 +129,12 @@ memelab-notify/
 ### Common Commands
 
 ```bash
+# AI workflow
+pnpm ai:task:new -- short-slug
+pnpm ai:handoff:new -- short-slug --task YYYY-MM-DD-short-slug
+pnpm ai:adr:new -- short-slug
+pnpm ai:check
+
 # Install dependencies
 pnpm install
 

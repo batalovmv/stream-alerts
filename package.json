@@ -5,6 +5,11 @@
   "type": "module",
   "description": "Automatic stream announcements for Telegram and MAX",
   "scripts": {
+    "ai": "node scripts/ai.js",
+    "ai:task:new": "node scripts/ai.js task:new",
+    "ai:handoff:new": "node scripts/ai.js handoff:new",
+    "ai:adr:new": "node scripts/ai.js adr:new",
+    "ai:check": "node scripts/ai.js check",
     "dev": "concurrently \"pnpm dev:backend\" \"pnpm dev:frontend\"",
     "dev:backend": "pnpm --filter @memelab-notify/backend dev",
     "dev:frontend": "pnpm --filter @memelab-notify/frontend dev",

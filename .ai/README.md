@@ -13,6 +13,17 @@ Vendor-specific local folders such as `.claude/`, desktop chat history, and temp
 5. Relevant task, decision, or handoff files
 6. The code being changed
 
+## CLI Commands
+
+Use the repository CLI instead of creating `.ai/` records by hand when possible.
+
+```bash
+pnpm ai:task:new -- short-slug
+pnpm ai:handoff:new -- short-slug --task YYYY-MM-DD-short-slug
+pnpm ai:adr:new -- short-slug
+pnpm ai:check
+```
+
 ## Directory Layout
 
 - `context/` - stable project context and the latest working snapshot
@@ -37,10 +48,10 @@ Small typo fixes or isolated text edits can skip a task file.
 
 ## Task Lifecycle
 
-1. Create or update `.ai/tasks/active/YYYY-MM-DD-slug.md`
+1. Create a task record with `pnpm ai:task:new -- short-slug`
 2. Keep the plan, touched files, notes, and validation current while working
 3. When finished, record the result and move or rewrite the final state into `.ai/tasks/done/YYYY-MM-DD-slug.md`
-4. If blocked or paused, create or update `.ai/handoffs/YYYY-MM-DD-slug.md`
+4. If blocked or paused, create or update a handoff with `pnpm ai:handoff:new -- short-slug --task YYYY-MM-DD-short-slug`
 
 ## Update Rules
 
@@ -49,6 +60,7 @@ Small typo fixes or isolated text edits can skip a task file.
 - Update `docs/ARCHITECTURE.md` when structural facts change
 - Update `docs/CONCEPT.md` when product scope or priorities change
 - Update both `AGENTS.md` and `CLAUDE.md` when the AI workflow changes
+- Use `pnpm ai:check` before commit or rely on the soft pre-commit reminder
 
 ## Writing Rules
 
