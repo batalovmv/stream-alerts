@@ -29,10 +29,15 @@ export function useAuth() {
 
   function login() {
     // Remember where to return after OAuth (readable by memelab.ru PostLogin)
-    const returnUrl = `${window.location.origin}/dashboard`;
-    const parts = window.location.hostname.split('.');
-    const domainAttr = parts.length > 2 ? `; domain=.${parts.slice(-2).join('.')}` : '';
-    document.cookie = `memelab_return_service=${encodeURIComponent(returnUrl)}; path=/; max-age=300; SameSite=Lax${domainAttr}`;
+    try {
+      const returnUrl = `${window.location.origin}/dashboard`;
+      const host = window.location.hostname || '';
+      const parts = host.split('.');
+      const domainAttr = parts.length > 2 ? `; domain=.${parts.slice(-2).join('.')}` : '';
+      document.cookie = `memelab_return_service=${encodeURIComponent(returnUrl)}; path=/; max-age=300; SameSite=Lax${domainAttr}`;
+    } catch {
+      /* test/SSR safety */
+    }
     window.location.href = `${API_BASE}/api/auth/login`;
   }
 
