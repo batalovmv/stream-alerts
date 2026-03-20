@@ -28,6 +28,11 @@ export function useAuth() {
   const user: User | null = data?.user ?? null;
 
   function login() {
+    // Remember where to return after OAuth (readable by memelab.ru PostLogin)
+    const returnUrl = `${window.location.origin}/dashboard`;
+    const parts = window.location.hostname.split('.');
+    const domainAttr = parts.length > 2 ? `; domain=.${parts.slice(-2).join('.')}` : '';
+    document.cookie = `memelab_return_service=${encodeURIComponent(returnUrl)}; path=/; max-age=300; SameSite=Lax${domainAttr}`;
     window.location.href = `${API_BASE}/api/auth/login`;
   }
 
