@@ -4,7 +4,6 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ChannelsPage } from './pages/ChannelsPage';
-import { Landing } from './pages/Landing';
 import { SettingsPage } from './pages/SettingsPage';
 
 function RouteErrorFallback({ reset }: { reset: () => void }) {
@@ -27,7 +26,7 @@ export function App() {
   return (
     <ErrorBoundary resetKey={pathname} fallback={(reset) => <RouteErrorFallback reset={reset} />}>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Navigate to="/dashboard/channels" replace />} />
         <Route
           path="/dashboard/channels"
@@ -45,7 +44,7 @@ export function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </ErrorBoundary>
   );
