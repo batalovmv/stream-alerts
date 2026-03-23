@@ -45,7 +45,8 @@ app.use(express.json({ limit: '100kb' }));
 // ─── CSRF Protection ─────────────────────────────────────
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) return next();
-  if (req.path.startsWith('/api/webhooks')) return next();
+  if (req.path.startsWith('/api/webhooks') || req.path.startsWith('/api/telegram/webhook'))
+    return next();
 
   const origin =
     req.headers.origin ||
