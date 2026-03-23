@@ -9,7 +9,12 @@ function env(key: string, fallback?: string): string {
 const nodeEnv = env('NODE_ENV', 'development');
 
 export const config = {
-  port: (() => { const p = parseInt(env('PORT', '3000'), 10); if (isNaN(p) || p < 1 || p > 65535) throw new Error('PORT must be a valid port number (1-65535)'); return p; })(),
+  port: (() => {
+    const p = parseInt(env('PORT', '3000'), 10);
+    if (isNaN(p) || p < 1 || p > 65535)
+      throw new Error('PORT must be a valid port number (1-65535)');
+    return p;
+  })(),
   nodeEnv,
   isDev: nodeEnv === 'development',
 
@@ -23,7 +28,10 @@ export const config = {
   memelabApiUrl: env('MEMELAB_API_URL', 'https://memelab.ru/api'),
 
   // Webhook (required in production)
-  webhookSecret: env('WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-webhook-secret' : undefined),
+  webhookSecret: env(
+    'WEBHOOK_SECRET',
+    nodeEnv === 'development' ? 'dev-webhook-secret' : undefined,
+  ),
 
   // JWT Cookie
   jwtCookieName: env('JWT_COOKIE_NAME', 'token'),
@@ -31,9 +39,15 @@ export const config = {
   // Telegram Bot
   telegramBotToken: env('TELEGRAM_BOT_TOKEN', nodeEnv === 'development' ? '' : undefined),
 
+  // Telegram API base URL (for proxying through a reverse proxy when api.telegram.org is blocked)
+  telegramApiUrl: env('TELEGRAM_API_URL', 'https://api.telegram.org'),
+
   // Telegram webhook secret (separate from MemeLab webhook secret)
   // Optional at config level — validated at runtime in startWebhook() when actually needed
-  telegramWebhookSecret: env('TELEGRAM_WEBHOOK_SECRET', nodeEnv === 'development' ? 'dev-tg-webhook-secret' : ''),
+  telegramWebhookSecret: env(
+    'TELEGRAM_WEBHOOK_SECRET',
+    nodeEnv === 'development' ? 'dev-tg-webhook-secret' : '',
+  ),
 
   // Encryption key for custom bot tokens (32-byte hex, optional — feature disabled if empty)
   botTokenEncryptionKey: env('BOT_TOKEN_ENCRYPTION_KEY', ''),
@@ -45,7 +59,10 @@ export const config = {
   maxBotToken: env('MAX_BOT_TOKEN', ''),
 
   // Public URL (for webhook registration etc.)
-  publicUrl: env('PUBLIC_URL', nodeEnv === 'development' ? 'http://localhost:3000' : 'https://notify.memelab.ru'),
+  publicUrl: env(
+    'PUBLIC_URL',
+    nodeEnv === 'development' ? 'http://localhost:3000' : 'https://notify.memelab.ru',
+  ),
 
   // Sentry (optional — error monitoring disabled if empty)
   sentryDsn: env('SENTRY_DSN', ''),

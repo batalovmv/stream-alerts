@@ -6,7 +6,7 @@
 import { config } from '../../lib/config.js';
 import { logger } from '../../lib/logger.js';
 
-const TELEGRAM_API = 'https://api.telegram.org';
+const TELEGRAM_API = config.telegramApiUrl;
 const TIMEOUT_MS = 15_000;
 
 // ─── Types ───────────────────────────────────────────────
@@ -80,7 +80,11 @@ export interface CallApiOptions {
   token?: string;
 }
 
-export async function callApi<T>(method: string, body: Record<string, unknown>, opts?: CallApiOptions | number): Promise<T> {
+export async function callApi<T>(
+  method: string,
+  body: Record<string, unknown>,
+  opts?: CallApiOptions | number,
+): Promise<T> {
   // Backward compat: accept raw number as timeoutMs
   const options: CallApiOptions = typeof opts === 'number' ? { timeoutMs: opts } : (opts ?? {});
   const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
@@ -180,14 +184,18 @@ export async function sendPhoto(params: {
     ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
     : undefined;
 
-  return callApi<TelegramMessage>('sendPhoto', {
-    chat_id: params.chatId,
-    photo: params.photoUrl,
-    caption: params.caption,
-    parse_mode: params.parseMode ?? 'HTML',
-    reply_markup: inlineKeyboard,
-    disable_notification: params.silent ?? false,
-  }, { token: params.token });
+  return callApi<TelegramMessage>(
+    'sendPhoto',
+    {
+      chat_id: params.chatId,
+      photo: params.photoUrl,
+      caption: params.caption,
+      parse_mode: params.parseMode ?? 'HTML',
+      reply_markup: inlineKeyboard,
+      disable_notification: params.silent ?? false,
+    },
+    { token: params.token },
+  );
 }
 
 /** Send text message with optional inline keyboard or reply keyboard */
@@ -208,14 +216,18 @@ export async function sendMessage(params: {
     };
   }
 
-  return callApi<TelegramMessage>('sendMessage', {
-    chat_id: params.chatId,
-    text: params.text,
-    parse_mode: params.parseMode ?? 'HTML',
-    disable_web_page_preview: true,
-    reply_markup: replyMarkup,
-    disable_notification: params.silent ?? false,
-  }, { token: params.token });
+  return callApi<TelegramMessage>(
+    'sendMessage',
+    {
+      chat_id: params.chatId,
+      text: params.text,
+      parse_mode: params.parseMode ?? 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: replyMarkup,
+      disable_notification: params.silent ?? false,
+    },
+    { token: params.token },
+  );
 }
 
 /** Edit text of an existing message with optional inline keyboard */
@@ -227,14 +239,18 @@ export async function editMessageText(params: {
   replyMarkup?: Record<string, unknown>;
   token?: string;
 }): Promise<TelegramMessage | boolean> {
-  return callApi<TelegramMessage | boolean>('editMessageText', {
-    chat_id: params.chatId,
-    message_id: params.messageId,
-    text: params.text,
-    parse_mode: params.parseMode ?? 'HTML',
-    disable_web_page_preview: true,
-    reply_markup: params.replyMarkup,
-  }, { token: params.token });
+  return callApi<TelegramMessage | boolean>(
+    'editMessageText',
+    {
+      chat_id: params.chatId,
+      message_id: params.messageId,
+      text: params.text,
+      parse_mode: params.parseMode ?? 'HTML',
+      disable_web_page_preview: true,
+      reply_markup: params.replyMarkup,
+    },
+    { token: params.token },
+  );
 }
 
 /** Edit message caption (for photo announcements) */
@@ -250,25 +266,41 @@ export async function editMessageCaption(params: {
     ? { inline_keyboard: [params.buttons.map((b) => ({ text: b.label, url: b.url }))] }
     : { inline_keyboard: [] };
 
-  return callApi<TelegramMessage>('editMessageCaption', {
-    chat_id: params.chatId,
-    message_id: params.messageId,
-    caption: params.caption,
-    parse_mode: params.parseMode ?? 'HTML',
-    reply_markup: inlineKeyboard,
-  }, { token: params.token });
+  return callApi<TelegramMessage>(
+    'editMessageCaption',
+    {
+      chat_id: params.chatId,
+      message_id: params.messageId,
+      caption: params.caption,
+      parse_mode: params.parseMode ?? 'HTML',
+      reply_markup: inlineKeyboard,
+    },
+    { token: params.token },
+  );
 }
 
 /** Delete a message */
-export async function deleteMessageApi(chatId: string, messageId: number, token?: string): Promise<boolean> {
+export async function deleteMessageApi(
+  chatId: string,
+  messageId: number,
+  token?: string,
+): Promise<boolean> {
   try {
-    return await callApi<boolean>('deleteMessage', {
-      chat_id: chatId,
-      message_id: messageId,
-    }, { token });
+    return await callApi<boolean>(
+      'deleteMessage',
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      },
+      { token },
+    );
   } catch (error) {
     // Ignore "message to delete not found" — already deleted
-    if (error instanceof TelegramApiError && error.code === 400 && error.description.includes('message to delete not found')) {
+    if (
+      error instanceof TelegramApiError &&
+      error.code === 400 &&
+      error.description.includes('message to delete not found')
+    ) {
       logger.info({ chatId, messageId }, 'telegram.deleteMessage: already deleted');
       return true;
     }
@@ -300,12 +332,19 @@ export async function getChatMemberCount(chatId: string | number, token?: string
 }
 
 /** Check if bot is admin in the chat */
-export async function getBotChatMember(chatId: string | number, token?: string): Promise<{ status: string }> {
+export async function getBotChatMember(
+  chatId: string | number,
+  token?: string,
+): Promise<{ status: string }> {
   const botInfo = await getMeWithToken(token);
-  return callApi<{ status: string }>('getChatMember', {
-    chat_id: chatId,
-    user_id: botInfo.id,
-  }, { token });
+  return callApi<{ status: string }>(
+    'getChatMember',
+    {
+      chat_id: chatId,
+      user_id: botInfo.id,
+    },
+    { token },
+  );
 }
 
 /** Set webhook URL */
@@ -326,20 +365,29 @@ export async function deleteWebhook(): Promise<boolean> {
 /** Long-poll for updates (dev mode) */
 export async function getUpdates(offset?: number): Promise<TelegramUpdate[]> {
   // Telegram holds the connection for up to 30s; client timeout must be larger
-  return callApi<TelegramUpdate[]>('getUpdates', {
-    offset: offset ?? 0,
-    timeout: 30,
-    allowed_updates: ['message', 'callback_query', 'my_chat_member'],
-  }, { timeoutMs: 35_000 });
+  return callApi<TelegramUpdate[]>(
+    'getUpdates',
+    {
+      offset: offset ?? 0,
+      timeout: 30,
+      allowed_updates: ['message', 'callback_query', 'my_chat_member'],
+    },
+    { timeoutMs: 35_000 },
+  );
 }
 
 /** Set bot commands menu */
-export async function setMyCommands(commands: Array<{ command: string; description: string }>): Promise<boolean> {
+export async function setMyCommands(
+  commands: Array<{ command: string; description: string }>,
+): Promise<boolean> {
   return callApi<boolean>('setMyCommands', { commands });
 }
 
 /** Remove reply keyboard */
-export async function removeReplyKeyboard(chatId: string | number, text: string): Promise<TelegramMessage> {
+export async function removeReplyKeyboard(
+  chatId: string | number,
+  text: string,
+): Promise<TelegramMessage> {
   return callApi<TelegramMessage>('sendMessage', {
     chat_id: chatId,
     text,
