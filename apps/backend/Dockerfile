@@ -1,23 +1,23 @@
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json apps/backend/
-RUN pnpm install --frozen-lockfile --filter backend
+RUN pnpm install --frozen-lockfile --filter @memelab-notify/backend
 
 FROM base AS prod-deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json apps/backend/
-RUN pnpm install --frozen-lockfile --filter backend --prod
+RUN pnpm install --frozen-lockfile --filter @memelab-notify/backend --prod
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY . .
-RUN pnpm --filter backend exec prisma generate
-RUN pnpm --filter backend build
+RUN pnpm --filter @memelab-notify/backend exec prisma generate
+RUN pnpm --filter @memelab-notify/backend build
 
 FROM base AS runtime
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
