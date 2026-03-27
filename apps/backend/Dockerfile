@@ -6,12 +6,12 @@ ENV HUSKY=0
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json apps/backend/
-RUN pnpm install --frozen-lockfile --filter @memelab-notify/backend
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter @memelab-notify/backend
 
 FROM base AS prod-deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json apps/backend/
-RUN pnpm install --frozen-lockfile --filter @memelab-notify/backend --prod
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter @memelab-notify/backend --prod
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
