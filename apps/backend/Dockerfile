@@ -1,6 +1,7 @@
 FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
+ENV HUSKY=0
 
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
