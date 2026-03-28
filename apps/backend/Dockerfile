@@ -12,6 +12,7 @@ RUN pnpm --filter @memelab-notify/backend exec prisma generate
 RUN pnpm --filter @memelab-notify/backend build
 # Prune to production deps
 RUN pnpm --filter @memelab-notify/backend deploy --prod /app/pruned
+RUN cp -r $(find /app/node_modules/.pnpm -path "*/@prisma/client" -type d | head -1)/../../.prisma /app/pruned/node_modules/.prisma 2>/dev/null || true
 
 FROM node:20-alpine AS runtime
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
