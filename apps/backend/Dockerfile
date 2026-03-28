@@ -22,6 +22,6 @@ COPY --from=build /app/apps/backend/package.json ./
 COPY --from=build /app/apps/backend/prisma ./prisma
 USER appuser
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD node -e "const h=require('http');h.get('http://localhost:'+(process.env.PORT||3000)+'/api/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 CMD ["node", "dist/index.js"]
