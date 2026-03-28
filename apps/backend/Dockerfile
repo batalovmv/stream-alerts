@@ -10,16 +10,12 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 RUN pnpm --filter @memelab-notify/backend exec prisma generate
 RUN pnpm --filter @memelab-notify/backend build
-# Prune to production deps
-RUN pnpm --filter @memelab-notify/backend deploy --prod /app/pruned
-RUN cp -r $(find /app/node_modules/.pnpm -path "*/@prisma/client" -type d | head -1)/../../.prisma /app/pruned/node_modules/.prisma 2>/dev/null || true
-
 FROM node:20-alpine AS runtime
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
-COPY --from=build /app/pruned/dist ./dist
-COPY --from=build /app/pruned/node_modules ./node_modules
-COPY --from=build /app/pruned/package.json ./
+COPY --from=build /app/apps/backend/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/backend/package.json ./
 COPY --from=build /app/apps/backend/prisma ./prisma
 USER appuser
 EXPOSE 3000
