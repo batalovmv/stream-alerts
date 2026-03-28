@@ -6,6 +6,7 @@ ENV HUSKY=0
 FROM base AS build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json apps/backend/
+RUN echo "node-linker=hoisted" > .npmrc
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 RUN pnpm --filter @memelab-notify/backend exec prisma generate
