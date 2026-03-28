@@ -11,7 +11,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 RUN pnpm --filter @memelab-notify/backend exec prisma generate
 RUN pnpm --filter @memelab-notify/backend build
-RUN cd /app && tar cf /tmp/node_modules.tar node_modules
+RUN npm prune --production && cd /app && tar cf /tmp/node_modules.tar node_modules
 FROM node:20-alpine AS runtime
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
