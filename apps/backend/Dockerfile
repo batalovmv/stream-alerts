@@ -11,7 +11,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 RUN pnpm --filter @memelab-notify/backend exec prisma generate
 RUN pnpm --filter @memelab-notify/backend build
-RUN npm prune --production && cd /app && tar cf /tmp/node_modules.tar node_modules
+RUN rm -rf node_modules/typescript node_modules/eslint* node_modules/@types node_modules/vitest node_modules/vite node_modules/@vitest node_modules/prettier node_modules/@eslint* node_modules/tsup node_modules/@typescript-eslint node_modules/husky node_modules/lint-staged node_modules/@swc node_modules/esbuild node_modules/rollup node_modules/unbuild node_modules/commitlint node_modules/@commitlint node_modules/tsx 2>/dev/null; cd /app && tar cf /tmp/node_modules.tar node_modules
 FROM node:20-alpine AS runtime
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
